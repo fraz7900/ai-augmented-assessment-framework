@@ -1,6 +1,6 @@
 # ADR-0003: Claude Code hooks are activated progressively, not all at once
 
-**Status:** Accepted
+**Status:** Accepted; activation step taken in Sprint 1 (lint hook)
 **Sprint:** 0
 **Deciders:** Fraz Ahmed
 
@@ -27,6 +27,7 @@ Every other designed hook (lint-on-save, test-on-save, build, PII validation on 
 
 - Requires a tracked "hook activation checklist" (kept in `docs/architecture/01-claude-code-workspace.md`) so hooks are not simply forgotten once their sprint arrives.
 - Sprint 1 must explicitly revisit `settings.json` when `backend/pyproject.toml` is created, to activate the lint hook.
+- **Done:** Sprint 1 created `backend/pyproject.toml` with ruff configured, then activated hook #3 (`.claude/hooks/lint-on-save.sh`) in `.claude/settings.json` and verified it against a real file before considering it live — confirming this ADR's staged-activation plan actually executes as designed, not just as a document.
 
 ## Alternatives considered
 

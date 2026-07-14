@@ -1,4 +1,4 @@
-Current sprint: Sprint 0 — Planning, Repository Architecture, Claude Code Workspace
-Status: Complete
-Next: Sprint 1 — Document ingestion, local embeddings, metadata extraction
+Current sprint: Sprint 1 — Document Ingestion, Local Embeddings, Metadata Extraction
+Status: Complete (30 tests passing, live demo verified)
+Next: Sprint 2 — Assessment engine, evidence management, state tracking
 Charter: PROJECT_CHARTER.md
