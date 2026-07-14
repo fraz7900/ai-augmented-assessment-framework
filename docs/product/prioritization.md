@@ -2,6 +2,8 @@
 
 Covers the remaining Sprint 3-10 backlog from `PROJECT_CHARTER.md` Section 13. Sprint 0-2 items are complete and are shown only for continuity, not re-prioritized.
 
+**Update, between Sprint 2 and 3:** the retrieval-quality upgrade item below was actioned immediately on the strength of this document's own RICE analysis (see the Read note at the bottom) — completed as ADR-0008 before Sprint 3 began, rather than left as a recommendation. Rows below are kept as originally written, with status noted, so the prioritization record stays an honest history rather than being quietly rewritten after the fact.
+
 ## MoSCoW
 
 | Item | MoSCoW | Rationale |
@@ -10,7 +12,7 @@ Covers the remaining Sprint 3-10 backlog from `PROJECT_CHARTER.md` Section 13. S
 | NIST CSF 2.0 structured data + scoring (Sprint 4) | Must | Same argument as C2M2; the charter names both as primary frameworks, not one-then-maybe-the-other |
 | Framework mapping engine, AI-proposed evidence linking (Sprint 5) | Must | This is the platform's actual value proposition (accelerating the manual matching step); without it the product is a well-organized filing cabinet, not an AI compliance accelerator |
 | Executive dashboard + reporting (Sprint 6-7) | Must | Every persona except Sam (contributor) interacts with the platform primarily through this surface; without it there is no demoable end product for the CISO/audit personas |
-| Retrieval-quality upgrade (revisit ADR-0006, likely a local neural embedder) | Must, before Sprint 5 is meaningful | R-10 in the risk register — the mapping engine's output quality is gated on this |
+| ~~Retrieval-quality upgrade (revisit ADR-0006, likely a local neural embedder)~~ **Done** | Must, before Sprint 5 is meaningful | R-10 in the risk register — the mapping engine's output quality is gated on this. **Delivered via ADR-0008 before Sprint 3; see `docs/product/risk_register.md` R-10, now closed** |
 | AI assistant / chat with assessment (Sprint 8) | Should | Real value-add but not required for the core assess-and-report loop to work |
 | Testing, refactoring, documentation pass (Sprint 9) | Should | Already partially happening every sprint (see each sprint's Change Log); a dedicated pass still adds value before calling the MVP done |
 | NERC CIP (near-term roadmap extension) | Should | Directly relevant to the same bulk-electric-system entities C2M2 already targets; highest-value framework addition after the two MVP frameworks |
@@ -26,7 +28,7 @@ Reach is reinterpreted for a single-user portfolio project: instead of a custome
 |---|---|---|---|---|---|
 | C2M2 structured data + scoring | 3 (Priya, Diane, blocks Epic 5) | 3 | 90% | 1 | 8.1 |
 | NIST CSF 2.0 structured data + scoring | 3 | 3 | 90% | 1 | 8.1 |
-| Retrieval-quality upgrade (embedding backend) | 4 (unlocks Epic 5 for all reviewer personas) | 3 | 60% (unvalidated until attempted) | 0.5 | 14.4 |
+| ~~Retrieval-quality upgrade (embedding backend)~~ **Done** | 4 (unlocks Epic 5 for all reviewer personas) | 3 | 60% (unvalidated until attempted) | 0.5 | 14.4 (validated post-hoc: confidence was actually well-calibrated — effort matched estimate at ~0.5 sprint-days, and the live retrieval demo confirmed the impact assumption) |
 | Framework mapping engine (AI-proposed evidence linking) | 5 (core value prop, touches every persona's flow) | 3 | 70% | 1 | 10.5 |
 | Executive dashboard + reporting | 4 (Marcus, Diane, Priya) | 3 | 80% | 2 | 4.8 |
 | AI assistant / chat with assessment | 2 (Priya only, nice-to-have) | 2 | 60% | 1 | 2.4 |

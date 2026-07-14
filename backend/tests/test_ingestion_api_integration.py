@@ -53,7 +53,9 @@ def test_ingest_text_document_end_to_end(client: TestClient) -> None:
     body = response.json()
     assert body["parse_status"] == "success"
     assert body["chunk_count"] >= 1
-    assert body["embedding_backend"] == "hashing_local"
+    # Default backend as of ADR-0008; hashing_local remains selectable
+    # (see ai/tests/test_embeddings.py) but is no longer the default.
+    assert body["embedding_backend"] == "semantic_local_onnx"
 
 
 def test_ingest_markdown_document_uses_structure_aware_chunking(client: TestClient) -> None:

@@ -41,9 +41,11 @@ class Settings(BaseSettings):
     max_upload_bytes: int = 25 * 1024 * 1024  # 25 MB
     allowed_extensions: tuple[str, ...] = (".pdf", ".docx", ".txt", ".md")
 
-    # Embeddings (see ai/embeddings.py and ADR-0006).
-    embedding_backend: str = "hashing_local"
-    embedding_dimensions: int = 4096
+    # Embeddings (see ai/embeddings.py, ADR-0006, and ADR-0008).
+    embedding_backend: str = "semantic_local_onnx"
+    embedding_dimensions: int = 384
+    embedding_model_name: str = "BAAI/bge-small-en-v1.5"
+    embedding_model_cache_dir: Path = _REPO_ROOT / "data" / "processed" / "model_cache"
 
     # Relational storage (see repositories/assessment_repository.py and ADR-0007).
     assessments_db_path: Path = _REPO_ROOT / "data" / "processed" / "assessments.db"

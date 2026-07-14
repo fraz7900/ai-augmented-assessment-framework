@@ -1,4 +1,4 @@
-Current sprint: Sprint 2 — Assessment Engine, Evidence Management, State Tracking
-Status: Complete (45 tests passing, live demo verified, PM documentation delivered)
-Next: Sprint 3 — C2M2 implementation (see docs/product/prioritization.md for a recommended embedding-backend revisit first)
+Current sprint: Between Sprint 2 and Sprint 3 — Embedding Backend Upgrade (ADR-0008)
+Status: Complete (50 tests passing, live semantic-retrieval demo verified, R-10 closed)
+Next: Sprint 3 — C2M2 structured data + scoring
 Charter: PROJECT_CHARTER.md

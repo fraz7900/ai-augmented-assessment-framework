@@ -27,7 +27,12 @@ def get_cached_settings() -> Settings:
 @lru_cache
 def get_cached_embedder() -> Embedder:
     settings = get_cached_settings()
-    return get_embedder(settings.embedding_backend, settings.embedding_dimensions)
+    return get_embedder(
+        settings.embedding_backend,
+        n_features=settings.embedding_dimensions,
+        model_name=settings.embedding_model_name,
+        cache_dir=settings.embedding_model_cache_dir,
+    )
 
 
 @lru_cache

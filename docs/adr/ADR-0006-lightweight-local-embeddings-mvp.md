@@ -1,9 +1,11 @@
 # ADR-0006: MVP local embeddings use a classical hashed vectorizer, not a neural model
 
-**Status:** Accepted, explicitly interim
+**Status:** Superseded by ADR-0008 as the default backend (kept as a selectable, zero-network-ever fallback: `hashing_local`)
 **Sprint:** 1
 **Deciders:** Fraz Ahmed
-**Related:** `ai/embeddings.py`, `.claude/skills/privacy-protection/SKILL.md`
+**Related:** `ai/embeddings.py`, `.claude/skills/privacy-protection/SKILL.md`, `docs/adr/ADR-0008-semantic-local-embeddings.md`
+
+> **Superseded, 2026-07-14 (before Sprint 3):** this ADR's own Consequences section flagged itself for revisit before Sprint 3, and `docs/product/prioritization.md`'s RICE analysis scored that revisit as the single highest-leverage remaining backlog item. See ADR-0008 for the replacement decision. This record is kept intact, not edited, per the project's own versioning discipline (ADR-0002 / the prompt-engineering skill's "never edit in place" rule applied to decision records).
 
 ## Context
 
