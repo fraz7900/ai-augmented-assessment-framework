@@ -1,0 +1,27 @@
+---
+name: evidence-extraction
+description: Use when building or modifying the AI extraction layer that reads ingested documents and produces candidate evidence statements — backend/src/compliance_platform/ai/retrieval.py and related extraction logic.
+---
+
+# Evidence Extraction Conventions
+
+Conventions for how this platform extracts candidate evidence statements from ingested documents and attaches them to framework practices. This is the highest-stakes AI logic in the system: an extraction that misattributes or fabricates evidence directly produces the hallucination risk named in `PROJECT_CHARTER.md` Section 7.
+
+## Non-negotiable rule
+
+**Every extracted evidence statement must carry a verifiable source citation** — document ID, page/section, and the exact source text span it was derived from. An extraction output with no citation is not a valid extraction output; it should be rejected by the service layer before it ever reaches a mapping or scoring step, not merely flagged for later review.
+
+## Design pattern
+
+1. Retrieve candidate chunks (via the vector store) relevant to a given framework practice.
+2. Ask the model to extract a claim **and** quote the specific source text supporting it, in the same response — do not ask for the claim and citation in separate calls, which allows them to drift apart.
+3. Programmatically verify the quoted source text actually appears in the retrieved chunk (a simple substring/fuzzy-match check) before accepting the extraction. This is the concrete implementation of "hallucination mitigation" and "evidence verification" from the charter's AI Engineering Design section — treat it as a required gate, not an optional enhancement.
+4. Attach a confidence indicator derived from retrieval similarity score and verification pass/fail, not from the model's own self-reported confidence (LLM self-reported confidence is not a reliable signal and should not be presented to users as if it were).
+
+## What this skill does not cover
+
+Prompt wording and versioning conventions live in `prompt-engineering`. Framework-specific extraction targets (what counts as valid evidence for a specific C2M2 practice) live in `c2m2-expert` / `nist-csf-expert`. This skill is the extraction-and-verification architecture, independent of framework or prompt content.
+
+## Example usage
+
+Building `ai/retrieval.py` in Sprint 1-2: load this skill to ensure the extraction function signature always returns a citation and a verification result alongside the claim, never a bare string.

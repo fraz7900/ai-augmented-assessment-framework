@@ -1,0 +1,53 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.coverage
+htmlcov/
+
+# Node / frontend
+node_modules/
+dist/
+build/
+.vite/
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+
+# Local vector store / model artifacts
+*.sqlite3
+*.chroma/
+*.lance/
+ollama_models/
+
+# Privacy-sensitive runtime data: only README/example files are tracked.
+# This directory contains real ingested evidence at runtime and must never
+# be committed, even when the source data is synthetic. See
+# docs/adr/ADR-0002-data-as-code-separation.md and PROJECT_CHARTER.md
+# Section 9 (data sensitivity as an adoption blocker).
+data/raw/*
+!data/raw/README.md
+data/processed/*
+!data/processed/README.md
+assessments/*
+!assessments/README.md
+reports/*
+!reports/README.md
+
+# Sample evidence is intentionally tracked (synthetic/public only) but any
+# accidental non-synthetic upload should still never land here by design.
