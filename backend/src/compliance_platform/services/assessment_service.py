@@ -1,4 +1,5 @@
-"""Assessment engine: state machine + evidence linking (Sprint 2).
+"""Assessment engine: state machine, evidence linking, and framework
+scoring (Sprint 2, extended Sprint 3).
 
 See services/README.md: business logic lives here, depends on
 repositories/ through their interfaces, and is called by api/. No
@@ -19,6 +20,8 @@ from compliance_platform.models.assessment import (
     EvidenceReviewStatus,
     EvidenceSource,
 )
+from compliance_platform.models.framework import FrameworkDefinition
+from compliance_platform.services.scoring_service import compute_assessment_domain_scores
 
 _ALLOWED_TRANSITIONS: dict[AssessmentStatus, set[AssessmentStatus]] = {
     AssessmentStatus.DRAFT: {AssessmentStatus.IN_REVIEW},
@@ -66,6 +69,41 @@ class EvidenceDocumentNotIngestedError(Exception):
         )
 
 
+class InvalidPracticeReferenceError(Exception):
+    """Raised when practice_reference does not exist in the loaded
+    schema for the assessment's framework — the Sprint 3 fulfillment of
+    Decision D-10 (practice_reference was free text in Sprint 2,
+    deferred to real validation once framework schemas existed).
+
+    Deliberately NOT raised when no schema is loaded for the
+    assessment's framework_name at all (e.g. "NIST CSF 2.0" before
+    Sprint 4): an unrecognized framework name falls back to the Sprint 2
+    free-text behavior rather than blocking evidence linking on
+    framework support that doesn't exist yet. See
+    services/framework_loader.py's FrameworkRegistry.get().
+    """
+
+    def __init__(self, practice_reference: str, framework_name: str) -> None:
+        self.practice_reference = practice_reference
+        self.framework_name = framework_name
+        super().__init__(
+            f"'{practice_reference}' is not a known practice in the {framework_name} schema."
+        )
+
+
+class FrameworkRegistryProtocol(Protocol):
+    def get(self, name: str) -> FrameworkDefinition | None: ...
+
+
+class FrameworkScoringUnavailableError(Exception):
+    def __init__(self, framework_name: str) -> None:
+        self.framework_name = framework_name
+        super().__init__(
+            f"No structured schema is loaded for framework '{framework_name}'; "
+            "cannot compute scores."
+        )
+
+
 class AssessmentRepositoryProtocol(Protocol):
     def create_assessment(self, name: str, framework_name: str) -> Assessment: ...
     def get_assessment(self, assessment_id: str) -> Assessment | None: ...
@@ -87,9 +125,11 @@ class AssessmentService:
         self,
         assessment_repository: AssessmentRepositoryProtocol,
         vector_repository: VectorRepositoryProtocol,
+        framework_registry: FrameworkRegistryProtocol | None = None,
     ) -> None:
         self._assessments = assessment_repository
         self._vectors = vector_repository
+        self._frameworks = framework_registry
 
     def create_assessment(self, name: str, framework_name: str) -> Assessment:
         return self._assessments.create_assessment(name=name, framework_name=framework_name)
@@ -140,6 +180,11 @@ class AssessmentService:
             if chunk_id not in known_chunk_ids:
                 raise EvidenceDocumentNotIngestedError(document_id)
 
+        if self._frameworks is not None:
+            framework = self._frameworks.get(assessment.framework_name)
+            if framework is not None and practice_reference not in framework.all_practice_ids():
+                raise InvalidPracticeReferenceError(practice_reference, assessment.framework_name)
+
         review_status = (
             EvidenceReviewStatus.PENDING
             if source == EvidenceSource.AI_PROPOSED
@@ -159,3 +204,22 @@ class AssessmentService:
     def evidence_for_assessment(self, assessment_id: str) -> list[EvidenceLink]:
         self.get_assessment(assessment_id)  # raises AssessmentNotFoundError if missing
         return self._assessments.evidence_for_assessment(assessment_id)
+
+    def compute_scores(self, assessment_id: str) -> dict[str, int]:
+        """Per-domain MIL scores for this assessment's framework, per
+        services/scoring_service.py's cumulative logic. Evidence links
+        still pending or rejected review do not count as performed —
+        only accepted or edited ones do, per the assessment-generation
+        skill's human-in-the-loop invariant.
+        """
+        assessment = self.get_assessment(assessment_id)
+        framework = self._frameworks.get(assessment.framework_name) if self._frameworks else None
+        if framework is None:
+            raise FrameworkScoringUnavailableError(assessment.framework_name)
+
+        performed_practice_ids = {
+            link.practice_reference
+            for link in self._assessments.evidence_for_assessment(assessment_id)
+            if link.review_status in (EvidenceReviewStatus.ACCEPTED, EvidenceReviewStatus.EDITED)
+        }
+        return compute_assessment_domain_scores(framework, performed_practice_ids)

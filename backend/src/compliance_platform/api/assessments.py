@@ -22,6 +22,8 @@ from compliance_platform.services.assessment_service import (
     AssessmentNotFoundError,
     AssessmentService,
     EvidenceDocumentNotIngestedError,
+    FrameworkScoringUnavailableError,
+    InvalidPracticeReferenceError,
     InvalidStatusTransitionError,
 )
 
@@ -118,6 +120,8 @@ def link_evidence(
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except EvidenceDocumentNotIngestedError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except InvalidPracticeReferenceError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @router.get("/{assessment_id}/evidence", response_model=list[EvidenceLink])
@@ -129,3 +133,20 @@ def list_evidence(
         return service.evidence_for_assessment(assessment_id)
     except AssessmentNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.get("/{assessment_id}/score", response_model=dict[str, int])
+def get_scores(
+    assessment_id: str,
+    service: AssessmentService = Depends(get_assessment_service),
+) -> dict[str, int]:
+    """Per-domain MIL score (0-3, cumulative per services/scoring_service.py).
+    A domain not yet transcribed into framework_mapping/ (see ADR-0009)
+    always reports 0, not an error — see Domain.practices_populated.
+    """
+    try:
+        return service.compute_scores(assessment_id)
+    except AssessmentNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except FrameworkScoringUnavailableError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc

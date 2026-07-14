@@ -6,14 +6,14 @@ This repository is developed as a structured, sprint-based engagement — every 
 
 ## Status
 
-**Sprint 2 complete, plus a pre-Sprint-3 embedding backend upgrade (ADR-0008).**
-A real FastAPI app (`backend/src/compliance_platform`) ingests documents (PDF/DOCX/TXT/Markdown), embeds them locally using a small local semantic ONNX model (no PyTorch, no evidence ever sent over the network), stores them in LanceDB, and tracks assessments through a draft → in-review → finalized lifecycle in SQLite, with evidence links that structurally cannot point at a document that was never ingested. 50 automated tests pass. Run it yourself:
+**Sprint 3 complete: real C2M2 v2.1 scoring, verified against the actual DOE source document.**
+A real FastAPI app (`backend/src/compliance_platform`) ingests documents, embeds them locally (ONNX, no PyTorch, no network calls), tracks assessments through a draft → in-review → finalized lifecycle, and now scores C2M2 maturity (cumulative MIL0-3, per domain) from real, source-cited framework data — 2 of 10 domains fully transcribed (`ASSET`, `ACCESS`, 71 real practices), the rest honestly flagged as not yet populated rather than faked. 77 automated tests pass. Run it yourself:
 
 ```
 cd backend && source .venv/bin/activate && uvicorn compliance_platform.main:app --reload
 ```
 
-then `POST` a file to `/ingest`, `POST /assessments` to create an assessment, and `POST /assessments/{id}/evidence` to link evidence to it. See `docs/consulting/sprint-02-deliverables.md` for what Sprint 2 built, and `docs/adr/ADR-0008-semantic-local-embeddings.md` for the embedding upgrade — including a live retrieval test where a fully paraphrased, zero-word-overlap query correctly surfaced the right policy section.
+then `POST` a file to `/ingest`, `POST /assessments` to create a C2M2 assessment, `POST /assessments/{id}/evidence` with a real practice ID like `ACCESS-1a` (see `GET /frameworks/C2M2`), and `GET /assessments/{id}/score` for the per-domain MIL. See `docs/consulting/sprint-03-deliverables.md` for what was built, and `docs/adr/ADR-0009-c2m2-structured-data.md` for how the framework data was sourced and verified — including catching a real defect from Sprint 2's demo data along the way.
 
 ## Start here
 
@@ -21,7 +21,7 @@ then `POST` a file to `/ingest`, `POST /assessments` to create an assessment, an
 - [`docs/product/`](./docs/product/) — PRD, personas, epics/user stories, requirements, assumptions log, decision log, risk register, prioritized backlog
 - [`docs/architecture/00-repository-architecture.md`](./docs/architecture/00-repository-architecture.md) — repository layout and rationale
 - [`docs/architecture/01-claude-code-workspace.md`](./docs/architecture/01-claude-code-workspace.md) — hooks, skills, and MCP design for this project's `.claude/` workspace
-- [`docs/adr/`](./docs/adr/) — Architecture Decision Records (8 as of the embedding backend upgrade)
+- [`docs/adr/`](./docs/adr/) — Architecture Decision Records (9 as of Sprint 3)
 - [`docs/consulting/`](./docs/consulting/) — per-sprint executive summaries, business value/risk/ROI assessments, and MBA/interview narrative
 - [`docs/current_sprint.md`](./docs/current_sprint.md) — single-source-of-truth sprint tracker
 

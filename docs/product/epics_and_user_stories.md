@@ -30,13 +30,16 @@ Status markers: **Delivered** (built, tested, demoed), **Planned** (scoped, not 
 **US-2.5** As Diane, I want a finalized assessment to reject any further evidence changes, so a "finalized" report cannot be silently altered after sign-off.
 *Acceptance criteria:* `POST /assessments/{id}/evidence` on a finalized assessment returns HTTP 409 (`AssessmentFinalizedError`).
 
-## Epic 3: C2M2 Framework Support — Planned (Sprint 3)
+## Epic 3: C2M2 Framework Support — Delivered, partial coverage (Sprint 3)
 
 **US-3.1** As Priya, I want the platform to know C2M2's actual domain/practice/MIL structure, so `practice_reference` is validated against something real instead of accepting an arbitrary string.
-*Acceptance criteria (draft):* `framework_mapping/c2m2_*.yaml` encodes the current published C2M2 structure; `link_evidence` rejects a `practice_reference` not present in the schema for the assessment's framework.
+*Acceptance criteria:* `framework_mapping/c2m2_v2_1.yaml` encodes the real, verified C2M2 v2.1 structure (10 domains, verbatim purpose statements); `link_evidence` rejects a `practice_reference` not present in the schema for the assessment's framework — verified live: the placeholder short code used in Sprint 2's demo (`IAM-1a`) is correctly rejected against the real schema, whose actual short code is `ACCESS`. **Caveat, delivered honestly rather than hidden:** only 2 of 10 domains (`ASSET`, `ACCESS`; 71 of 356 practices) are fully transcribed as of Sprint 3 — see ADR-0009 and Epic 3.1 below for the remaining 8.
 
 **US-3.2** As Priya, I want a domain's maturity score to respect C2M2's cumulative MIL semantics (a domain cannot be MIL2 if a MIL1 practice is unmet), so scores are not misleading.
-*Acceptance criteria (draft):* scoring logic enforces cumulative MILs; a unit test asserts a domain with an unmet MIL1 practice cannot score MIL2 regardless of MIL2 practice completion.
+*Acceptance criteria:* scoring logic enforces cumulative MILs (`services/scoring_service.py`); verified against both a synthetic fixture (`test_mil1_and_partial_mil2_scores_mil1_not_mil2`) and real C2M2 data live against the running server: linking every real MIL1 `ACCESS` practice scores the domain MIL1; linking one additional MIL2 practice without the rest does not advance it to MIL2.
+
+**US-3.1a (new backlog item, surfaced by delivering US-3.1)** As Priya, I want the remaining 8 C2M2 domains (`THREAT`, `RISK`, `SITUATION`, `RESPONSE`, `THIRD-PARTIES`, `WORKFORCE`, `ARCHITECTURE`, `PROGRAM`) transcribed with the same verbatim rigor as `ASSET`/`ACCESS`, so an assessment can be meaningfully scored across the whole framework, not two domains of it.
+*Acceptance criteria (draft):* each domain's `practices_populated` flips to `true` via `backend/scripts/generate_c2m2_yaml.py`, following the process ADR-0009 documents; no change to loader, scoring, or validation code required, per the data-as-code design (ADR-0002) — this item is line-item work, not architecture work.
 
 ## Epic 4: NIST CSF 2.0 Framework Support — Planned (Sprint 4)
 

@@ -1,0 +1,388 @@
+# GENERATED FILE. Do not hand-edit — regenerate via
+# backend/scripts/generate_c2m2_yaml.py, which is the source of truth
+# for this file's content and carries the source citation.
+name: C2M2
+full_name: Cybersecurity Capability Maturity Model
+version: '2.1'
+source_title: Cybersecurity Capability Maturity Model (C2M2), Version 2.1
+source_publisher: U.S. Department of Energy
+source_date: 2022-06
+source_url: https://www.energy.gov/sites/default/files/2022-06/C2M2%20Version%202.1%20June%202022.pdf
+retrieved_date: '2026-07-14'
+total_practices_in_source: 356
+mil_levels:
+- level: 0
+  name: Not Performed
+  description: Practices are not performed.
+- level: 1
+  name: Initiated
+  description: Initial practices are performed but may be ad hoc.
+- level: 2
+  name: Performed
+  description: 'Management characteristics: practices are documented and adequate resources are provided.
+    Approach characteristic: practices are more complete or advanced than at MIL1.'
+- level: 3
+  name: Managed
+  description: 'Management characteristics: activities are guided by policy, responsibility/accountability/authority
+    are assigned, personnel have adequate skills and knowledge, and effectiveness is evaluated and tracked.
+    Approach characteristic: practices are more complete or advanced than at MIL2.'
+scoring_note: 'MILs are cumulative within each domain and apply independently across domains: to earn
+  a MIL in a domain, an organization must perform all practices in that level and every preceding level
+  in that same domain. See services/scoring_service.py.'
+domains:
+- short_code: ASSET
+  full_name: Asset, Change, and Configuration Management
+  purpose: Manage the organization's IT and OT assets, including both hardware and software, and information
+    assets commensurate with the risk to critical infrastructure and organizational objectives.
+  practices_populated: true
+  objectives:
+  - number: 1
+    title: Manage IT and OT Asset Inventory
+    practices:
+    - id: ASSET-1a
+      mil: 1
+      text: IT and OT assets that are important to the delivery of the function are inventoried, at least
+        in an ad hoc manner
+    - id: ASSET-1b
+      mil: 2
+      text: The IT and OT asset inventory includes assets within the function that may be leveraged to
+        achieve a threat objective
+    - id: ASSET-1c
+      mil: 2
+      text: Inventoried IT and OT assets are prioritized based on defined criteria that include importance
+        to the delivery of the function
+    - id: ASSET-1d
+      mil: 2
+      text: Prioritization criteria include consideration of the degree to which an asset within the function
+        may be leveraged to achieve a threat objective
+    - id: ASSET-1e
+      mil: 2
+      text: The IT and OT inventory includes attributes that support cybersecurity activities (for example,
+        location, asset priority, asset owner, operating system, and firmware versions)
+    - id: ASSET-1f
+      mil: 3
+      text: The IT and OT asset inventory is complete (the inventory includes all assets within the function)
+    - id: ASSET-1g
+      mil: 3
+      text: The IT and OT asset inventory is current, that is, it is updated periodically and according
+        to defined triggers, such as system changes
+    - id: ASSET-1h
+      mil: 3
+      text: Data is destroyed or securely removed from IT and OT assets prior to redeployment and at end
+        of life
+  - number: 2
+    title: Manage Information Asset Inventory
+    practices:
+    - id: ASSET-2a
+      mil: 1
+      text: Information assets that are important to the delivery of the function (for example, SCADA
+        set points and customer information) are inventoried, at least in an ad hoc manner
+    - id: ASSET-2b
+      mil: 2
+      text: The information asset inventory includes information assets within the function that may be
+        leveraged to achieve a threat objective
+    - id: ASSET-2c
+      mil: 2
+      text: Inventoried information assets are categorized based on defined criteria that includes importance
+        to the delivery of the function
+    - id: ASSET-2d
+      mil: 2
+      text: Categorization criteria include consideration of the degree to which an asset within the function
+        may be leveraged to achieve a threat objective
+    - id: ASSET-2e
+      mil: 2
+      text: The information asset inventory includes attributes that support cybersecurity activities
+        (for example, asset category, backup locations and frequencies, storage locations, asset owner,
+        cybersecurity requirements)
+    - id: ASSET-2f
+      mil: 3
+      text: The information asset inventory is complete (the inventory includes all assets within the
+        function)
+    - id: ASSET-2g
+      mil: 3
+      text: The information asset inventory is current, that is, it is updated periodically and according
+        to defined triggers, such as system changes
+    - id: ASSET-2h
+      mil: 3
+      text: Information assets are sanitized or destroyed at end of life using techniques appropriate
+        to their cybersecurity requirements
+  - number: 3
+    title: Manage IT and OT Asset Configuration
+    practices:
+    - id: ASSET-3a
+      mil: 1
+      text: Configuration baselines are established, at least in an ad hoc manner
+    - id: ASSET-3b
+      mil: 2
+      text: Configuration baselines are used to configure assets at deployment and restoration
+    - id: ASSET-3c
+      mil: 2
+      text: Configuration baselines incorporate applicable requirements from the cybersecurity architecture
+        (ARCHITECTURE-1f)
+    - id: ASSET-3d
+      mil: 2
+      text: Configuration baselines are reviewed and updated periodically and according to defined triggers,
+        such as system changes and changes to the cybersecurity architecture
+    - id: ASSET-3e
+      mil: 3
+      text: Asset configurations are monitored for consistency with baselines throughout the assets' lifecycles
+  - number: 4
+    title: Manage Changes to IT and OT Assets
+    practices:
+    - id: ASSET-4a
+      mil: 1
+      text: Changes to assets are evaluated and approved before being implemented, at least in an ad hoc
+        manner
+    - id: ASSET-4b
+      mil: 1
+      text: Changes to assets are documented, at least in an ad hoc manner
+    - id: ASSET-4c
+      mil: 2
+      text: Documentation requirements for asset changes are established and maintained
+    - id: ASSET-4d
+      mil: 2
+      text: Changes to higher priority assets are tested prior to being deployed
+    - id: ASSET-4e
+      mil: 2
+      text: Changes and updates are implemented in a secure manner
+    - id: ASSET-4f
+      mil: 2
+      text: The capability to reverse changes is established and maintained for assets that are important
+        to the delivery of the function
+    - id: ASSET-4g
+      mil: 2
+      text: Change management practices address the full lifecycle of assets (for example, acquisition,
+        deployment, operation, retirement)
+    - id: ASSET-4h
+      mil: 3
+      text: Changes to higher priority assets are tested for cybersecurity impact prior to being deployed
+    - id: ASSET-4i
+      mil: 3
+      text: Change logs include information about modifications that impact the cybersecurity requirements
+        of assets
+  - number: 5
+    title: Management Activities for the ASSET domain
+    practices:
+    - id: ASSET-5a
+      mil: 2
+      text: Documented procedures are established, followed, and maintained for activities in the ASSET
+        domain
+    - id: ASSET-5b
+      mil: 2
+      text: Adequate resources (people, funding, and tools) are provided to support activities in the
+        ASSET domain
+    - id: ASSET-5c
+      mil: 3
+      text: Up-to-date policies or other organizational directives define requirements for activities
+        in the ASSET domain
+    - id: ASSET-5d
+      mil: 3
+      text: Responsibility, accountability, and authority for the performance of activities in the ASSET
+        domain are assigned to personnel
+    - id: ASSET-5e
+      mil: 3
+      text: Personnel performing activities in the ASSET domain have the skills and knowledge needed to
+        perform their assigned responsibilities
+    - id: ASSET-5f
+      mil: 3
+      text: The effectiveness of activities in the ASSET domain is evaluated and tracked
+- short_code: THREAT
+  full_name: Threat and Vulnerability Management
+  purpose: Establish and maintain plans, procedures, and technologies to detect, identify, analyze, manage,
+    and respond to cybersecurity threats and vulnerabilities, commensurate with the risk to the organization's
+    infrastructure (such as critical, IT, and operational) and organizational objectives.
+  practices_populated: false
+  objectives: []
+- short_code: RISK
+  full_name: Risk Management
+  purpose: Establish, operate, and maintain an enterprise cyber risk management program to identify, analyze,
+    and respond to cyber risk the organization is subject to, including its business units, subsidiaries,
+    related interconnected infrastructure, and stakeholders.
+  practices_populated: false
+  objectives: []
+- short_code: ACCESS
+  full_name: Identity and Access Management
+  purpose: Create and manage identities for entities that may be granted logical or physical access to
+    the organization's assets. Control access to the organization's assets, commensurate with the risk
+    to critical infrastructure and organizational objectives.
+  practices_populated: true
+  objectives:
+  - number: 1
+    title: Establish Identities and Manage Authentication
+    practices:
+    - id: ACCESS-1a
+      mil: 1
+      text: Identities are provisioned, at least in an ad hoc manner, for personnel and other entities
+        such as services and devices that require access to assets (note that this does not preclude shared
+        identities)
+    - id: ACCESS-1b
+      mil: 1
+      text: Credentials (such as passwords, smartcards, certificates, and keys) are issued for personnel
+        and other entities that require access to assets, at least in an ad hoc manner
+    - id: ACCESS-1c
+      mil: 1
+      text: Identities are deprovisioned, at least in an ad hoc manner, when no longer required
+    - id: ACCESS-1d
+      mil: 2
+      text: Password strength and reuse restrictions are defined and enforced
+    - id: ACCESS-1e
+      mil: 2
+      text: Identity repositories are reviewed and updated periodically and according to defined triggers,
+        such as system changes and changes to organizational structure
+    - id: ACCESS-1f
+      mil: 2
+      text: Identities are deprovisioned within organization-defined time thresholds when no longer required
+    - id: ACCESS-1g
+      mil: 2
+      text: The use of privileged credentials is limited to processes for which they are required
+    - id: ACCESS-1h
+      mil: 2
+      text: Stronger credentials, multifactor authentication, or single use credentials are required for
+        higher risk access (such as privileged accounts, service accounts, shared accounts, and remote
+        access)
+    - id: ACCESS-1i
+      mil: 3
+      text: Multifactor authentication is required for all access, where feasible
+    - id: ACCESS-1j
+      mil: 3
+      text: Identities are disabled after a defined period of inactivity, where feasible
+  - number: 2
+    title: Control Logical Access
+    practices:
+    - id: ACCESS-2a
+      mil: 1
+      text: Logical access controls are implemented, at least in an ad hoc manner
+    - id: ACCESS-2b
+      mil: 1
+      text: Logical access privileges are revoked when no longer needed, at least in an ad hoc manner
+    - id: ACCESS-2c
+      mil: 2
+      text: Logical access requirements are established and maintained (for example, rules for which types
+        of entities are allowed to access an asset, limits of allowed access, constraints on remote access,
+        authentication parameters)
+    - id: ACCESS-2d
+      mil: 2
+      text: Logical access requirements incorporate the principle of least privilege
+    - id: ACCESS-2e
+      mil: 2
+      text: Logical access requirements incorporate the principle of separation of duties
+    - id: ACCESS-2f
+      mil: 2
+      text: Logical access requests are reviewed and approved by the asset owner
+    - id: ACCESS-2g
+      mil: 2
+      text: Logical access privileges that pose higher risk to the function receive additional scrutiny
+        and monitoring
+    - id: ACCESS-2h
+      mil: 3
+      text: Logical access privileges are reviewed and updated to ensure conformance with access requirements
+        periodically and according to defined triggers, such as changes to organizational structure, and
+        after any temporary elevation of privileges
+    - id: ACCESS-2i
+      mil: 3
+      text: Anomalous logical access attempts are monitored as indicators of cybersecurity events
+  - number: 3
+    title: Control Physical Access
+    practices:
+    - id: ACCESS-3a
+      mil: 1
+      text: Physical access controls (such as fences, locks, and signage) are implemented, at least in
+        an ad hoc manner
+    - id: ACCESS-3b
+      mil: 1
+      text: Physical access privileges are revoked when no longer needed, at least in an ad hoc manner
+    - id: ACCESS-3c
+      mil: 1
+      text: Physical access logs are maintained, at least in an ad hoc manner
+    - id: ACCESS-3d
+      mil: 2
+      text: Physical access requirements are established and maintained (for example, rules for who is
+        allowed to access an asset, how access is granted, limits of allowed access)
+    - id: ACCESS-3e
+      mil: 2
+      text: Physical access requirements incorporate the principle of least privilege
+    - id: ACCESS-3f
+      mil: 2
+      text: Physical access requirements incorporate the principle of separation of duties
+    - id: ACCESS-3g
+      mil: 2
+      text: Physical access requests are reviewed and approved by the asset owner
+    - id: ACCESS-3h
+      mil: 2
+      text: Physical access privileges that pose higher risk to the function receive additional scrutiny
+        and monitoring
+    - id: ACCESS-3i
+      mil: 3
+      text: Physical access privileges are reviewed and updated
+    - id: ACCESS-3j
+      mil: 3
+      text: Physical access is monitored to identify potential cybersecurity events
+  - number: 4
+    title: Management Activities for the ACCESS domain
+    practices:
+    - id: ACCESS-4a
+      mil: 2
+      text: Documented procedures are established, followed, and maintained for activities in the ACCESS
+        domain
+    - id: ACCESS-4b
+      mil: 2
+      text: Adequate resources (people, funding, and tools) are provided to support activities in the
+        ACCESS domain
+    - id: ACCESS-4c
+      mil: 3
+      text: Up-to-date policies or other organizational directives define requirements for activities
+        in the ACCESS domain
+    - id: ACCESS-4d
+      mil: 3
+      text: Responsibility, accountability, and authority for the performance of activities in the ACCESS
+        domain are assigned to personnel
+    - id: ACCESS-4e
+      mil: 3
+      text: Personnel performing activities in the ACCESS domain have the skills and knowledge needed
+        to perform their assigned responsibilities
+    - id: ACCESS-4f
+      mil: 3
+      text: The effectiveness of activities in the ACCESS domain is evaluated and tracked
+- short_code: SITUATION
+  full_name: Situational Awareness
+  purpose: Establish and maintain activities and technologies to collect, monitor, analyze, alarm, report,
+    and use operational, security, and threat information, including status and summary information from
+    the other model domains, to establish situational awareness for both the organization's operational
+    state and cybersecurity state.
+  practices_populated: false
+  objectives: []
+- short_code: RESPONSE
+  full_name: Event and Incident Response, Continuity of Operations
+  purpose: Establish and maintain plans, procedures, and technologies to detect, analyze, mitigate, respond
+    to, and recover from cybersecurity events and incidents and to sustain operations during cybersecurity
+    incidents, commensurate with the risk to critical infrastructure and organizational objectives.
+  practices_populated: false
+  objectives: []
+- short_code: THIRD-PARTIES
+  full_name: Third-Party Risk Management
+  purpose: Establish and maintain controls to manage the cyber risks arising from suppliers and other
+    third parties, commensurate with the risk to critical infrastructure and organizational objectives.
+  practices_populated: false
+  objectives: []
+- short_code: WORKFORCE
+  full_name: Workforce Management
+  purpose: Establish and maintain plans, procedures, technologies, and controls to create a culture of
+    cybersecurity and to ensure the ongoing suitability and competence of personnel, commensurate with
+    the risk to critical infrastructure and organizational objectives.
+  practices_populated: false
+  objectives: []
+- short_code: ARCHITECTURE
+  full_name: Cybersecurity Architecture
+  purpose: Establish and maintain the structure and behavior of the organization's cybersecurity architecture,
+    including controls, processes, technologies, and other elements, commensurate with the risk to critical
+    infrastructure and organizational objectives.
+  practices_populated: false
+  objectives: []
+- short_code: PROGRAM
+  full_name: Cybersecurity Program Management
+  purpose: Establish and maintain an enterprise cybersecurity program that provides governance, strategic
+    planning, and sponsorship for the organization's cybersecurity activities in a manner that aligns
+    cybersecurity objectives with both the organization's strategic objectives and the risk to critical
+    infrastructure.
+  practices_populated: false
+  objectives: []

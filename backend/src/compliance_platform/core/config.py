@@ -50,6 +50,9 @@ class Settings(BaseSettings):
     # Relational storage (see repositories/assessment_repository.py and ADR-0007).
     assessments_db_path: Path = _REPO_ROOT / "data" / "processed" / "assessments.db"
 
+    # Framework definitions (see services/framework_loader.py, ADR-0002, ADR-0009).
+    framework_mapping_dir: Path = _REPO_ROOT / "framework_mapping"
+
 
 def get_settings() -> Settings:
     """Factory rather than a module-level singleton, so tests can override

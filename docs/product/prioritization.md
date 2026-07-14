@@ -8,7 +8,8 @@ Covers the remaining Sprint 3-10 backlog from `PROJECT_CHARTER.md` Section 13. S
 
 | Item | MoSCoW | Rationale |
 |---|---|---|
-| C2M2 structured data + scoring (Sprint 3) | Must | The platform cannot claim to support C2M2 without it; blocks Epic 3 and the mapping engine |
+| ~~C2M2 structured data + scoring (Sprint 3)~~ **Done, partial** | Must | The platform cannot claim to support C2M2 without it; blocks Epic 3 and the mapping engine. **Delivered: scoring engine and validation are fully real and verified against live data; only 2 of 10 domains transcribed — see ADR-0009 and new item below** |
+| Transcribe remaining 8 C2M2 domains (US-3.1a) | Should, before Sprint 5 provides full value | Sprint 5's mapping engine is far less useful if it can only ever propose mappings into 2 of 10 domains; this is line-item transcription work, not architecture, per ADR-0009 |
 | NIST CSF 2.0 structured data + scoring (Sprint 4) | Must | Same argument as C2M2; the charter names both as primary frameworks, not one-then-maybe-the-other |
 | Framework mapping engine, AI-proposed evidence linking (Sprint 5) | Must | This is the platform's actual value proposition (accelerating the manual matching step); without it the product is a well-organized filing cabinet, not an AI compliance accelerator |
 | Executive dashboard + reporting (Sprint 6-7) | Must | Every persona except Sam (contributor) interacts with the platform primarily through this surface; without it there is no demoable end product for the CISO/audit personas |
@@ -26,7 +27,8 @@ Reach is reinterpreted for a single-user portfolio project: instead of a custome
 
 | Item | Reach (1-5, personas/goals touched) | Impact (1-3) | Confidence (%) | Effort (person-sprints) | RICE score |
 |---|---|---|---|---|---|
-| C2M2 structured data + scoring | 3 (Priya, Diane, blocks Epic 5) | 3 | 90% | 1 | 8.1 |
+| ~~C2M2 structured data + scoring~~ **Done, partial** | 3 (Priya, Diane, blocks Epic 5) | 3 | 90% | 1 | 8.1 (delivered at estimated effort; scope narrowed to 2 domains rather than confidence being wrong — see ADR-0009) |
+| Transcribe remaining 8 C2M2 domains | 3 (same as above; blocks full Epic 5 value) | 2 (mechanical transcription, not new architecture) | 90% (process is now proven twice, ASSET and ACCESS) | 1 (roughly linear per domain based on ASSET/ACCESS effort) | 5.4 |
 | NIST CSF 2.0 structured data + scoring | 3 | 3 | 90% | 1 | 8.1 |
 | ~~Retrieval-quality upgrade (embedding backend)~~ **Done** | 4 (unlocks Epic 5 for all reviewer personas) | 3 | 60% (unvalidated until attempted) | 0.5 | 14.4 (validated post-hoc: confidence was actually well-calibrated — effort matched estimate at ~0.5 sprint-days, and the live retrieval demo confirmed the impact assumption) |
 | Framework mapping engine (AI-proposed evidence linking) | 5 (core value prop, touches every persona's flow) | 3 | 70% | 1 | 10.5 |

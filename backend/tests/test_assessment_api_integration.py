@@ -22,6 +22,7 @@ _CACHED_DEPENDENCIES = (
     dependencies.get_cached_embedder,
     dependencies.get_cached_vector_repository,
     dependencies.get_cached_assessment_repository,
+    dependencies.get_cached_framework_registry,
 )
 
 
@@ -61,9 +62,12 @@ def test_full_assessment_lifecycle(client: TestClient) -> None:
     assessment_id = assessment["id"]
     assert assessment["status"] == "draft"
 
+    # ACCESS-1a is a real C2M2 practice ID (see framework_mapping/c2m2_v2_1.yaml,
+    # ADR-0009); as of Sprint 3 this is validated against the loaded schema,
+    # not accepted as arbitrary free text.
     evidence_response = client.post(
         f"/assessments/{assessment_id}/evidence",
-        json={"document_id": document_id, "practice_reference": "AM-1a"},
+        json={"document_id": document_id, "practice_reference": "ACCESS-1a"},
     )
     assert evidence_response.status_code == 200
     assert evidence_response.json()["review_status"] == "accepted"
@@ -87,7 +91,7 @@ def test_full_assessment_lifecycle(client: TestClient) -> None:
 
     blocked = client.post(
         f"/assessments/{assessment_id}/evidence",
-        json={"document_id": document_id, "practice_reference": "AM-1b"},
+        json={"document_id": document_id, "practice_reference": "ACCESS-1b"},
     )
     assert blocked.status_code == 409
 
@@ -123,3 +127,80 @@ def test_list_assessments_returns_created_assessments(client: TestClient) -> Non
     assert response.status_code == 200
     names = {a["name"] for a in response.json()}
     assert {"One", "Two"} <= names
+
+
+# --- Framework browsing and scoring (Sprint 3) ---
+
+
+def test_get_c2m2_framework_returns_real_structure(client: TestClient) -> None:
+    response = client.get("/frameworks/C2M2")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["version"] == "2.1"
+    assert len(body["domains"]) == 10
+    access = next(d for d in body["domains"] if d["short_code"] == "ACCESS")
+    assert access["practices_populated"] is True
+
+
+def test_get_unknown_framework_returns_404(client: TestClient) -> None:
+    response = client.get("/frameworks/NIST CSF 2.0")
+    assert response.status_code == 404
+
+
+def test_link_evidence_rejects_invalid_c2m2_practice_reference(client: TestClient) -> None:
+    document_id = _ingest_sample_document(client)
+    create_response = client.post(
+        "/assessments", json={"name": "Test", "framework_name": "C2M2"}
+    )
+    assessment_id = create_response.json()["id"]
+    response = client.post(
+        f"/assessments/{assessment_id}/evidence",
+        json={"document_id": document_id, "practice_reference": "NOT-A-REAL-PRACTICE"},
+    )
+    assert response.status_code == 422
+
+
+def test_score_endpoint_computes_real_mil1_for_access_domain(client: TestClient) -> None:
+    """End-to-end proof of the cumulative MIL scoring rule against real
+    C2M2 data: link evidence for every MIL1 practice in the ACCESS
+    domain (across all its objectives, not just one) and confirm the
+    domain scores MIL1 — while an untouched, unpopulated domain (RISK)
+    correctly reports 0, not an error.
+    """
+    document_id = _ingest_sample_document(client)
+    create_response = client.post(
+        "/assessments", json={"name": "Scoring Test", "framework_name": "C2M2"}
+    )
+    assessment_id = create_response.json()["id"]
+
+    framework = client.get("/frameworks/C2M2").json()
+    access = next(d for d in framework["domains"] if d["short_code"] == "ACCESS")
+    mil1_practice_ids = [
+        practice["id"]
+        for objective in access["objectives"]
+        for practice in objective["practices"]
+        if practice["mil"] == 1
+    ]
+    assert mil1_practice_ids  # sanity check the fixture data itself isn't empty
+
+    for practice_id in mil1_practice_ids:
+        response = client.post(
+            f"/assessments/{assessment_id}/evidence",
+            json={"document_id": document_id, "practice_reference": practice_id},
+        )
+        assert response.status_code == 200
+
+    scores = client.get(f"/assessments/{assessment_id}/score")
+    assert scores.status_code == 200
+    body = scores.json()
+    assert body["ACCESS"] == 1
+    assert body["RISK"] == 0  # unpopulated domain, never an error
+
+
+def test_score_endpoint_returns_422_for_framework_with_no_schema(client: TestClient) -> None:
+    create_response = client.post(
+        "/assessments", json={"name": "Test", "framework_name": "NIST CSF 2.0"}
+    )
+    assessment_id = create_response.json()["id"]
+    response = client.get(f"/assessments/{assessment_id}/score")
+    assert response.status_code == 422

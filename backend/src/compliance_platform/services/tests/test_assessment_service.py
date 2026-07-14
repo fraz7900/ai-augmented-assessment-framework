@@ -16,11 +16,20 @@ from compliance_platform.models.assessment import (
     EvidenceReviewStatus,
     EvidenceSource,
 )
+from compliance_platform.models.framework import (
+    Domain,
+    FrameworkDefinition,
+    MilLevelDefinition,
+    Objective,
+    Practice,
+)
 from compliance_platform.services.assessment_service import (
     AssessmentFinalizedError,
     AssessmentNotFoundError,
     AssessmentService,
     EvidenceDocumentNotIngestedError,
+    FrameworkScoringUnavailableError,
+    InvalidPracticeReferenceError,
     InvalidStatusTransitionError,
 )
 
@@ -84,12 +93,67 @@ class _FakeVectorRepository:
         return [{"chunk_id": cid, "document_id": document_id} for cid in self._known[document_id]]
 
 
+class _FakeFrameworkRegistry:
+    def __init__(self, frameworks: dict[str, FrameworkDefinition] | None = None) -> None:
+        self._frameworks = frameworks or {}
+
+    def get(self, name: str) -> FrameworkDefinition | None:
+        return self._frameworks.get(name)
+
+
+def _tiny_framework(name: str = "C2M2") -> FrameworkDefinition:
+    """A small, hand-built framework (not real C2M2 content) so
+    validation/scoring wiring can be tested without depending on the
+    real dataset's specific practice IDs staying stable.
+    """
+    return FrameworkDefinition(
+        name=name,
+        full_name="Test Framework",
+        version="0",
+        source_title="n/a",
+        source_publisher="n/a",
+        source_date="n/a",
+        source_url="n/a",
+        retrieved_date="n/a",
+        total_practices_in_source=2,
+        mil_levels=[MilLevelDefinition(level=1, name="Initiated", description="n/a")],
+        scoring_note="n/a",
+        domains=[
+            Domain(
+                short_code="TEST",
+                full_name="Test Domain",
+                purpose="n/a",
+                practices_populated=True,
+                objectives=[
+                    Objective(
+                        number=1,
+                        title="Objective One",
+                        practices=[
+                            Practice(id="TEST-1a", mil=1, text="practice a"),
+                            # An unmet MIL2 practice, so linking only
+                            # TEST-1a caps the domain at MIL1 rather than
+                            # vacuously satisfying every higher level —
+                            # see docs/product/decision_log.md, the
+                            # cumulative-scoring correctness rule tested
+                            # here is the same one test_scoring_service.py
+                            # covers directly.
+                            Practice(id="TEST-2a", mil=2, text="practice b, unmet in these tests"),
+                        ],
+                    )
+                ],
+            )
+        ],
+    )
+
+
 def _make_service(
     known_documents: dict[str, list[str]] | None = None,
+    framework_registry: _FakeFrameworkRegistry | None = None,
 ) -> tuple[AssessmentService, _FakeAssessmentRepository, _FakeVectorRepository]:
     assessment_repo = _FakeAssessmentRepository()
     vector_repo = _FakeVectorRepository(known_documents)
-    return AssessmentService(assessment_repo, vector_repo), assessment_repo, vector_repo
+    service = AssessmentService(assessment_repo, vector_repo, framework_registry=framework_registry)
+    return service, assessment_repo, vector_repo
 
 
 def test_create_assessment_starts_in_draft_with_history_entry() -> None:
@@ -175,3 +239,78 @@ def test_link_evidence_rejected_once_assessment_finalized() -> None:
     service.transition_status(assessment.id, AssessmentStatus.FINALIZED)
     with pytest.raises(AssessmentFinalizedError):
         service.link_evidence(assessment.id, "doc-1", practice_reference="AM-1a")
+
+
+# --- Framework validation and scoring (Sprint 3) ---
+
+
+def test_link_evidence_with_no_framework_registry_skips_validation() -> None:
+    """Backward compatibility with Sprint 2 (Decision D-10): a service
+    with no framework_registry configured accepts any practice_reference,
+    exactly as it did before Sprint 3.
+    """
+    service, _, _ = _make_service(known_documents={"doc-1": ["chunk-a"]})
+    assessment = service.create_assessment("A", "C2M2")
+    link = service.link_evidence(assessment.id, "doc-1", practice_reference="anything-goes")
+    assert link.practice_reference == "anything-goes"
+
+
+def test_link_evidence_accepts_valid_practice_reference_for_known_framework() -> None:
+    registry = _FakeFrameworkRegistry({"C2M2": _tiny_framework()})
+    service, _, _ = _make_service(
+        known_documents={"doc-1": ["chunk-a"]}, framework_registry=registry
+    )
+    assessment = service.create_assessment("A", "C2M2")
+    link = service.link_evidence(assessment.id, "doc-1", practice_reference="TEST-1a")
+    assert link.practice_reference == "TEST-1a"
+
+
+def test_link_evidence_rejects_unknown_practice_reference_for_known_framework() -> None:
+    registry = _FakeFrameworkRegistry({"C2M2": _tiny_framework()})
+    service, _, _ = _make_service(
+        known_documents={"doc-1": ["chunk-a"]}, framework_registry=registry
+    )
+    assessment = service.create_assessment("A", "C2M2")
+    with pytest.raises(InvalidPracticeReferenceError):
+        service.link_evidence(assessment.id, "doc-1", practice_reference="NOT-A-REAL-PRACTICE")
+
+
+def test_link_evidence_skips_validation_for_framework_with_no_loaded_schema() -> None:
+    """An assessment labeled for a framework the registry doesn't have a
+    schema for (e.g. "NIST CSF 2.0" before Sprint 4) falls back to
+    Sprint 2 free-text behavior rather than blocking evidence linking.
+    """
+    registry = _FakeFrameworkRegistry({"C2M2": _tiny_framework()})
+    service, _, _ = _make_service(
+        known_documents={"doc-1": ["chunk-a"]}, framework_registry=registry
+    )
+    assessment = service.create_assessment("A", "NIST CSF 2.0")
+    link = service.link_evidence(assessment.id, "doc-1", practice_reference="GV.OC-01")
+    assert link.practice_reference == "GV.OC-01"
+
+
+def test_compute_scores_counts_only_accepted_and_edited_evidence() -> None:
+    registry = _FakeFrameworkRegistry({"C2M2": _tiny_framework()})
+    service, _, _ = _make_service(
+        known_documents={"doc-1": ["chunk-a"]}, framework_registry=registry
+    )
+    assessment = service.create_assessment("A", "C2M2")
+
+    # AI-proposed evidence defaults to PENDING and must not count toward a score.
+    service.link_evidence(
+        assessment.id, "doc-1", practice_reference="TEST-1a", source=EvidenceSource.AI_PROPOSED
+    )
+    scores_before_review = service.compute_scores(assessment.id)
+    assert scores_before_review["TEST"] == 0
+
+    # Manual evidence defaults to ACCEPTED and must count.
+    service.link_evidence(assessment.id, "doc-1", practice_reference="TEST-1a")
+    scores_after_manual_link = service.compute_scores(assessment.id)
+    assert scores_after_manual_link["TEST"] == 1
+
+
+def test_compute_scores_raises_when_no_schema_available() -> None:
+    service, _, _ = _make_service(known_documents={"doc-1": ["chunk-a"]})
+    assessment = service.create_assessment("A", "C2M2")
+    with pytest.raises(FrameworkScoringUnavailableError):
+        service.compute_scores(assessment.id)

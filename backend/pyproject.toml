@@ -22,6 +22,7 @@ dependencies = [
     "numpy>=1.26",
     "sqlmodel>=0.0.21",
     "fastembed>=0.7",
+    "pyyaml>=6.0",
 ]
 
 [project.optional-dependencies]
@@ -53,3 +54,10 @@ select = ["E", "F", "I", "UP", "B"]
 # handler; B008 exists to catch a different, real bug (mutable/expensive
 # default args) and does not apply to this framework pattern.
 "src/compliance_platform/api/*.py" = ["B008"]
+# One-off C2M2 data transcription script (scripts/README.md: not part of
+# the application). Practice text is transcribed verbatim from the
+# source PDF; reflowing long quoted strings to fit the line-length limit
+# risks introducing a transcription error into real regulatory-standard
+# text, which is a worse outcome than a long line in a script no one
+# reads for style.
+"scripts/generate_c2m2_yaml.py" = ["E501"]
