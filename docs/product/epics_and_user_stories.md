@@ -49,13 +49,13 @@ Status markers: **Delivered** (built, tested, demoed), **Planned** (scoped, not 
 **US-4.2** As Priya, I want evidence linked against a NIST CSF 2.0 assessment to be scored meaningfully even though NIST CSF has no native maturity levels, so I'm not stuck choosing between a fabricated MIL score and no score at all.
 *Acceptance criteria:* `services/scoring_service.py` computes a 0.0-1.0 coverage fraction per function via `compute_domain_coverage`; verified live against the running server — linking all 6 real `PR.AA` subcategories scored the `PR` function at 6/22 (0.273), with untouched functions correctly reporting an honest 0.0, not an error.
 
-## Epic 5: Framework Mapping Engine — Planned (Sprint 5)
+## Epic 5: Framework Mapping Engine — Delivered, retrieval-only (Sprint 5)
 
 **US-5.1** As Priya, I want the platform to propose which practices a piece of evidence likely satisfies, with a citation and confidence score, so I don't have to manually re-read every practice statement for every document.
-*Acceptance criteria (draft):* a proposed mapping always includes a verified source quote (per the `evidence-extraction` skill's citation-verification gate) and is created with `source=ai_proposed`, `review_status=pending`.
+*Acceptance criteria:* `POST /assessments/{id}/propose-mappings` creates `EvidenceLink` rows with `source=ai_proposed`, `review_status=pending`, and a `confidence` derived from retrieval similarity, not model self-report (`services/mapping_service.py`). **Caveat, delivered honestly rather than hidden:** the "citation" is the literal retrieved chunk text, not a model-generated quote — verified live against real data: e.g. `ACCESS-4c` proposed at confidence 0.85 citing the actual Access Control Policy section. This also means every proposal automatically satisfies the `evidence-extraction` skill's citation-verification gate (nothing is generated that could be unverifiable), at the cost of not yet having a reasoning layer that can match evidence phrased in dissimilar vocabulary — see ADR-0011 and risk R-16. Human review (`POST /assessments/{id}/evidence/{evidence_id}/review`, accept/edit/reject) is required before any proposal counts toward a score, per the `assessment-generation` skill's human-in-the-loop invariant — verified live: an incorrect proposal (`ASSET-1a` matched against access-provisioning text on generic vocabulary overlap, confidence 0.71) was correctly rejectable, and a rejected practice remains eligible for re-proposal on a later call (rejection means "not yet satisfied," not "permanently excluded"), while an accepted one does not reappear.
 
 **US-5.2** As Priya, I want a single piece of evidence that satisfies both a C2M2 and a NIST CSF practice to be flagged as such, so I don't duplicate review effort across frameworks.
-*Acceptance criteria (draft):* `framework_mapping/cross_framework_equivalence.yaml` entries surface as a "also satisfies" indicator in the evidence-link view.
+*Acceptance criteria (draft):* `framework_mapping/cross_framework_equivalence.yaml` entries surface as a "also satisfies" indicator in the evidence-link view. **Deferred, not delivered, in Sprint 5** — no cross-framework equivalence data exists yet; logged as an open backlog item (ADR-0011 Consequences).
 
 ## Epic 6: Executive Reporting — Planned (Sprint 6-7)
 

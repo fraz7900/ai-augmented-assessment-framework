@@ -81,7 +81,13 @@ class EvidenceLink(SQLModel, table=True):
     note: str | None = None
     source: EvidenceSource = Field(default=EvidenceSource.MANUAL)
     review_status: EvidenceReviewStatus = Field(default=EvidenceReviewStatus.ACCEPTED)
+    # Retrieval-similarity heuristic (Sprint 5), set only for AI-proposed
+    # links; None for manual ones. NOT a calibrated probability — see
+    # services/mapping_service.py and ADR-0011. Explicitly distinct from
+    # a model's self-reported confidence, per the evidence-extraction skill.
+    confidence: float | None = None
     created_at: datetime = Field(default_factory=_utcnow)
+    reviewed_at: datetime | None = None
 
 
 class AssessmentStatusChange(SQLModel, table=True):

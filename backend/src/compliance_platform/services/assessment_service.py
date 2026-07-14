@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from typing import Protocol
 
+from compliance_platform.ai.embeddings import Embedder
 from compliance_platform.models.assessment import (
     Assessment,
     AssessmentStatus,
@@ -21,7 +22,14 @@ from compliance_platform.models.assessment import (
     EvidenceSource,
 )
 from compliance_platform.models.framework import FrameworkDefinition
+from compliance_platform.services.mapping_service import find_mapping_candidates
 from compliance_platform.services.scoring_service import compute_assessment_domain_scores
+
+_REVIEW_DECISIONS = (
+    EvidenceReviewStatus.ACCEPTED,
+    EvidenceReviewStatus.EDITED,
+    EvidenceReviewStatus.REJECTED,
+)
 
 _ALLOWED_TRANSITIONS: dict[AssessmentStatus, set[AssessmentStatus]] = {
     AssessmentStatus.DRAFT: {AssessmentStatus.IN_REVIEW},
@@ -104,6 +112,36 @@ class FrameworkScoringUnavailableError(Exception):
         )
 
 
+class EvidenceLinkNotFoundError(Exception):
+    def __init__(self, evidence_link_id: str) -> None:
+        self.evidence_link_id = evidence_link_id
+        super().__init__(f"Evidence link '{evidence_link_id}' not found on this assessment.")
+
+
+class EvidenceAlreadyReviewedError(Exception):
+    def __init__(self, evidence_link_id: str, current_status: EvidenceReviewStatus) -> None:
+        self.evidence_link_id = evidence_link_id
+        self.current_status = current_status
+        super().__init__(
+            f"Evidence link '{evidence_link_id}' has already been reviewed "
+            f"(status: '{current_status.value}'); only pending links can be reviewed."
+        )
+
+
+class InvalidReviewDecisionError(Exception):
+    def __init__(self, decision: EvidenceReviewStatus) -> None:
+        self.decision = decision
+        super().__init__(
+            f"'{decision.value}' is not a valid review decision; "
+            f"must be one of: {', '.join(d.value for d in _REVIEW_DECISIONS)}."
+        )
+
+
+class MappingEngineUnavailableError(Exception):
+    def __init__(self) -> None:
+        super().__init__("No embedder configured; cannot propose evidence mappings.")
+
+
 class AssessmentRepositoryProtocol(Protocol):
     def create_assessment(self, name: str, framework_name: str) -> Assessment: ...
     def get_assessment(self, assessment_id: str) -> Assessment | None: ...
@@ -114,10 +152,21 @@ class AssessmentRepositoryProtocol(Protocol):
     def status_history(self, assessment_id: str) -> list[AssessmentStatusChange]: ...
     def add_evidence_link(self, link: EvidenceLink) -> EvidenceLink: ...
     def evidence_for_assessment(self, assessment_id: str) -> list[EvidenceLink]: ...
+    def get_evidence_link(self, evidence_link_id: str) -> EvidenceLink | None: ...
+    def update_evidence_link_review(
+        self,
+        evidence_link_id: str,
+        review_status: EvidenceReviewStatus,
+        practice_reference: str | None = None,
+        note: str | None = None,
+    ) -> EvidenceLink | None: ...
 
 
 class VectorRepositoryProtocol(Protocol):
     def chunks_for_document(self, document_id: str) -> list[dict]: ...
+    def search_within_documents(
+        self, query_vector: list[float], document_ids: list[str], limit: int = 5
+    ) -> list[dict]: ...
 
 
 class AssessmentService:
@@ -126,10 +175,16 @@ class AssessmentService:
         assessment_repository: AssessmentRepositoryProtocol,
         vector_repository: VectorRepositoryProtocol,
         framework_registry: FrameworkRegistryProtocol | None = None,
+        embedder: Embedder | None = None,
+        mapping_similarity_threshold: float = 0.55,
+        mapping_candidates_per_practice: int = 1,
     ) -> None:
         self._assessments = assessment_repository
         self._vectors = vector_repository
         self._frameworks = framework_registry
+        self._embedder = embedder
+        self._mapping_similarity_threshold = mapping_similarity_threshold
+        self._mapping_candidates_per_practice = mapping_candidates_per_practice
 
     def create_assessment(self, name: str, framework_name: str) -> Assessment:
         return self._assessments.create_assessment(name=name, framework_name=framework_name)
@@ -225,3 +280,113 @@ class AssessmentService:
             if link.review_status in (EvidenceReviewStatus.ACCEPTED, EvidenceReviewStatus.EDITED)
         }
         return compute_assessment_domain_scores(framework, performed_practice_ids)
+
+    def review_evidence(
+        self,
+        assessment_id: str,
+        evidence_link_id: str,
+        decision: EvidenceReviewStatus,
+        corrected_practice_reference: str | None = None,
+        note: str | None = None,
+    ) -> EvidenceLink:
+        """Applies a human accept/edit/reject decision to a pending
+        evidence link — the other half of the human-in-the-loop
+        invariant propose_mappings' AI-proposed links exist to satisfy
+        (assessment-generation skill). Only PENDING links can be
+        reviewed; reviewing is itself blocked on a finalized assessment,
+        for the same audit-immutability reason link_evidence already is.
+        """
+        if decision not in _REVIEW_DECISIONS:
+            raise InvalidReviewDecisionError(decision)
+
+        assessment = self.get_assessment(assessment_id)
+        if assessment.status == AssessmentStatus.FINALIZED:
+            raise AssessmentFinalizedError(assessment_id)
+
+        link = self._assessments.get_evidence_link(evidence_link_id)
+        if link is None or link.assessment_id != assessment_id:
+            raise EvidenceLinkNotFoundError(evidence_link_id)
+        if link.review_status != EvidenceReviewStatus.PENDING:
+            raise EvidenceAlreadyReviewedError(evidence_link_id, link.review_status)
+
+        new_practice_reference: str | None = None
+        if decision == EvidenceReviewStatus.EDITED:
+            if not corrected_practice_reference:
+                raise ValueError(
+                    "corrected_practice_reference is required when decision is 'edited'."
+                )
+            if self._frameworks is not None:
+                framework = self._frameworks.get(assessment.framework_name)
+                if (
+                    framework is not None
+                    and corrected_practice_reference not in framework.all_practice_ids()
+                ):
+                    raise InvalidPracticeReferenceError(
+                        corrected_practice_reference, assessment.framework_name
+                    )
+            new_practice_reference = corrected_practice_reference
+
+        updated = self._assessments.update_evidence_link_review(
+            evidence_link_id,
+            review_status=decision,
+            practice_reference=new_practice_reference,
+            note=note,
+        )
+        if updated is None:  # pragma: no cover - existence already checked above
+            raise EvidenceLinkNotFoundError(evidence_link_id)
+        return updated
+
+    def propose_mappings(self, assessment_id: str) -> list[EvidenceLink]:
+        """Runs the retrieval-based mapping engine
+        (services/mapping_service.py) for this assessment and persists
+        any resulting proposals as AI-proposed, pending-review
+        EvidenceLink rows. Returns the newly created links — empty if
+        nothing met the confidence threshold, or if the assessment has
+        no associated documents yet (from any prior evidence link, of
+        any non-rejected status); neither case is an error.
+        """
+        assessment = self.get_assessment(assessment_id)
+        if assessment.status == AssessmentStatus.FINALIZED:
+            raise AssessmentFinalizedError(assessment_id)
+        if self._embedder is None:
+            raise MappingEngineUnavailableError()
+
+        framework = self._frameworks.get(assessment.framework_name) if self._frameworks else None
+        if framework is None:
+            raise FrameworkScoringUnavailableError(assessment.framework_name)
+
+        existing_links = self._assessments.evidence_for_assessment(assessment_id)
+        document_ids = sorted({link.document_id for link in existing_links})
+        already_covered = {
+            link.practice_reference
+            for link in existing_links
+            if link.review_status != EvidenceReviewStatus.REJECTED
+        }
+
+        proposals = find_mapping_candidates(
+            framework=framework,
+            document_ids=document_ids,
+            already_covered_practice_ids=already_covered,
+            embedder=self._embedder,
+            vector_repository=self._vectors,
+            similarity_threshold=self._mapping_similarity_threshold,
+            candidates_per_practice=self._mapping_candidates_per_practice,
+        )
+
+        created: list[EvidenceLink] = []
+        for proposal in proposals:
+            link = EvidenceLink(
+                assessment_id=assessment_id,
+                document_id=proposal.document_id,
+                chunk_id=proposal.chunk_id,
+                practice_reference=proposal.practice_id,
+                note=(
+                    f"AI-proposed via semantic retrieval (confidence "
+                    f"{proposal.confidence:.2f}): \"{proposal.chunk_text[:200]}\""
+                ),
+                source=EvidenceSource.AI_PROPOSED,
+                review_status=EvidenceReviewStatus.PENDING,
+                confidence=proposal.confidence,
+            )
+            created.append(self._assessments.add_evidence_link(link))
+        return created

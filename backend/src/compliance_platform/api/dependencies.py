@@ -63,8 +63,12 @@ def get_ingestion_service() -> IngestionService:
 
 
 def get_assessment_service() -> AssessmentService:
+    settings = get_cached_settings()
     return AssessmentService(
         assessment_repository=get_cached_assessment_repository(),
         vector_repository=get_cached_vector_repository(),
         framework_registry=get_cached_framework_registry(),
+        embedder=get_cached_embedder(),
+        mapping_similarity_threshold=settings.mapping_similarity_threshold,
+        mapping_candidates_per_practice=settings.mapping_candidates_per_practice,
     )

@@ -53,6 +53,13 @@ class Settings(BaseSettings):
     # Framework definitions (see services/framework_loader.py, ADR-0002, ADR-0009).
     framework_mapping_dir: Path = _REPO_ROOT / "framework_mapping"
 
+    # AI-proposed mapping (see services/mapping_service.py and ADR-0011).
+    # Cosine-similarity threshold, calibrated empirically (see ADR-0011)
+    # against real practice text vs. real policy chunk text — not a
+    # principled cutoff, a starting point documented as such.
+    mapping_similarity_threshold: float = 0.55
+    mapping_candidates_per_practice: int = 1
+
 
 def get_settings() -> Settings:
     """Factory rather than a module-level singleton, so tests can override

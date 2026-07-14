@@ -106,3 +106,29 @@ class VectorRepository:
         df = table.to_pandas()
         matched = df[df["document_id"] == document_id]
         return matched.drop(columns=["vector"]).to_dict(orient="records")
+
+    def search_within_documents(
+        self, query_vector: list[float], document_ids: list[str], limit: int = 5
+    ) -> list[dict[str, Any]]:
+        """Nearest-neighbor search restricted to chunks from a given set
+        of documents — used by services/mapping_service.py (Sprint 5) to
+        propose evidence only from documents already associated with the
+        assessment being scored, not the entire global vector store.
+
+        document_ids are expected to be server-generated UUIDs (see
+        services/document_parsers.py) that already passed the
+        document-exists check in services/assessment_service.py before
+        reaching here; the quote-escaping below is defense-in-depth, not
+        the only thing standing between this and injection.
+        """
+        table = self._open_existing_table()
+        if table is None or not document_ids:
+            return []
+        escaped_ids = [doc_id.replace("'", "''") for doc_id in document_ids]
+        ids_sql = ", ".join(f"'{doc_id}'" for doc_id in escaped_ids)
+        return (
+            table.search(query_vector)
+            .where(f"document_id IN ({ids_sql})")
+            .limit(limit)
+            .to_list()
+        )

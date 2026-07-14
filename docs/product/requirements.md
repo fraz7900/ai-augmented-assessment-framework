@@ -20,8 +20,9 @@ Derived from `PROJECT_CHARTER.md` and `docs/product/prd.md`. Each functional req
 | FR-10a | System shall transcribe the remaining 8 C2M2 domains with the same verified rigor | Planned | US-3.1a |
 | FR-12 | System shall represent NIST CSF 2.0 structure including the Govern function | Delivered, full coverage (all 6 functions, 106 of 106 subcategories; see ADR-0010) | US-4.1 |
 | FR-12a | System shall score NIST CSF 2.0 without fabricating maturity levels the standard does not define | Delivered — coverage-based scoring, verified against real data live | US-4.2 |
-| FR-13 | System shall propose evidence-to-practice mappings with a verified citation and confidence score | Planned (Sprint 5) | US-5.1 |
-| FR-14 | System shall flag evidence that satisfies practices across multiple frameworks | Planned (Sprint 5) | US-5.2 |
+| FR-13 | System shall propose evidence-to-practice mappings with a verified citation and confidence score | Delivered, retrieval-only (see ADR-0011) — confidence from retrieval similarity, citation is the literal retrieved chunk (trivially verified, nothing generated), verified live against real data | US-5.1 |
+| FR-13a | System shall require a human accept/edit/reject decision before an AI-proposed mapping counts toward a score, and shall prevent re-reviewing an already-reviewed link | Delivered, verified live | `.claude/skills/assessment-generation/SKILL.md`, ADR-0011 |
+| FR-14 | System shall flag evidence that satisfies practices across multiple frameworks | Planned (deferred from Sprint 5, still open) | US-5.2 |
 | FR-15 | System shall generate an executive report following a situation/complication/resolution structure | Planned (Sprint 6-7) | US-6.1 |
 | FR-16 | System shall answer natural-language questions about a finalized assessment, grounded only in its linked evidence | Planned (Sprint 8) | US-7.1 |
 

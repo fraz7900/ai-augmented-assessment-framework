@@ -15,16 +15,21 @@ from compliance_platform.models.assessment import (
     AssessmentStatus,
     AssessmentStatusChange,
     EvidenceLink,
+    EvidenceReviewStatus,
     EvidenceSource,
 )
 from compliance_platform.services.assessment_service import (
     AssessmentFinalizedError,
     AssessmentNotFoundError,
     AssessmentService,
+    EvidenceAlreadyReviewedError,
     EvidenceDocumentNotIngestedError,
+    EvidenceLinkNotFoundError,
     FrameworkScoringUnavailableError,
     InvalidPracticeReferenceError,
+    InvalidReviewDecisionError,
     InvalidStatusTransitionError,
+    MappingEngineUnavailableError,
 )
 
 router = APIRouter(prefix="/assessments", tags=["assessments"])
@@ -46,6 +51,12 @@ class LinkEvidenceRequest(BaseModel):
     chunk_id: str | None = None
     note: str | None = None
     source: EvidenceSource = EvidenceSource.MANUAL
+
+
+class ReviewEvidenceRequest(BaseModel):
+    decision: EvidenceReviewStatus
+    corrected_practice_reference: str | None = None
+    note: str | None = None
 
 
 @router.post("", response_model=Assessment)
@@ -154,3 +165,60 @@ def get_scores(
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except FrameworkScoringUnavailableError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@router.post("/{assessment_id}/evidence/{evidence_link_id}/review", response_model=EvidenceLink)
+def review_evidence(
+    assessment_id: str,
+    evidence_link_id: str,
+    request: ReviewEvidenceRequest,
+    service: AssessmentService = Depends(get_assessment_service),
+) -> EvidenceLink:
+    """Applies a human accept/edit/reject decision to a pending evidence
+    link — see services/assessment_service.py.review_evidence and the
+    assessment-generation skill's human-in-the-loop invariant.
+    """
+    try:
+        return service.review_evidence(
+            assessment_id=assessment_id,
+            evidence_link_id=evidence_link_id,
+            decision=request.decision,
+            corrected_practice_reference=request.corrected_practice_reference,
+            note=request.note,
+        )
+    except AssessmentNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except EvidenceLinkNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except AssessmentFinalizedError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except EvidenceAlreadyReviewedError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except InvalidReviewDecisionError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except InvalidPracticeReferenceError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/{assessment_id}/propose-mappings", response_model=list[EvidenceLink])
+def propose_mappings(
+    assessment_id: str,
+    service: AssessmentService = Depends(get_assessment_service),
+) -> list[EvidenceLink]:
+    """Runs the retrieval-based mapping engine (services/mapping_service.py,
+    ADR-0011) and persists any resulting proposals as AI-proposed,
+    pending-review evidence links — always over documents already
+    associated with this assessment, never the whole vector store.
+    """
+    try:
+        return service.propose_mappings(assessment_id)
+    except AssessmentNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except AssessmentFinalizedError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except FrameworkScoringUnavailableError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except MappingEngineUnavailableError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
