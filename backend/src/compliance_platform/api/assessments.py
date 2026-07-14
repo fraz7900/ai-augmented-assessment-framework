@@ -18,6 +18,7 @@ from compliance_platform.models.assessment import (
     EvidenceReviewStatus,
     EvidenceSource,
 )
+from compliance_platform.models.report import DashboardReport
 from compliance_platform.services.assessment_service import (
     AssessmentFinalizedError,
     AssessmentNotFoundError,
@@ -161,6 +162,25 @@ def get_scores(
     """
     try:
         return service.compute_scores(assessment_id)
+    except AssessmentNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except FrameworkScoringUnavailableError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@router.get("/{assessment_id}/dashboard", response_model=DashboardReport)
+def get_dashboard(
+    assessment_id: str,
+    service: AssessmentService = Depends(get_assessment_service),
+) -> DashboardReport:
+    """Executive dashboard (Sprint 6): situation/complication/resolution
+    view of this assessment — see services/report_service.py and
+    ADR-0012. No LLM narrative generation; every figure is computed
+    directly from real evidence links and the framework's structured
+    schema.
+    """
+    try:
+        return service.build_dashboard(assessment_id)
     except AssessmentNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except FrameworkScoringUnavailableError as exc:

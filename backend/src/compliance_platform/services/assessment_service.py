@@ -22,7 +22,9 @@ from compliance_platform.models.assessment import (
     EvidenceSource,
 )
 from compliance_platform.models.framework import FrameworkDefinition
+from compliance_platform.models.report import DashboardReport
 from compliance_platform.services.mapping_service import find_mapping_candidates
+from compliance_platform.services.report_service import build_dashboard
 from compliance_platform.services.scoring_service import compute_assessment_domain_scores
 
 _REVIEW_DECISIONS = (
@@ -280,6 +282,21 @@ class AssessmentService:
             if link.review_status in (EvidenceReviewStatus.ACCEPTED, EvidenceReviewStatus.EDITED)
         }
         return compute_assessment_domain_scores(framework, performed_practice_ids)
+
+    def build_dashboard(self, assessment_id: str) -> DashboardReport:
+        """Executive dashboard for this assessment (Sprint 6): situation,
+        MECE gap analysis by domain, and a prioritized resolution list —
+        see services/report_service.py. Same framework-availability and
+        existence checks as compute_scores, since the dashboard is built
+        from the same two inputs (framework schema, evidence links).
+        """
+        assessment = self.get_assessment(assessment_id)
+        framework = self._frameworks.get(assessment.framework_name) if self._frameworks else None
+        if framework is None:
+            raise FrameworkScoringUnavailableError(assessment.framework_name)
+
+        evidence_links = self._assessments.evidence_for_assessment(assessment_id)
+        return build_dashboard(assessment, framework, evidence_links)
 
     def review_evidence(
         self,

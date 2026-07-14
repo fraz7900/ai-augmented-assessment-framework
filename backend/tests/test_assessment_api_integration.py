@@ -404,3 +404,97 @@ def test_nist_score_endpoint_computes_real_coverage_for_protect_function(
     body = scores.json()
     assert body["PR"] == pytest.approx(1 / total_pr_subcategories)
     assert body["GV"] == 0.0  # untouched function, honest zero not an error
+
+
+def test_dashboard_endpoint_computes_real_gap_analysis_for_access_domain(
+    client: TestClient,
+) -> None:
+    """End-to-end proof of Sprint 6's dashboard against real C2M2 data:
+    link evidence for all but one MIL1 ACCESS practice, and confirm the
+    dashboard's complication section correctly names the one remaining
+    gap, the resolution section prioritizes it, and the unpopulated
+    RISK domain is excluded from complication but honestly listed in
+    situation.unpopulated_domains rather than silently omitted.
+    """
+    document_id = _ingest_sample_document(client)
+    create_response = client.post(
+        "/assessments", json={"name": "Dashboard Test", "framework_name": "C2M2"}
+    )
+    assessment_id = create_response.json()["id"]
+
+    framework = client.get("/frameworks/C2M2").json()
+    access = next(d for d in framework["domains"] if d["short_code"] == "ACCESS")
+    mil1_practice_ids = [
+        practice["id"]
+        for objective in access["objectives"]
+        for practice in objective["practices"]
+        if practice["mil"] == 1
+    ]
+    assert len(mil1_practice_ids) > 1  # sanity check the fixture data isn't degenerate
+
+    held_back = mil1_practice_ids[0]
+    for practice_id in mil1_practice_ids[1:]:
+        response = client.post(
+            f"/assessments/{assessment_id}/evidence",
+            json={"document_id": document_id, "practice_reference": practice_id},
+        )
+        assert response.status_code == 200
+
+    dashboard = client.get(f"/assessments/{assessment_id}/dashboard")
+    assert dashboard.status_code == 200
+    body = dashboard.json()
+
+    assert body["situation"]["accepted_count"] == len(mil1_practice_ids) - 1
+    assert "RISK" in body["situation"]["unpopulated_domains"]
+
+    access_group = next(g for g in body["complication"] if g["domain_short_code"] == "ACCESS")
+    gap_ids = {g["practice_id"] for g in access_group["gaps"]}
+    assert held_back in gap_ids
+    assert access_group["so_what"]  # non-empty, business-consequence sentence
+
+    complication_codes = {g["domain_short_code"] for g in body["complication"]}
+    assert "RISK" not in complication_codes  # unpopulated domains never appear here
+
+    assert body["overall"]["scoring_model"] == "cumulative_mil"
+    assert body["overall"]["domains_at_mil1_or_above"] == 0  # ACCESS not yet fully at MIL1
+    assert body["overall"]["overall_coverage_fraction"] is None
+
+    resolution_codes = [r["domain_short_code"] for r in body["resolution"]]
+    assert "ACCESS" in resolution_codes
+
+
+def test_dashboard_endpoint_computes_real_coverage_fraction_for_nist(client: TestClient) -> None:
+    """Same proof as above but for NIST CSF 2.0's coverage scoring
+    model: confirms overall.overall_coverage_fraction is populated (not
+    domains_at_mil1_or_above, which only applies to cumulative_mil
+    frameworks) and is a real weighted fraction across all 6 fully
+    transcribed functions, not just the touched one.
+    """
+    document_id = _ingest_sample_document(client)
+    create_response = client.post(
+        "/assessments", json={"name": "NIST Dashboard Test", "framework_name": "NIST CSF 2.0"}
+    )
+    assessment_id = create_response.json()["id"]
+
+    framework = client.get("/frameworks/NIST CSF 2.0").json()
+    total_subcategories = sum(
+        len(o["practices"]) for d in framework["domains"] for o in d["objectives"]
+    )
+
+    response = client.post(
+        f"/assessments/{assessment_id}/evidence",
+        json={"document_id": document_id, "practice_reference": "PR.AA-01"},
+    )
+    assert response.status_code == 200
+
+    dashboard = client.get(f"/assessments/{assessment_id}/dashboard")
+    assert dashboard.status_code == 200
+    body = dashboard.json()
+
+    assert body["situation"]["unpopulated_domains"] == []  # NIST CSF 2.0 has full coverage
+    assert body["overall"]["scoring_model"] == "coverage"
+    assert body["overall"]["domains_at_mil1_or_above"] is None
+    assert body["overall"]["overall_coverage_fraction"] == pytest.approx(1 / total_subcategories)
+
+    pr_group = next(g for g in body["complication"] if g["domain_short_code"] == "PR")
+    assert not any(g["practice_id"] == "PR.AA-01" for g in pr_group["gaps"])

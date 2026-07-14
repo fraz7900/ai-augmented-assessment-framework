@@ -23,7 +23,7 @@ Derived from `PROJECT_CHARTER.md` and `docs/product/prd.md`. Each functional req
 | FR-13 | System shall propose evidence-to-practice mappings with a verified citation and confidence score | Delivered, retrieval-only (see ADR-0011) — confidence from retrieval similarity, citation is the literal retrieved chunk (trivially verified, nothing generated), verified live against real data | US-5.1 |
 | FR-13a | System shall require a human accept/edit/reject decision before an AI-proposed mapping counts toward a score, and shall prevent re-reviewing an already-reviewed link | Delivered, verified live | `.claude/skills/assessment-generation/SKILL.md`, ADR-0011 |
 | FR-14 | System shall flag evidence that satisfies practices across multiple frameworks | Planned (deferred from Sprint 5, still open) | US-5.2 |
-| FR-15 | System shall generate an executive report following a situation/complication/resolution structure | Planned (Sprint 6-7) | US-6.1 |
+| FR-15 | System shall generate an executive dashboard following a situation/complication/resolution structure | Delivered, dashboard only (see ADR-0012) — PDF/XLSX export planned (Sprint 7, US-6.2) | US-6.1 |
 | FR-16 | System shall answer natural-language questions about a finalized assessment, grounded only in its linked evidence | Planned (Sprint 8) | US-7.1 |
 
 ## Non-Functional Requirements
@@ -33,7 +33,7 @@ Derived from `PROJECT_CHARTER.md` and `docs/product/prd.md`. Each functional req
 | NFR-1 | No evidence content shall be transmitted to a network endpoint by default | Delivered (verified by code inspection, Sprint 1-2: no network client exists in the ingestion or assessment path) | `PROJECT_CHARTER.md` Section 7; `.claude/skills/privacy-protection/SKILL.md` |
 | NFR-2 | Any future cloud-API fallback must be explicit, opt-in per call, and logged | Planned (Sprint 3+, when API fallback is introduced) | Same |
 | NFR-3 | Backend dependency set shall avoid heavyweight ML runtimes (PyTorch/CUDA) unless a specific accuracy requirement cannot otherwise be met | Delivered — validated empirically in Sprint 1 and again when ADR-0008 adopted ONNX Runtime (deliberately not PyTorch) for real semantic embeddings without reintroducing the dependency weight this NFR exists to avoid | ADR-0005, ADR-0006, ADR-0008 |
-| NFR-4 | Every AI-proposed evidence mapping must be distinguishable from a human-confirmed one in both data model and UI | Delivered at the data-model level (`EvidenceSource`, `EvidenceReviewStatus`); UI-level requirement pending frontend (Sprint 6) | `.claude/skills/assessment-generation/SKILL.md` |
+| NFR-4 | Every AI-proposed evidence mapping must be distinguishable from a human-confirmed one in both data model and UI | Delivered at the data-model level (`EvidenceSource`, `EvidenceReviewStatus`) and now at the aggregate-API level (`GapItem.has_pending_ai_proposal`, Sprint 6); actual UI-level requirement still pending an actual frontend, which remains unbuilt | `.claude/skills/assessment-generation/SKILL.md` |
 | NFR-5 | A finalized assessment's evidence trail must be immutable | Delivered | US-2.5 |
 | NFR-6 | Test suite must exercise real integrations (real SQLite, real LanceDB, real FastAPI app), not only mocks, for at least one path per major feature | Delivered — `backend/tests/` integration suite | `docs/architecture/00-repository-architecture.md` testing strategy |
 | NFR-7 | Single-user, local deployment is sufficient for MVP; no concurrent multi-writer requirement | Delivered (SQLite, ADR-0007) | `PROJECT_CHARTER.md` Section 9 |
