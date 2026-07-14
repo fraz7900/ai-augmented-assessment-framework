@@ -10,6 +10,7 @@ source_date: 2022-06
 source_url: https://www.energy.gov/sites/default/files/2022-06/C2M2%20Version%202.1%20June%202022.pdf
 retrieved_date: '2026-07-14'
 total_practices_in_source: 356
+scoring_model: cumulative_mil
 mil_levels:
 - level: 0
   name: Not Performed

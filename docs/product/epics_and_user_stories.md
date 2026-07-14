@@ -41,10 +41,13 @@ Status markers: **Delivered** (built, tested, demoed), **Planned** (scoped, not 
 **US-3.1a (new backlog item, surfaced by delivering US-3.1)** As Priya, I want the remaining 8 C2M2 domains (`THREAT`, `RISK`, `SITUATION`, `RESPONSE`, `THIRD-PARTIES`, `WORKFORCE`, `ARCHITECTURE`, `PROGRAM`) transcribed with the same verbatim rigor as `ASSET`/`ACCESS`, so an assessment can be meaningfully scored across the whole framework, not two domains of it.
 *Acceptance criteria (draft):* each domain's `practices_populated` flips to `true` via `backend/scripts/generate_c2m2_yaml.py`, following the process ADR-0009 documents; no change to loader, scoring, or validation code required, per the data-as-code design (ADR-0002) — this item is line-item work, not architecture work.
 
-## Epic 4: NIST CSF 2.0 Framework Support — Planned (Sprint 4)
+## Epic 4: NIST CSF 2.0 Framework Support — Delivered, full coverage (Sprint 4)
 
 **US-4.1** As Priya, I want NIST CSF 2.0's six functions (including the new Govern function) represented accurately, so the platform doesn't quietly treat it as CSF 1.1.
-*Acceptance criteria (draft):* `framework_mapping/nist_csf_2_0.yaml` includes Govern as a distinct function; documentation explicitly notes any project-defined maturity scale layered on top is not part of the NIST standard itself (per the `nist-csf-expert` skill).
+*Acceptance criteria:* `framework_mapping/nist_csf_2_0.yaml` includes all 6 functions (Govern, Identify, Protect, Detect, Respond, Recover) and all 22 categories and 106 subcategories, verbatim and source-cited (ADR-0010) — full coverage, unlike C2M2's partial coverage, because the entire CSF Core fit within the fetched source document. `scoring_note` in the same file explicitly states the coverage-based score this project computes is not part of the NIST standard itself, per the `nist-csf-expert` skill's requirement.
+
+**US-4.2** As Priya, I want evidence linked against a NIST CSF 2.0 assessment to be scored meaningfully even though NIST CSF has no native maturity levels, so I'm not stuck choosing between a fabricated MIL score and no score at all.
+*Acceptance criteria:* `services/scoring_service.py` computes a 0.0-1.0 coverage fraction per function via `compute_domain_coverage`; verified live against the running server — linking all 6 real `PR.AA` subcategories scored the `PR` function at 6/22 (0.273), with untouched functions correctly reporting an honest 0.0, not an error.
 
 ## Epic 5: Framework Mapping Engine — Planned (Sprint 5)
 

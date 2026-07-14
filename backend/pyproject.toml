@@ -61,3 +61,5 @@ select = ["E", "F", "I", "UP", "B"]
 # text, which is a worse outcome than a long line in a script no one
 # reads for style.
 "scripts/generate_c2m2_yaml.py" = ["E501"]
+# Same rationale, same exception, for the NIST CSF 2.0 transcription script.
+"scripts/generate_nist_csf_yaml.py" = ["E501"]

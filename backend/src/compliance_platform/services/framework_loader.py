@@ -28,6 +28,7 @@ class FrameworkNotFoundError(Exception):
 # not against whatever happens to exist on disk.
 _KNOWN_FRAMEWORKS: dict[str, str] = {
     "C2M2": "c2m2_v2_1.yaml",
+    "NIST CSF 2.0": "nist_csf_2_0.yaml",
 }
 
 

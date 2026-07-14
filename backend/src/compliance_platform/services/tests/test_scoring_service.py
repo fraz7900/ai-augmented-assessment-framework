@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 from compliance_platform.core.config import get_settings
-from compliance_platform.models.framework import Domain, Objective, Practice
+from compliance_platform.models.framework import Domain, FrameworkDefinition, Objective, Practice
 from compliance_platform.services.framework_loader import FrameworkRegistry
 from compliance_platform.services.scoring_service import (
     compute_assessment_domain_scores,
+    compute_domain_coverage,
     compute_domain_mil,
 )
 
@@ -117,3 +118,106 @@ def test_compute_assessment_domain_scores_reports_every_domain() -> None:
     scores = compute_assessment_domain_scores(framework, performed_practice_ids=set())
     assert set(scores.keys()) == {d.short_code for d in framework.domains}
     assert all(score == 0 for score in scores.values())
+
+
+# --- Coverage scoring (Sprint 4, NIST CSF 2.0) ---
+
+
+def _synthetic_coverage_domain() -> Domain:
+    """A small domain with no mil values, matching NIST CSF 2.0's shape
+    (subcategories have no native maturity level — see ADR-0010).
+    """
+    return Domain(
+        short_code="TESTCOV",
+        full_name="Test Coverage Domain",
+        purpose="For coverage scoring logic tests only.",
+        practices_populated=True,
+        objectives=[
+            Objective(
+                number=1,
+                title="Category One",
+                practices=[
+                    Practice(id="TC.ONE-01", text="subcategory a"),
+                    Practice(id="TC.ONE-02", text="subcategory b"),
+                ],
+            ),
+            Objective(
+                number=2,
+                title="Category Two",
+                practices=[
+                    Practice(id="TC.TWO-01", text="subcategory c"),
+                    Practice(id="TC.TWO-02", text="subcategory d"),
+                ],
+            ),
+        ],
+    )
+
+
+def test_coverage_is_zero_with_no_evidence() -> None:
+    domain = _synthetic_coverage_domain()
+    assert compute_domain_coverage(domain, performed_practice_ids=set()) == 0.0
+
+
+def test_coverage_is_a_simple_fraction_not_a_cumulative_level() -> None:
+    """The key behavioral difference from compute_domain_mil: covering
+    half the domain's practices, regardless of which ones, scores 0.5 —
+    there is no "unmet earlier level blocks everything" rule, because
+    NIST CSF 2.0 has no levels to block against.
+    """
+    domain = _synthetic_coverage_domain()
+    performed = {"TC.TWO-01", "TC.TWO-02"}  # only the second category, none of the first
+    assert compute_domain_coverage(domain, performed) == 0.5
+
+
+def test_coverage_is_one_when_all_practices_performed() -> None:
+    domain = _synthetic_coverage_domain()
+    performed = {"TC.ONE-01", "TC.ONE-02", "TC.TWO-01", "TC.TWO-02"}
+    assert compute_domain_coverage(domain, performed) == 1.0
+
+
+def test_unpopulated_domain_scores_zero_coverage() -> None:
+    domain = Domain(
+        short_code="EMPTY",
+        full_name="Empty Domain",
+        purpose="Not yet transcribed.",
+        practices_populated=False,
+        objectives=[],
+    )
+    assert compute_domain_coverage(domain, performed_practice_ids={"anything"}) == 0.0
+
+
+def test_compute_assessment_domain_scores_dispatches_on_scoring_model() -> None:
+    """The one test that would fail if a future change accidentally
+    hardcoded a framework name instead of reading scoring_model, per the
+    framework-mapping skill's warning against exactly that pattern.
+    """
+    coverage_framework = FrameworkDefinition(
+        name="Coverage Test Framework",
+        full_name="n/a",
+        version="0",
+        source_title="n/a",
+        source_publisher="n/a",
+        source_date="n/a",
+        source_url="n/a",
+        retrieved_date="n/a",
+        total_practices_in_source=4,
+        scoring_model="coverage",
+        scoring_note="n/a",
+        domains=[_synthetic_coverage_domain()],
+    )
+    scores = compute_assessment_domain_scores(
+        coverage_framework, performed_practice_ids={"TC.ONE-01"}
+    )
+    assert scores["TESTCOV"] == 0.25  # a fraction, not a MIL level
+
+
+def test_nist_protect_domain_coverage_grows_with_real_evidence() -> None:
+    """Grounds coverage scoring in the real, committed NIST CSF 2.0 data."""
+    settings = get_settings()
+    framework = FrameworkRegistry(settings.framework_mapping_dir).require("NIST CSF 2.0")
+    protect = framework.domain("PR")
+    assert protect is not None
+    total = len(protect.practice_ids())
+
+    assert compute_domain_coverage(protect, set()) == 0.0
+    assert compute_domain_coverage(protect, {"PR.AA-01"}) == 1 / total

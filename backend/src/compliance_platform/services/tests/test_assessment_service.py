@@ -116,6 +116,7 @@ def _tiny_framework(name: str = "C2M2") -> FrameworkDefinition:
         source_url="n/a",
         retrieved_date="n/a",
         total_practices_in_source=2,
+        scoring_model="cumulative_mil",
         mil_levels=[MilLevelDefinition(level=1, name="Initiated", description="n/a")],
         scoring_note="n/a",
         domains=[

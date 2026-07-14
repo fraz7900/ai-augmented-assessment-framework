@@ -135,14 +135,18 @@ def list_evidence(
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
-@router.get("/{assessment_id}/score", response_model=dict[str, int])
+@router.get("/{assessment_id}/score", response_model=dict[str, float])
 def get_scores(
     assessment_id: str,
     service: AssessmentService = Depends(get_assessment_service),
-) -> dict[str, int]:
-    """Per-domain MIL score (0-3, cumulative per services/scoring_service.py).
-    A domain not yet transcribed into framework_mapping/ (see ADR-0009)
-    always reports 0, not an error — see Domain.practices_populated.
+) -> dict[str, float]:
+    """Per-domain score. Meaning depends on the assessment's framework —
+    check GET /frameworks/{name}'s scoring_model field: "cumulative_mil"
+    means a whole-number MIL 0-3 (C2M2); "coverage" means a 0.0-1.0
+    fraction of subcategories with evidence (NIST CSF 2.0, which has no
+    native maturity concept — see ADR-0010). A domain not yet
+    transcribed into framework_mapping/ always reports 0/0.0, not an
+    error — see Domain.practices_populated.
     """
     try:
         return service.compute_scores(assessment_id)

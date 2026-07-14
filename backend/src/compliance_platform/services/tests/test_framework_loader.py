@@ -82,7 +82,7 @@ def test_management_activities_objective_has_no_mil1_practices() -> None:
 
 
 def test_get_returns_none_for_unknown_framework() -> None:
-    assert _registry().get("NIST CSF 2.0") is None
+    assert _registry().get("ISO 27001") is None
 
 
 def test_registry_caches_loaded_framework() -> None:
@@ -90,3 +90,58 @@ def test_registry_caches_loaded_framework() -> None:
     first = registry.require("C2M2")
     second = registry.require("C2M2")
     assert first is second
+
+
+# --- NIST CSF 2.0 (Sprint 4) ---
+
+
+def test_nist_csf_loads_with_all_six_functions_fully_populated() -> None:
+    framework = _registry().require("NIST CSF 2.0")
+    assert framework.version == "2.0"
+    assert framework.scoring_model == "coverage"
+    assert len(framework.domains) == 6
+    assert {d.short_code for d in framework.domains} == {"GV", "ID", "PR", "DE", "RS", "RC"}
+    assert all(d.practices_populated for d in framework.domains)
+
+
+def test_nist_csf_subcategory_count_matches_the_official_total() -> None:
+    """106 is NIST's own stated total (confirmed via WebSearch before
+    transcription, see ADR-0010); the generator script asserts this at
+    write time, and this test asserts it again at load time so a future
+    hand-edit of the committed YAML (against the file's own header
+    warning not to) would still be caught.
+    """
+    framework = _registry().require("NIST CSF 2.0")
+    assert len(framework.all_practice_ids()) == 106
+
+
+def test_protect_function_includes_identity_and_access_control_category() -> None:
+    """Grounds this in something demo-relevant: PR.AA is the category
+    directly exercised by data/sample_evidence/synthetic_access_control_policy.md,
+    mirroring the C2M2 ACCESS domain choice in Sprint 3.
+    """
+    framework = _registry().require("NIST CSF 2.0")
+    protect = framework.domain("PR")
+    assert protect is not None
+    aa_category = next(o for o in protect.objectives if o.title.startswith("Identity Management"))
+    assert aa_category.purpose  # real, transcribed category purpose text, not blank
+    assert {"PR.AA-01", "PR.AA-03", "PR.AA-05"} <= {p.id for p in aa_category.practices}
+
+
+def test_govern_function_has_no_mil_values() -> None:
+    """NIST CSF 2.0 subcategories have no native maturity level — see
+    ADR-0010 — so Practice.mil must be None throughout, not defaulted
+    to some arbitrary number.
+    """
+    framework = _registry().require("NIST CSF 2.0")
+    govern = framework.domain("GV")
+    assert govern is not None
+    assert all(p.mil is None for p in govern.all_practices())
+
+
+def test_nist_registry_and_c2m2_registry_coexist() -> None:
+    registry = _registry()
+    c2m2 = registry.require("C2M2")
+    nist = registry.require("NIST CSF 2.0")
+    assert c2m2.scoring_model == "cumulative_mil"
+    assert nist.scoring_model == "coverage"

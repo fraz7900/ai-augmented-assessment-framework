@@ -295,6 +295,7 @@ def main() -> None:
         ),
         "retrieved_date": "2026-07-14",
         "total_practices_in_source": 356,
+        "scoring_model": "cumulative_mil",
         "mil_levels": [
             {"level": 0, "name": "Not Performed", "description": "Practices are not performed."},
             {

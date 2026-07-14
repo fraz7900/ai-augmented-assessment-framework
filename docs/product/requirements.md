@@ -18,7 +18,8 @@ Derived from `PROJECT_CHARTER.md` and `docs/product/prd.md`. Each functional req
 | FR-10 | System shall represent C2M2 structure (domains, practices, MILs) as validated, versioned data | Delivered, partial coverage (2 of 10 domains fully populated; see ADR-0009) | US-3.1 |
 | FR-11 | System shall enforce C2M2's cumulative MIL scoring semantics | Delivered, verified against real data live | US-3.2 |
 | FR-10a | System shall transcribe the remaining 8 C2M2 domains with the same verified rigor | Planned | US-3.1a |
-| FR-12 | System shall represent NIST CSF 2.0 structure including the Govern function | Planned (Sprint 4) | US-4.1 |
+| FR-12 | System shall represent NIST CSF 2.0 structure including the Govern function | Delivered, full coverage (all 6 functions, 106 of 106 subcategories; see ADR-0010) | US-4.1 |
+| FR-12a | System shall score NIST CSF 2.0 without fabricating maturity levels the standard does not define | Delivered — coverage-based scoring, verified against real data live | US-4.2 |
 | FR-13 | System shall propose evidence-to-practice mappings with a verified citation and confidence score | Planned (Sprint 5) | US-5.1 |
 | FR-14 | System shall flag evidence that satisfies practices across multiple frameworks | Planned (Sprint 5) | US-5.2 |
 | FR-15 | System shall generate an executive report following a situation/complication/resolution structure | Planned (Sprint 6-7) | US-6.1 |

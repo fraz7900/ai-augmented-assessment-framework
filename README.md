@@ -6,14 +6,14 @@ This repository is developed as a structured, sprint-based engagement — every 
 
 ## Status
 
-**Sprint 3 complete: real C2M2 v2.1 scoring, verified against the actual DOE source document.**
-A real FastAPI app (`backend/src/compliance_platform`) ingests documents, embeds them locally (ONNX, no PyTorch, no network calls), tracks assessments through a draft → in-review → finalized lifecycle, and now scores C2M2 maturity (cumulative MIL0-3, per domain) from real, source-cited framework data — 2 of 10 domains fully transcribed (`ASSET`, `ACCESS`, 71 real practices), the rest honestly flagged as not yet populated rather than faked. 77 automated tests pass. Run it yourself:
+**Sprint 4 complete: both MVP frameworks (C2M2, NIST CSF 2.0) now real and scored, verified against their actual official source documents.**
+A real FastAPI app (`backend/src/compliance_platform`) ingests documents, embeds them locally (ONNX, no PyTorch, no network calls), tracks assessments through a draft → in-review → finalized lifecycle, and scores both C2M2 maturity (cumulative MIL0-3 per domain — 2 of 10 domains fully transcribed, 71 real practices) and NIST CSF 2.0 (coverage-based, 0.0-1.0 per function — **all 6 functions, 106 of 106 subcategories fully transcribed**) from real, source-cited framework data, through one scoring engine that dispatches per framework rather than branching on framework name. 91 automated tests pass. Run it yourself:
 
 ```
 cd backend && source .venv/bin/activate && uvicorn compliance_platform.main:app --reload
 ```
 
-then `POST` a file to `/ingest`, `POST /assessments` to create a C2M2 assessment, `POST /assessments/{id}/evidence` with a real practice ID like `ACCESS-1a` (see `GET /frameworks/C2M2`), and `GET /assessments/{id}/score` for the per-domain MIL. See `docs/consulting/sprint-03-deliverables.md` for what was built, and `docs/adr/ADR-0009-c2m2-structured-data.md` for how the framework data was sourced and verified — including catching a real defect from Sprint 2's demo data along the way.
+then `POST` a file to `/ingest`, `POST /assessments` with `framework_name` set to `C2M2` or `NIST CSF 2.0`, `POST /assessments/{id}/evidence` with a real practice ID (`ACCESS-1a` for C2M2, `PR.AA-01` for NIST — see `GET /frameworks/{name}`), and `GET /assessments/{id}/score`. See `docs/consulting/sprint-04-deliverables.md` for what was built, and `docs/adr/ADR-0010-nist-csf-coverage-scoring.md` for why NIST CSF 2.0 is scored differently from C2M2 and why it has full rather than partial coverage.
 
 ## Start here
 
@@ -21,7 +21,7 @@ then `POST` a file to `/ingest`, `POST /assessments` to create a C2M2 assessment
 - [`docs/product/`](./docs/product/) — PRD, personas, epics/user stories, requirements, assumptions log, decision log, risk register, prioritized backlog
 - [`docs/architecture/00-repository-architecture.md`](./docs/architecture/00-repository-architecture.md) — repository layout and rationale
 - [`docs/architecture/01-claude-code-workspace.md`](./docs/architecture/01-claude-code-workspace.md) — hooks, skills, and MCP design for this project's `.claude/` workspace
-- [`docs/adr/`](./docs/adr/) — Architecture Decision Records (9 as of Sprint 3)
+- [`docs/adr/`](./docs/adr/) — Architecture Decision Records (10 as of Sprint 4)
 - [`docs/consulting/`](./docs/consulting/) — per-sprint executive summaries, business value/risk/ROI assessments, and MBA/interview narrative
 - [`docs/current_sprint.md`](./docs/current_sprint.md) — single-source-of-truth sprint tracker
 

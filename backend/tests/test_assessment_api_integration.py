@@ -143,7 +143,7 @@ def test_get_c2m2_framework_returns_real_structure(client: TestClient) -> None:
 
 
 def test_get_unknown_framework_returns_404(client: TestClient) -> None:
-    response = client.get("/frameworks/NIST CSF 2.0")
+    response = client.get("/frameworks/ISO 27001")
     assert response.status_code == 404
 
 
@@ -199,8 +199,67 @@ def test_score_endpoint_computes_real_mil1_for_access_domain(client: TestClient)
 
 def test_score_endpoint_returns_422_for_framework_with_no_schema(client: TestClient) -> None:
     create_response = client.post(
-        "/assessments", json={"name": "Test", "framework_name": "NIST CSF 2.0"}
+        "/assessments", json={"name": "Test", "framework_name": "ISO 27001"}
     )
     assessment_id = create_response.json()["id"]
     response = client.get(f"/assessments/{assessment_id}/score")
     assert response.status_code == 422
+
+
+# --- NIST CSF 2.0 coverage scoring (Sprint 4) ---
+
+
+def test_get_nist_csf_framework_returns_real_structure(client: TestClient) -> None:
+    response = client.get("/frameworks/NIST CSF 2.0")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["version"] == "2.0"
+    assert body["scoring_model"] == "coverage"
+    assert len(body["domains"]) == 6
+    govern = next(d for d in body["domains"] if d["short_code"] == "GV")
+    assert govern["practices_populated"] is True
+
+
+def test_link_evidence_rejects_invalid_nist_subcategory(client: TestClient) -> None:
+    document_id = _ingest_sample_document(client)
+    create_response = client.post(
+        "/assessments", json={"name": "Test", "framework_name": "NIST CSF 2.0"}
+    )
+    assessment_id = create_response.json()["id"]
+    response = client.post(
+        f"/assessments/{assessment_id}/evidence",
+        json={"document_id": document_id, "practice_reference": "NOT-A-REAL-SUBCATEGORY"},
+    )
+    assert response.status_code == 422
+
+
+def test_nist_score_endpoint_computes_real_coverage_for_protect_function(
+    client: TestClient,
+) -> None:
+    """End-to-end proof of coverage scoring against real NIST CSF 2.0
+    data: link evidence for one PR.AA subcategory (Identity Management,
+    Authentication, and Access Control — the same thematic pairing as
+    the C2M2 ACCESS demo in Sprint 3) and confirm the PR function's
+    coverage score reflects it as a fraction, not a MIL level.
+    """
+    document_id = _ingest_sample_document(client)
+    create_response = client.post(
+        "/assessments", json={"name": "NIST Scoring Test", "framework_name": "NIST CSF 2.0"}
+    )
+    assessment_id = create_response.json()["id"]
+
+    framework = client.get("/frameworks/NIST CSF 2.0").json()
+    protect = next(d for d in framework["domains"] if d["short_code"] == "PR")
+    total_pr_subcategories = sum(len(o["practices"]) for o in protect["objectives"])
+
+    response = client.post(
+        f"/assessments/{assessment_id}/evidence",
+        json={"document_id": document_id, "practice_reference": "PR.AA-01"},
+    )
+    assert response.status_code == 200
+
+    scores = client.get(f"/assessments/{assessment_id}/score")
+    assert scores.status_code == 200
+    body = scores.json()
+    assert body["PR"] == pytest.approx(1 / total_pr_subcategories)
+    assert body["GV"] == 0.0  # untouched function, honest zero not an error

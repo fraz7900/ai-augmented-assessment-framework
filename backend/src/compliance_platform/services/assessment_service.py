@@ -205,12 +205,14 @@ class AssessmentService:
         self.get_assessment(assessment_id)  # raises AssessmentNotFoundError if missing
         return self._assessments.evidence_for_assessment(assessment_id)
 
-    def compute_scores(self, assessment_id: str) -> dict[str, int]:
-        """Per-domain MIL scores for this assessment's framework, per
-        services/scoring_service.py's cumulative logic. Evidence links
-        still pending or rejected review do not count as performed —
-        only accepted or edited ones do, per the assessment-generation
-        skill's human-in-the-loop invariant.
+    def compute_scores(self, assessment_id: str) -> dict[str, float]:
+        """Per-domain scores for this assessment's framework — cumulative
+        MIL (0-3, C2M2) or coverage (0.0-1.0, NIST CSF 2.0), depending on
+        the framework's declared scoring_model; see
+        services/scoring_service.py. Evidence links still pending or
+        rejected review do not count as performed — only accepted or
+        edited ones do, per the assessment-generation skill's
+        human-in-the-loop invariant.
         """
         assessment = self.get_assessment(assessment_id)
         framework = self._frameworks.get(assessment.framework_name) if self._frameworks else None
