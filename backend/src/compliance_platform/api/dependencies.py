@@ -13,7 +13,9 @@ from functools import lru_cache
 
 from compliance_platform.ai.embeddings import Embedder, get_embedder
 from compliance_platform.core.config import Settings, get_settings
+from compliance_platform.repositories.assessment_repository import AssessmentRepository
 from compliance_platform.repositories.vector_repository import VectorRepository
+from compliance_platform.services.assessment_service import AssessmentService
 from compliance_platform.services.ingestion_service import IngestionService
 
 
@@ -34,9 +36,22 @@ def get_cached_vector_repository() -> VectorRepository:
     return VectorRepository(settings.vector_store_dir, settings.embedding_dimensions)
 
 
+@lru_cache
+def get_cached_assessment_repository() -> AssessmentRepository:
+    settings = get_cached_settings()
+    return AssessmentRepository(settings.assessments_db_path)
+
+
 def get_ingestion_service() -> IngestionService:
     return IngestionService(
         settings=get_cached_settings(),
         vector_repository=get_cached_vector_repository(),
         embedder=get_cached_embedder(),
+    )
+
+
+def get_assessment_service() -> AssessmentService:
+    return AssessmentService(
+        assessment_repository=get_cached_assessment_repository(),
+        vector_repository=get_cached_vector_repository(),
     )

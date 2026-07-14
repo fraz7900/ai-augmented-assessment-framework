@@ -45,6 +45,9 @@ class Settings(BaseSettings):
     embedding_backend: str = "hashing_local"
     embedding_dimensions: int = 4096
 
+    # Relational storage (see repositories/assessment_repository.py and ADR-0007).
+    assessments_db_path: Path = _REPO_ROOT / "data" / "processed" / "assessments.db"
+
 
 def get_settings() -> Settings:
     """Factory rather than a module-level singleton, so tests can override
