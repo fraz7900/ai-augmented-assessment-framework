@@ -1,0 +1,43 @@
+---
+description: Reading, writing, or reasoning about C2M2 (Cybersecurity Capability Maturity Model) structure, domains, practices, or Maturity Indicator Levels (MILs) — including C2M2 scoring logic or any C2M2-specific documentation or demo content.
+globs: framework_mapping/c2m2_*.yaml,backend/src/compliance_platform/services/scoring_service.py
+alwaysApply: false
+---
+
+# C2M2 Expert
+
+Grounding knowledge for working with the DOE Cybersecurity Capability Maturity Model (C2M2) in this
+project. Load this before editing `framework_mapping/c2m2_*.yaml`, C2M2-specific scoring logic, or
+any content that claims to represent C2M2 structure.
+
+## Model structure
+
+- C2M2 is organized into **domains** (e.g., Risk Management, Asset/Change/Configuration Management,
+  Identity and Access Management, Threat and Vulnerability Management, Situational Awareness,
+  Information Sharing, Event and Incident Response, Third-Party Risk Management, Workforce
+  Management, Cybersecurity Architecture, Cybersecurity Program Management). Confirm the exact
+  current domain list and version (C2M2 has had multiple versions) against the actual DOE-published
+  source document before hardcoding it into `framework_mapping/`; do not assume this file's list is
+  complete or current without checking.
+- Each domain contains **practices**, and each practice is associated with a **Maturity Indicator
+  Level (MIL)**: MIL0 (not performed), MIL1 (initiated), MIL2 (performed, more complete/rigorous),
+  MIL3 (managed, institutionalized). An organization's maturity in a domain is the highest MIL for
+  which all practices at that level and below are satisfied — MILs are cumulative, not
+  independently scored.
+- C2M2 also has domain-independent "Approach and Management" practices per MIL level applied across
+  every domain, distinct from the domain-specific practices.
+
+## Rules for this project
+
+1. **Never hardcode C2M2 structure in Python.** It belongs in `framework_mapping/c2m2_*.yaml` per
+   ADR-0002. This rule informs what goes into that file and how to validate it, not application logic.
+2. **Preserve the cumulative MIL semantics** in the scoring engine: a domain cannot be scored MIL2 if
+   any MIL1 practice in that domain is unmet, regardless of how many MIL2 practices are met. This is
+   a common and consequential implementation bug — flag it explicitly in scoring service code review.
+3. **Cite the source document version** (e.g., "C2M2 v2.1") in `framework_mapping/c2m2_*.yaml`
+   metadata so the schema is auditable against a specific published version, consistent with the
+   charter's evidence-and-citation principle.
+4. When explaining C2M2 in documentation or demo narrative, connect it to its actual purpose: a
+   **self-evaluation** tool DOE designed for voluntary use by energy-sector organizations to
+   benchmark cybersecurity practice maturity, distinct from NERC CIP's binding regulatory compliance
+   requirement for bulk electric system entities. Do not conflate the two.

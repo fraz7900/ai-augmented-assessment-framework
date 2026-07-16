@@ -1,0 +1,41 @@
+---
+description: Reading, writing, or reasoning about NIST Cybersecurity Framework 2.0 structure, functions, categories, or subcategories — including NIST-specific scoring/mapping logic or any NIST CSF-specific documentation or demo content.
+globs: framework_mapping/nist_csf_2_0.yaml,backend/src/compliance_platform/services/scoring_service.py
+alwaysApply: false
+---
+
+# NIST CSF 2.0 Expert
+
+Grounding knowledge for working with NIST Cybersecurity Framework 2.0 in this project. Load this
+before editing `framework_mapping/nist_csf_2_0.yaml`, NIST-specific mapping logic, or any content
+that claims to represent NIST CSF structure.
+
+## Model structure
+
+- NIST CSF 2.0 organizes around six **Functions**: Govern, Identify, Protect, Detect, Respond,
+  Recover. Govern was added in the 2.0 revision as a cross-cutting function (cybersecurity
+  governance, risk strategy, roles and responsibilities, policy) — this is the key structural
+  difference from CSF 1.1 and should be called out explicitly anywhere this project explains "why
+  NIST CSF 2.0 specifically."
+- Each Function contains **Categories**, and each Category contains **Subcategories** — the
+  subcategory is the level at which an organization typically assesses and cites evidence.
+- Unlike C2M2, NIST CSF is not natively a maturity-level model — it describes outcomes to achieve,
+  not graded levels of achievement. If this project layers a maturity score on top of NIST CSF
+  subcategories, that scoring scale is this project's own addition, not native to the framework, and
+  must be documented as such in `framework_mapping/nist_csf_2_0.yaml` metadata so it is never
+  presented as if NIST itself defines those maturity levels.
+
+## Rules for this project
+
+1. **Never hardcode NIST CSF structure in Python.** It belongs in
+   `framework_mapping/nist_csf_2_0.yaml` per ADR-0002.
+2. **Cite the NIST CSF 2.0 publication (NIST CSWP 29 or successor)** in the schema metadata,
+   including version, so the schema is auditable against a specific published source.
+3. **Be explicit about the maturity-scoring layer being project-defined**, not part of the NIST
+   standard itself, wherever it's surfaced in the UI, reports, or documentation — this is a
+   defensibility issue if the platform is ever reviewed by someone who knows the standard well.
+4. When connecting NIST CSF to the cross-framework mapping engine
+   (`framework_mapping/cross_framework_equivalence.yaml`), remember that NIST CSF's Govern function
+   has no direct C2M2 domain-level equivalent structurally (C2M2 spreads governance concerns across
+   "Cybersecurity Program Management" and domain-specific "Approach and Management" practices) — do
+   not force a naive one-to-one mapping where the underlying models don't actually align that way.

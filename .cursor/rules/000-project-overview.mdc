@@ -1,0 +1,58 @@
+---
+description: Always-on orientation for the AI-Augmented Compliance Assessment Platform — read this before touching anything in the repo.
+globs:
+alwaysApply: true
+---
+
+# AI-Augmented Compliance Assessment Platform
+
+A local-first, privacy-preserving platform that ingests policy/evidence documents, maps them to
+cybersecurity compliance frameworks (C2M2, NIST CSF 2.0, extensible to NERC CIP / ISO 27001 / CIS
+Controls / SOC 2 / PCI DSS), scores maturity, and produces executive-ready gap analysis — built as a
+sprint-based, consulting-style portfolio engagement. Full problem statement: `PROJECT_CHARTER.md`.
+Current sprint status: `docs/current_sprint.md` (read this file to know what's actually in progress
+before assuming a feature exists or doesn't).
+
+Backend lives in `backend/src/compliance_platform/` (FastAPI, SQLModel, LanceDB, a local ONNX
+embedding model — no PyTorch, no network calls at inference time). Frontend (`frontend/`) is not
+built yet — do not assume a React app exists. Framework structure lives as versioned YAML in
+`framework_mapping/`, never hardcoded in Python (ADR-0002).
+
+## Two non-negotiable rules across the whole repo
+
+1. **Local-first, always.** Evidence content must never be sent to a cloud API (Claude/OpenAI
+   fallback) unless a human explicitly opts in for that specific call — never a global setting,
+   never a silent fallback-on-failure path. See `privacy-protection` rule for the full detail before
+   touching anything that could transmit evidence externally.
+2. **Only public or synthetic data anywhere under `data/`, `assessments/`, `reports/`.** No real
+   client, employer, or organizational data, ever — even in gitignored local directories. See
+   `data/sample_evidence/README.md` and `PROJECT_CHARTER.md` Section 9.
+
+## Before you touch specific areas, more detailed rules exist and will auto-attach
+
+This project ported its Claude Code skills into scoped Cursor rules. If you're editing a file
+matched by one of these, its rule should already be attached — but if you're reasoning about the
+topic without directly opening the file (e.g. writing docs), ask for it explicitly by name:
+
+- `c2m2-expert` — C2M2 domains/practices/MIL structure, `framework_mapping/c2m2_*.yaml`
+- `nist-csf-expert` — NIST CSF 2.0 functions/categories/subcategories, `framework_mapping/nist_csf_2_0.yaml`
+- `framework-mapping` — engineering conventions for adding a new framework or editing the mapping engine
+- `assessment-generation` — assessment state machine, scoring, audit trail
+- `evidence-extraction` — AI extraction/citation/verification logic (highest-stakes AI code in the system)
+- `executive-reporting` — dashboard and report-generation copy, situation/complication/resolution structure
+- `document-parsing` — PDF/DOCX parsing, failure-mode handling
+- `data-cleaning` — chunking, metadata, ingestion validation gate
+- `privacy-protection` — the enforcement detail behind the two rules above
+- `prompt-engineering` — versioning and structure conventions for anything in `prompts/`
+- `energy-cybersecurity` — domain framing for docs/demo narrative aimed at an energy-sector or consulting audience
+
+## Two things Cursor won't do automatically that Claude Code did (via hooks) — do them yourself
+
+This repo's `.claude/hooks/` ran these as enforced automation under Claude Code. Cursor has no
+equivalent hook system, so treat these as manual checklist items whenever they apply:
+
+- **Before running `git commit`:** scan the staged diff yourself for anything that looks like a
+  secret (AWS-style keys, `-----BEGIN ... PRIVATE KEY-----` headers, `sk-...` tokens, generic
+  `api_key=...` assignments). If you see one, stop and flag it — don't commit it.
+- **After editing or writing a Python file:** run `backend/.venv/bin/ruff check <file>` and mention
+  any findings, the same way `lint-on-save.sh` used to surface them automatically.
