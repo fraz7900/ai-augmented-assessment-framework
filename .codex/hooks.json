@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash 'C:\\Users\\celal.ahmed\\OneDrive - Higher Education Commission\\Carnegie Mellon University 2025\\Internship applications\\Internship work\\ai-compliance-platform\\.codex\\hooks\\pre-commit-secret-scan.sh'"
+            "command": "bash \"$(git rev-parse --show-toplevel)/.codex/hooks/pre-commit-secret-scan.sh\""
           }
         ]
       }
@@ -17,7 +17,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash 'C:\\Users\\celal.ahmed\\OneDrive - Higher Education Commission\\Carnegie Mellon University 2025\\Internship applications\\Internship work\\ai-compliance-platform\\.codex\\hooks\\lint-on-save.sh'"
+            "command": "bash \"$(git rev-parse --show-toplevel)/.codex/hooks/lint-on-save.sh\""
           }
         ]
       }
@@ -27,7 +27,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash 'C:\\Users\\celal.ahmed\\OneDrive - Higher Education Commission\\Carnegie Mellon University 2025\\Internship applications\\Internship work\\ai-compliance-platform\\.codex\\hooks\\session-banner.sh'"
+            "command": "bash \"$(git rev-parse --show-toplevel)/.codex/hooks/session-banner.sh\""
           }
         ]
       }
