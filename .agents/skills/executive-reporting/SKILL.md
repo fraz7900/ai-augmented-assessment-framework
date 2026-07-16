@@ -1,0 +1,28 @@
+---
+name: executive-reporting
+description: Use when building the dashboard, report generation service, or any executive-facing copy — translating control-level detail into leadership-ready narrative using consulting-style structuring.
+---
+
+# Executive Reporting Conventions
+
+Conventions for translating practice-level, control-ID-dense assessment detail into an executive-ready maturity narrative, in `services/report_service.py`, the dashboard frontend, and generated PDF/XLSX reports.
+
+## Structuring principle: situation, complication, resolution
+
+Lead every executive summary (in a generated report or a dashboard's top panel) with the standard consulting structure, not a raw score table:
+
+- **Situation:** what was assessed, against which framework(s), covering what scope.
+- **Complication:** where the organization's current state falls short — grouped **MECE** (mutually exclusive, collectively exhaustive) by theme (e.g., "identity and access control gaps" rather than a flat list of failed subcategory IDs), so a non-technical executive can act on it.
+- **Resolution:** the prioritized gap list, ideally with an effort/impact framing (this is where a RICE- or impact-effort-style prioritization, consistent with `docs/product/`, belongs).
+
+## Rule: every number needs a "so what"
+
+A maturity score, a percentage-complete figure, or a gap count should never appear in executive-facing output without one sentence connecting it to a business or risk consequence. This mirrors the charter's Positioning Note: the same discipline that makes a consulting deck credible (never present data without interpretation) applies to this platform's own output.
+
+## Rule: distinguish AI-assisted from human-verified content clearly
+
+Any executive report must visibly indicate which findings were human-reviewed and finalized versus still AI-proposed and pending review (see `assessment-generation`'s human-in-the-loop invariant). An executive report that doesn't make this distinction visible undermines the platform's core trust proposition.
+
+## Example usage
+
+Sprint 6 (dashboard, analytics, progress tracking) and Sprint 7 (report generation, PDF, XLSX): load this skill before writing report templates or dashboard summary copy.

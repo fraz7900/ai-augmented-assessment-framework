@@ -1,0 +1,36 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash 'C:\\Users\\celal.ahmed\\OneDrive - Higher Education Commission\\Carnegie Mellon University 2025\\Internship applications\\Internship work\\ai-compliance-platform\\.codex\\hooks\\pre-commit-secret-scan.sh'"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash 'C:\\Users\\celal.ahmed\\OneDrive - Higher Education Commission\\Carnegie Mellon University 2025\\Internship applications\\Internship work\\ai-compliance-platform\\.codex\\hooks\\lint-on-save.sh'"
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash 'C:\\Users\\celal.ahmed\\OneDrive - Higher Education Commission\\Carnegie Mellon University 2025\\Internship applications\\Internship work\\ai-compliance-platform\\.codex\\hooks\\session-banner.sh'"
+          }
+        ]
+      }
+    ]
+  }
+}

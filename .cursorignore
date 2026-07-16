@@ -1,0 +1,20 @@
+# Keeps Cursor's indexer from crawling heavy/generated dirs — matters most
+# on this repo since it lives on a OneDrive-synced path, where reading
+# through .venv's thousands of files is genuinely slow (see README's
+# startup-time note). Mirrors .gitignore; doesn't affect git.
+
+.venv/
+venv/
+__pycache__/
+*.egg-info/
+.eggs/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+node_modules/
+dist/
+build/
+.vite/
+*.lance/
+ollama_models/

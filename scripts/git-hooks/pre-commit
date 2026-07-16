@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# Real git pre-commit hook: blocks a commit whose staged diff contains an
+# obvious secret-like pattern (API key, private key header). Editor-agnostic
+# counterpart to .claude/hooks/pre-commit-secret-scan.sh, which only fires
+# inside a Claude Code session — this one fires for any commit, from any
+# tool (Cursor, plain git CLI, etc). See docs/architecture/01-claude-code-workspace.md
+# hook #2 and the privacy-protection rule/skill.
+#
+# Git does not version-control hooks itself, so this tracked copy is not
+# what actually runs — run scripts/install-git-hooks.sh once per clone to
+# copy it into .git/hooks/pre-commit, where git looks for it.
+set -euo pipefail
+
+diff_content="$(git diff --cached)"
+if [[ -z "$diff_content" ]]; then
+  exit 0
+fi
+
+pattern='AKIA[0-9A-Z]{16}|-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----|sk-[A-Za-z0-9]{20,}|api[_-]?key["'"'"'[:space:]:=]+["'"'"']?[A-Za-z0-9]{16,}'
+
+if echo "$diff_content" | grep -EIq "$pattern"; then
+  echo "BLOCKED: staged changes contain a pattern that looks like a secret" >&2
+  echo "(API key or private key header). Review before committing." >&2
+  echo "If this is a genuine false positive: git commit --no-verify" >&2
+  echo "See docs/architecture/01-claude-code-workspace.md hook #2." >&2
+  exit 1
+fi
+
+exit 0
