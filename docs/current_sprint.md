@@ -1,4 +1,4 @@
 Current sprint: Sprint 7 — PDF/XLSX Report Generation
-Status: Started (builds on Sprint 6's DashboardReport as the structured source for a downloadable, board-ready artifact per US-6.2; no deliverables yet — see prioritization.md's RICE entry for this item)
+Status: Complete (139 tests passing, up from 130 — GET /assessments/{id}/report/pdf and .../report/xlsx render the existing DashboardReport with no new computation and no server-side persistence, verified live: real PDF text extracted via pypdf, real XLSX opened via openpyxl with correct Situation/Domain Scores/Gaps/Resolution sheets)
 Next: Sprint 8 — AI assistant / chat with assessment (or continue US-3.1a: transcribe remaining C2M2 domains, per prioritization.md)
 Charter: PROJECT_CHARTER.md

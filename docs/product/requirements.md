@@ -23,7 +23,8 @@ Derived from `PROJECT_CHARTER.md` and `docs/product/prd.md`. Each functional req
 | FR-13 | System shall propose evidence-to-practice mappings with a verified citation and confidence score | Delivered, retrieval-only (see ADR-0011) — confidence from retrieval similarity, citation is the literal retrieved chunk (trivially verified, nothing generated), verified live against real data | US-5.1 |
 | FR-13a | System shall require a human accept/edit/reject decision before an AI-proposed mapping counts toward a score, and shall prevent re-reviewing an already-reviewed link | Delivered, verified live | `.claude/skills/assessment-generation/SKILL.md`, ADR-0011 |
 | FR-14 | System shall flag evidence that satisfies practices across multiple frameworks | Planned (deferred from Sprint 5, still open) | US-5.2 |
-| FR-15 | System shall generate an executive dashboard following a situation/complication/resolution structure | Delivered, dashboard only (see ADR-0012) — PDF/XLSX export planned (Sprint 7, US-6.2) | US-6.1 |
+| FR-15 | System shall generate an executive dashboard following a situation/complication/resolution structure | Delivered (see ADR-0012) | US-6.1 |
+| FR-15a | System shall let the dashboard be exported as a downloadable PDF and XLSX, without recomputing or regenerating its underlying data | Delivered (see ADR-0013) | US-6.2 |
 | FR-16 | System shall answer natural-language questions about a finalized assessment, grounded only in its linked evidence | Planned (Sprint 8) | US-7.1 |
 
 ## Non-Functional Requirements

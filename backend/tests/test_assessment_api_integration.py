@@ -498,3 +498,41 @@ def test_dashboard_endpoint_computes_real_coverage_fraction_for_nist(client: Tes
 
     pr_group = next(g for g in body["complication"] if g["domain_short_code"] == "PR")
     assert not any(g["practice_id"] == "PR.AA-01" for g in pr_group["gaps"])
+
+
+def test_report_pdf_and_xlsx_endpoints_render_real_dashboard_data(client: TestClient) -> None:
+    """End-to-end proof of Sprint 7: the exported PDF and XLSX are
+    generated from the same real assessment data the dashboard endpoint
+    already proved correct above, not a second, independently-computed
+    path (see ADR-0013).
+    """
+    document_id = _ingest_sample_document(client)
+    create_response = client.post(
+        "/assessments", json={"name": "Report Export Test", "framework_name": "C2M2"}
+    )
+    assessment_id = create_response.json()["id"]
+
+    response = client.post(
+        f"/assessments/{assessment_id}/evidence",
+        json={"document_id": document_id, "practice_reference": "ACCESS-1a"},
+    )
+    assert response.status_code == 200
+
+    pdf_response = client.get(f"/assessments/{assessment_id}/report/pdf")
+    assert pdf_response.status_code == 200
+    assert pdf_response.headers["content-type"] == "application/pdf"
+    assert "attachment" in pdf_response.headers["content-disposition"]
+    assert pdf_response.content.startswith(b"%PDF")
+
+    xlsx_response = client.get(f"/assessments/{assessment_id}/report/xlsx")
+    assert xlsx_response.status_code == 200
+    assert xlsx_response.headers["content-type"] == (
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    assert "attachment" in xlsx_response.headers["content-disposition"]
+    assert xlsx_response.content[:2] == b"PK"  # xlsx is a zip container
+
+
+def test_report_endpoints_return_404_for_unknown_assessment(client: TestClient) -> None:
+    assert client.get("/assessments/does-not-exist/report/pdf").status_code == 404
+    assert client.get("/assessments/does-not-exist/report/xlsx").status_code == 404

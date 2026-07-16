@@ -6,7 +6,9 @@ in this file — see services/assessment_service.py.
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException
+import re
+
+from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel
 
 from compliance_platform.api.dependencies import get_assessment_service
@@ -185,6 +187,62 @@ def get_dashboard(
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except FrameworkScoringUnavailableError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+_SLUG_INVALID_CHARS = re.compile(r"[^A-Za-z0-9._-]+")
+
+
+def _slugify_filename(name: str) -> str:
+    slug = _SLUG_INVALID_CHARS.sub("-", name).strip("-")
+    return slug or "assessment"
+
+
+@router.get("/{assessment_id}/report/pdf")
+def get_dashboard_pdf(
+    assessment_id: str,
+    service: AssessmentService = Depends(get_assessment_service),
+) -> Response:
+    """PDF rendering of the same dashboard GET /dashboard returns
+    (Sprint 7) — see services/export_service.py and ADR-0013. Same
+    error mapping as the dashboard endpoint, since both are built from
+    the same DashboardReport.
+    """
+    try:
+        assessment = service.get_assessment(assessment_id)
+        pdf_bytes = service.generate_dashboard_pdf(assessment_id)
+    except AssessmentNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except FrameworkScoringUnavailableError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    filename = f"{_slugify_filename(assessment.name)}_dashboard.pdf"
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.get("/{assessment_id}/report/xlsx")
+def get_dashboard_xlsx(
+    assessment_id: str,
+    service: AssessmentService = Depends(get_assessment_service),
+) -> Response:
+    """XLSX rendering of the same dashboard GET /dashboard returns
+    (Sprint 7) — see services/export_service.py and ADR-0013.
+    """
+    try:
+        assessment = service.get_assessment(assessment_id)
+        xlsx_bytes = service.generate_dashboard_xlsx(assessment_id)
+    except AssessmentNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except FrameworkScoringUnavailableError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    filename = f"{_slugify_filename(assessment.name)}_dashboard.xlsx"
+    return Response(
+        content=xlsx_bytes,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @router.post("/{assessment_id}/evidence/{evidence_link_id}/review", response_model=EvidenceLink)

@@ -23,6 +23,7 @@ from compliance_platform.models.assessment import (
 )
 from compliance_platform.models.framework import FrameworkDefinition
 from compliance_platform.models.report import DashboardReport
+from compliance_platform.services.export_service import build_pdf_report, build_xlsx_report
 from compliance_platform.services.mapping_service import find_mapping_candidates
 from compliance_platform.services.report_service import build_dashboard
 from compliance_platform.services.scoring_service import compute_assessment_domain_scores
@@ -297,6 +298,21 @@ class AssessmentService:
 
         evidence_links = self._assessments.evidence_for_assessment(assessment_id)
         return build_dashboard(assessment, framework, evidence_links)
+
+    def generate_dashboard_pdf(self, assessment_id: str) -> bytes:
+        """PDF rendering of the same DashboardReport build_dashboard
+        returns — see services/export_service.py and ADR-0013. Reuses
+        build_dashboard rather than recomputing anything, and therefore
+        raises the same AssessmentNotFoundError /
+        FrameworkScoringUnavailableError it does.
+        """
+        return build_pdf_report(self.build_dashboard(assessment_id))
+
+    def generate_dashboard_xlsx(self, assessment_id: str) -> bytes:
+        """XLSX rendering of the same DashboardReport — see
+        services/export_service.py and ADR-0013.
+        """
+        return build_xlsx_report(self.build_dashboard(assessment_id))
 
     def review_evidence(
         self,
