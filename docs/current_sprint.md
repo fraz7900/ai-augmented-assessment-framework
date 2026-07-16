@@ -1,4 +1,4 @@
-Current sprint: Sprint 7 — PDF/XLSX Report Generation
-Status: Complete (139 tests passing, up from 130 — GET /assessments/{id}/report/pdf and .../report/xlsx render the existing DashboardReport with no new computation and no server-side persistence, verified live: real PDF text extracted via pypdf, real XLSX opened via openpyxl with correct Situation/Domain Scores/Gaps/Resolution sheets)
-Next: Sprint 8 — AI assistant / chat with assessment (or continue US-3.1a: transcribe remaining C2M2 domains, per prioritization.md)
+Current sprint: Sprint 8 — AI Assistant / Chat with Assessment
+Status: Complete (153 tests passing, up from 139 — POST /assessments/{id}/chat ranks an assessment's own reviewed evidence-link chunks against a natural-language question, retrieval-only, no LLM; verified live against the real ONNX embedder, including an empirical similarity-threshold calibration recorded in ADR-0014. Re-verified Sprint 5's Ollama sudo blocker rather than assuming it unchanged — found a viable sudo-free workaround this time, and put the choice to the project owner directly rather than deciding silently; retrieval-only was chosen)
+Next: Sprint 9 — testing/refactoring/documentation pass (or continue US-3.1a: transcribe remaining C2M2 domains, or begin the NERC CIP roadmap extension, per prioritization.md)
 Charter: PROJECT_CHARTER.md

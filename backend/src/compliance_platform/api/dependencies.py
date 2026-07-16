@@ -71,4 +71,6 @@ def get_assessment_service() -> AssessmentService:
         embedder=get_cached_embedder(),
         mapping_similarity_threshold=settings.mapping_similarity_threshold,
         mapping_candidates_per_practice=settings.mapping_candidates_per_practice,
+        chat_similarity_threshold=settings.chat_similarity_threshold,
+        chat_result_limit=settings.chat_result_limit,
     )

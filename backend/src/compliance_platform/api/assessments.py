@@ -20,11 +20,13 @@ from compliance_platform.models.assessment import (
     EvidenceReviewStatus,
     EvidenceSource,
 )
+from compliance_platform.models.chat import ChatResponse
 from compliance_platform.models.report import DashboardReport
 from compliance_platform.services.assessment_service import (
     AssessmentFinalizedError,
     AssessmentNotFoundError,
     AssessmentService,
+    ChatEngineUnavailableError,
     EvidenceAlreadyReviewedError,
     EvidenceDocumentNotIngestedError,
     EvidenceLinkNotFoundError,
@@ -60,6 +62,10 @@ class ReviewEvidenceRequest(BaseModel):
     decision: EvidenceReviewStatus
     corrected_practice_reference: str | None = None
     note: str | None = None
+
+
+class ChatQuestionRequest(BaseModel):
+    question: str
 
 
 @router.post("", response_model=Assessment)
@@ -299,4 +305,24 @@ def propose_mappings(
     except FrameworkScoringUnavailableError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except MappingEngineUnavailableError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+@router.post("/{assessment_id}/chat", response_model=ChatResponse)
+def chat_with_assessment(
+    assessment_id: str,
+    request: ChatQuestionRequest,
+    service: AssessmentService = Depends(get_assessment_service),
+) -> ChatResponse:
+    """Retrieval-only Q&A over this assessment's reviewed evidence
+    (Sprint 8) — see services/chat_service.py and ADR-0014. Returns
+    ranked, cited evidence chunks; nothing here is model-generated, so
+    an empty result list (no reviewed evidence, or nothing above the
+    similarity threshold) is a valid 200 response, not an error.
+    """
+    try:
+        return service.answer_question(assessment_id, request.question)
+    except AssessmentNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ChatEngineUnavailableError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc

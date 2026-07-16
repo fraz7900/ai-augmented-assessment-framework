@@ -60,6 +60,19 @@ class Settings(BaseSettings):
     mapping_similarity_threshold: float = 0.55
     mapping_candidates_per_practice: int = 1
 
+    # Retrieval-only chat (see services/chat_service.py and ADR-0014).
+    # Cosine-similarity threshold, calibrated empirically against real
+    # questions and real reviewed evidence text (see ADR-0014): observed
+    # true-match scores ranged 0.54-0.86, observed false-positive scores
+    # (genuinely unrelated questions, domain-general vocabulary overlap)
+    # ranged 0.36-0.54 — the gap is real but not clean, the same
+    # disclosed-not-hidden finding ADR-0011 made for mapping (R-16).
+    # 0.4 filters the clearest noise without cutting the weakest
+    # observed true match; a borderline result can still surface, which
+    # is why similarity is always returned, not hidden behind the cutoff.
+    chat_similarity_threshold: float = 0.4
+    chat_result_limit: int = 5
+
 
 def get_settings() -> Settings:
     """Factory rather than a module-level singleton, so tests can override

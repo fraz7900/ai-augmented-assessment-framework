@@ -536,3 +536,94 @@ def test_report_pdf_and_xlsx_endpoints_render_real_dashboard_data(client: TestCl
 def test_report_endpoints_return_404_for_unknown_assessment(client: TestClient) -> None:
     assert client.get("/assessments/does-not-exist/report/pdf").status_code == 404
     assert client.get("/assessments/does-not-exist/report/xlsx").status_code == 404
+
+
+def test_chat_answers_only_from_reviewed_chunk_scoped_evidence(client: TestClient) -> None:
+    """End-to-end proof of Sprint 8's retrieval-only chat (ADR-0014)
+    against real embeddings and real C2M2 data: a manually-linked
+    practice with no chunk_id (ACCESS-1i) must never appear in chat
+    results even though it is accepted, real evidence — chat can only
+    answer from evidence that has an actual cited chunk of text. An
+    AI-proposed pending link must not appear until accepted. Once
+    accepted, it becomes answerable and is returned ranked by
+    similarity to the question, with its real cited text attached.
+    """
+    policy_path = _sample_evidence_path("synthetic_access_control_policy.md")
+    with policy_path.open("rb") as f:
+        response = client.post(
+            "/ingest",
+            files={"file": ("synthetic_access_control_policy.md", f, "text/markdown")},
+        )
+    assert response.status_code == 200
+    document_id = response.json()["document_id"]
+
+    create_response = client.post(
+        "/assessments", json={"name": "Chat Test", "framework_name": "C2M2"}
+    )
+    assessment_id = create_response.json()["id"]
+
+    # Manual link, no chunk_id — real accepted evidence, but not
+    # chunk-scoped, so it must never be answerable via chat.
+    manual_link = client.post(
+        f"/assessments/{assessment_id}/evidence",
+        json={"document_id": document_id, "practice_reference": "ACCESS-1i"},
+    )
+    assert manual_link.status_code == 200
+    assert manual_link.json()["chunk_id"] is None
+
+    proposals = client.post(f"/assessments/{assessment_id}/propose-mappings").json()
+    assert len(proposals) > 0
+
+    # Before accepting anything: chat must not surface any pending
+    # AI-proposed link, and must not surface the chunk_id-less manual
+    # link either.
+    unreviewed_answer = client.post(
+        f"/assessments/{assessment_id}/chat",
+        json={"question": "Which practices are covered by multi-factor authentication?"},
+    )
+    assert unreviewed_answer.status_code == 200
+    assert unreviewed_answer.json()["results"] == []
+
+    accepted = client.post(
+        f"/assessments/{assessment_id}/evidence/{proposals[0]['id']}/review",
+        json={"decision": "accepted"},
+    )
+    assert accepted.status_code == 200
+    accepted_practice = accepted.json()["practice_reference"]
+    accepted_chunk_id = accepted.json()["chunk_id"]
+    assert accepted_chunk_id is not None
+
+    chat_response = client.post(
+        f"/assessments/{assessment_id}/chat",
+        json={"question": "Which practices are covered by multi-factor authentication?"},
+    )
+    assert chat_response.status_code == 200
+    body = chat_response.json()
+    assert body["question"] == "Which practices are covered by multi-factor authentication?"
+    assert len(body["results"]) >= 1
+    result = body["results"][0]
+    assert result["practice_reference"] == accepted_practice
+    assert result["chunk_id"] == accepted_chunk_id
+    assert result["document_id"] == document_id
+    assert result["chunk_text"]  # real cited text, not empty
+    assert 0.0 <= result["similarity"] <= 1.0
+    assert "ACCESS-1i" not in {r["practice_reference"] for r in body["results"]}
+
+
+def test_chat_returns_empty_results_with_no_reviewed_evidence(client: TestClient) -> None:
+    create_response = client.post(
+        "/assessments", json={"name": "Empty Chat Test", "framework_name": "C2M2"}
+    )
+    assessment_id = create_response.json()["id"]
+    response = client.post(
+        f"/assessments/{assessment_id}/chat", json={"question": "Anything at all?"}
+    )
+    assert response.status_code == 200
+    assert response.json() == {"question": "Anything at all?", "results": []}
+
+
+def test_chat_returns_404_for_unknown_assessment(client: TestClient) -> None:
+    response = client.post(
+        "/assessments/does-not-exist/chat", json={"question": "Anything?"}
+    )
+    assert response.status_code == 404

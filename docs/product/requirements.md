@@ -25,7 +25,7 @@ Derived from `PROJECT_CHARTER.md` and `docs/product/prd.md`. Each functional req
 | FR-14 | System shall flag evidence that satisfies practices across multiple frameworks | Planned (deferred from Sprint 5, still open) | US-5.2 |
 | FR-15 | System shall generate an executive dashboard following a situation/complication/resolution structure | Delivered (see ADR-0012) | US-6.1 |
 | FR-15a | System shall let the dashboard be exported as a downloadable PDF and XLSX, without recomputing or regenerating its underlying data | Delivered (see ADR-0013) | US-6.2 |
-| FR-16 | System shall answer natural-language questions about a finalized assessment, grounded only in its linked evidence | Planned (Sprint 8) | US-7.1 |
+| FR-16 | System shall answer natural-language questions grounded only in an assessment's actual reviewed evidence links | Delivered, retrieval-only (see ADR-0014) — no LLM, ranked cited evidence chunks are the answer; empirical threshold precision disclosed as R-23 | US-7.1 |
 
 ## Non-Functional Requirements
 

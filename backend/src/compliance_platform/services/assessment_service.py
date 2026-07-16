@@ -21,8 +21,10 @@ from compliance_platform.models.assessment import (
     EvidenceReviewStatus,
     EvidenceSource,
 )
+from compliance_platform.models.chat import ChatResponse, ChatResult
 from compliance_platform.models.framework import FrameworkDefinition
 from compliance_platform.models.report import DashboardReport
+from compliance_platform.services.chat_service import answer_question
 from compliance_platform.services.export_service import build_pdf_report, build_xlsx_report
 from compliance_platform.services.mapping_service import find_mapping_candidates
 from compliance_platform.services.report_service import build_dashboard
@@ -145,6 +147,11 @@ class MappingEngineUnavailableError(Exception):
         super().__init__("No embedder configured; cannot propose evidence mappings.")
 
 
+class ChatEngineUnavailableError(Exception):
+    def __init__(self) -> None:
+        super().__init__("No embedder configured; cannot answer questions over evidence.")
+
+
 class AssessmentRepositoryProtocol(Protocol):
     def create_assessment(self, name: str, framework_name: str) -> Assessment: ...
     def get_assessment(self, assessment_id: str) -> Assessment | None: ...
@@ -181,6 +188,8 @@ class AssessmentService:
         embedder: Embedder | None = None,
         mapping_similarity_threshold: float = 0.55,
         mapping_candidates_per_practice: int = 1,
+        chat_similarity_threshold: float = 0.35,
+        chat_result_limit: int = 5,
     ) -> None:
         self._assessments = assessment_repository
         self._vectors = vector_repository
@@ -188,6 +197,8 @@ class AssessmentService:
         self._embedder = embedder
         self._mapping_similarity_threshold = mapping_similarity_threshold
         self._mapping_candidates_per_practice = mapping_candidates_per_practice
+        self._chat_similarity_threshold = chat_similarity_threshold
+        self._chat_result_limit = chat_result_limit
 
     def create_assessment(self, name: str, framework_name: str) -> Assessment:
         return self._assessments.create_assessment(name=name, framework_name=framework_name)
@@ -313,6 +324,43 @@ class AssessmentService:
         services/export_service.py and ADR-0013.
         """
         return build_xlsx_report(self.build_dashboard(assessment_id))
+
+    def answer_question(self, assessment_id: str, question: str) -> ChatResponse:
+        """Retrieval-only Q&A over this assessment's reviewed evidence
+        (Sprint 8) — see services/chat_service.py and ADR-0014. No LLM
+        generates the answer; the ranked, cited evidence chunks
+        themselves are the answer, so there is nothing to hallucinate
+        and no citation-verification step is needed. An empty result
+        list (no reviewed evidence, or nothing above the similarity
+        threshold) is a valid answer, not an error — same "empty is not
+        an error" precedent as propose_mappings.
+        """
+        self.get_assessment(assessment_id)  # raises AssessmentNotFoundError
+        if self._embedder is None:
+            raise ChatEngineUnavailableError()
+
+        evidence_links = self._assessments.evidence_for_assessment(assessment_id)
+        hits = answer_question(
+            question=question,
+            evidence_links=evidence_links,
+            embedder=self._embedder,
+            vector_repository=self._vectors,
+            similarity_threshold=self._chat_similarity_threshold,
+            limit=self._chat_result_limit,
+        )
+        return ChatResponse(
+            question=question,
+            results=[
+                ChatResult(
+                    practice_reference=hit.practice_reference,
+                    document_id=hit.document_id,
+                    chunk_id=hit.chunk_id,
+                    similarity=hit.similarity,
+                    chunk_text=hit.chunk_text,
+                )
+                for hit in hits
+            ],
+        )
 
     def review_evidence(
         self,
