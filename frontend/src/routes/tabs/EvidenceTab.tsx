@@ -11,6 +11,7 @@ import { findPractice } from '../../lib/practiceLookup'
 import EvidenceSourceBadge from '../../components/EvidenceSourceBadge'
 import EvidenceReviewControls from '../../components/EvidenceReviewControls'
 import ConfidenceMeter from '../../components/ConfidenceMeter'
+import EquivalentPractice from '../../components/EquivalentPractice'
 import type { AssessmentTabContext } from '../AssessmentDetailPage'
 import type { EvidenceLink } from '../../api/types'
 
@@ -68,6 +69,13 @@ export default function EvidenceTab() {
         {link.source === 'ai_proposed' && link.confidence != null && (
           <div className="mt-1">
             <ConfidenceMeter value={link.confidence} label="confidence" />
+          </div>
+        )}
+        {practice != null && practice.equivalents.length > 0 && (
+          <div className="mt-2 space-y-1">
+            {practice.equivalents.map((equivalent) => (
+              <EquivalentPractice key={`${equivalent.framework_name}-${equivalent.practice_id}`} equivalent={equivalent} />
+            ))}
           </div>
         )}
         <div className="mt-2">

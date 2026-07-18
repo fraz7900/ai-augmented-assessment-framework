@@ -19,6 +19,15 @@ def _registry() -> FrameworkRegistry:
     return FrameworkRegistry(settings.framework_mapping_dir)
 
 
+def _find_practice(framework, practice_id: str):
+    for domain in framework.domains:
+        for objective in domain.objectives:
+            for practice in objective.practices:
+                if practice.id == practice_id:
+                    return practice
+    return None
+
+
 def test_c2m2_loads_with_all_ten_domains() -> None:
     framework = _registry().require("C2M2")
     assert framework.version == "2.1"
@@ -63,6 +72,41 @@ def test_all_c2m2_domains_are_fully_populated() -> None:
     framework = _registry().require("C2M2")
     assert all(d.practices_populated for d in framework.domains)
     assert len(framework.all_practice_ids()) == 356
+
+
+def test_c2m2_practice_with_curated_equivalent_is_populated() -> None:
+    """Sprint 10 (US-5.2/FR-14, ADR-0019): ACCESS-1a has a real, reviewed
+    entry in framework_mapping/cross_framework_equivalence.yaml pointing
+    at NIST CSF 2.0's PR.AA-01. Asserted against the real committed file,
+    same discipline as the rest of this test module.
+    """
+    framework = _registry().require("C2M2")
+    practice = _find_practice(framework, "ACCESS-1a")
+    assert practice is not None
+    assert len(practice.equivalents) == 1
+    equivalent = practice.equivalents[0]
+    assert equivalent.framework_name == "NIST CSF 2.0"
+    assert equivalent.practice_id == "PR.AA-01"
+    assert equivalent.rationale  # real text, not blank
+
+
+def test_nist_practice_with_curated_equivalent_points_back_to_c2m2() -> None:
+    framework = _registry().require("NIST CSF 2.0")
+    practice = _find_practice(framework, "PR.AA-01")
+    assert practice is not None
+    assert len(practice.equivalents) == 1
+    equivalent = practice.equivalents[0]
+    assert equivalent.framework_name == "C2M2"
+    assert equivalent.practice_id == "ACCESS-1a"
+
+
+def test_practice_without_curated_equivalence_entry_has_empty_list() -> None:
+    """Empty, not missing/None — see models/framework.py's Practice.equivalents
+    default, so callers never need a null check."""
+    framework = _registry().require("C2M2")
+    practice = _find_practice(framework, "ASSET-1b")
+    assert practice is not None
+    assert practice.equivalents == []
 
 
 def test_domain_for_practice_id_resolves_correctly() -> None:

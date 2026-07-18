@@ -1,0 +1,348 @@
+# GENERATED CANDIDATES, HAND-CURATED ACCEPTANCE. Do not hand-edit the
+# similarity scores (recompute via backend/scripts/generate_cross_framework_equivalence.py
+# if source text changes) — but every entry's presence in this file, and
+# its rationale, is a deliberate human judgment, not an automatic
+# similarity-threshold cutoff. See docs/adr/ADR-0019-cross-framework-equivalence.md
+# and .claude/skills/framework-mapping/SKILL.md point 3: "Cross-framework
+# equivalence is additive, not automatic... not inferred by embedding
+# similarity alone... embedding similarity can seed a candidate mapping
+# for human review; it should not silently become an accepted mapping."
+#
+# Coverage is deliberately partial: 79 of 106 NIST CSF 2.0 subcategories
+# have a reviewed C2M2 equivalent below. The remaining 27 were reviewed
+# and NOT included, either because C2M2 has no practice covering that
+# specific concept (a real standards gap, e.g. identity proofing,
+# data-in-use protection, chain-of-custody/evidence-integrity detail,
+# post-incident "new normal" operations) or because the only textually
+# similar C2M2 practices were the generic "Management Activities"
+# boilerplate every domain repeats near-verbatim (documented procedures /
+# adequate resources / up-to-date policies / responsibility-accountability-
+# authority / personnel skills / effectiveness evaluated) - accepting one
+# domain's copy of that boilerplate over the other nine would misrepresent
+# a many-domains-equally-match pattern as a specific equivalence. See
+# ADR-0019 for the full list of reviewed-but-excluded subcategories and why.
+#
+# Several accepted entries below have a LOWER similarity score than
+# unaccepted top-3 candidates for the same NIST subcategory - this is
+# expected and disclosed, not an error: these are cases the embedding
+# ranked lower due to vocabulary difference, but a human reviewer with
+# actual knowledge of both frameworks' full text recognized as the
+# correct match anyway. This is the exact value human review is required
+# to add, per the framework-mapping skill.
+
+- c2m2_practice_id: RISK-1g
+  nist_subcategory_id: GV.OC-01
+  similarity: 0.895
+  rationale: Both align the risk/cybersecurity program with the organization's overarching mission and objectives.
+- c2m2_practice_id: RISK-1g
+  nist_subcategory_id: GV.RM-01
+  similarity: 0.794
+  rationale: Establishing risk objectives and aligning the risk program with organizational objectives describe the same governance activity.
+- c2m2_practice_id: RISK-4b
+  nist_subcategory_id: GV.RM-04
+  similarity: 0.802
+  rationale: Both describe a defined, documented approach for selecting and directing risk response actions.
+- c2m2_practice_id: RISK-2b
+  nist_subcategory_id: GV.RM-06
+  similarity: 0.872
+  rationale: Both call for a defined, repeatable method for identifying and characterizing cyber risk, though C2M2 splits identification from prioritization across separate practices.
+- c2m2_practice_id: WORKFORCE-3d
+  nist_subcategory_id: GV.RR-02
+  similarity: 0.847
+  rationale: Both require cybersecurity roles and responsibilities to be explicitly documented and assigned, not left informal.
+- c2m2_practice_id: WORKFORCE-4c
+  nist_subcategory_id: GV.RR-04
+  similarity: 0.805
+  rationale: Both connect cybersecurity needs to HR-style activities - training, recruiting, and retention efforts to close skill gaps.
+- c2m2_practice_id: PROGRAM-1b
+  nist_subcategory_id: GV.PO-01
+  similarity: 0.831
+  rationale: NIST's "policy" and C2M2's "program strategy" both establish the goals and objectives that direct an organization's cybersecurity activities.
+- c2m2_practice_id: PROGRAM-1h
+  nist_subcategory_id: GV.PO-02
+  similarity: 0.750
+  rationale: Both require the governing document (policy / program strategy) to be kept current against changing threats, technology, and business conditions.
+- c2m2_practice_id: RISK-4d
+  nist_subcategory_id: GV.OV-01
+  similarity: 0.823
+  rationale: Both describe leadership reviewing risk-mitigation outcomes to inform strategy adjustments.
+- c2m2_practice_id: RISK-1b
+  nist_subcategory_id: GV.OV-02
+  similarity: 0.844
+  rationale: Both describe keeping the risk management strategy aligned and current against organizational requirements.
+- c2m2_practice_id: RISK-4c
+  nist_subcategory_id: GV.OV-03
+  similarity: 0.825
+  rationale: Both describe evaluating whether cybersecurity controls and risk-management performance are working as intended.
+- c2m2_practice_id: WORKFORCE-3c
+  nist_subcategory_id: GV.SC-02
+  similarity: 0.879
+  rationale: C2M2 explicitly extends role assignment to "external service providers," the same supplier/partner scope GV.SC-02 covers.
+- c2m2_practice_id: THIRD-PARTIES-2c
+  nist_subcategory_id: GV.SC-03
+  similarity: 0.794
+  rationale: Both describe implementing controls or methods that fold supplier-arising risk into the broader risk management process.
+- c2m2_practice_id: THIRD-PARTIES-1e
+  nist_subcategory_id: GV.SC-04
+  similarity: 0.755
+  rationale: Both describe prioritizing suppliers by the criticality or consequence of their compromise.
+- c2m2_practice_id: THIRD-PARTIES-2f
+  nist_subcategory_id: GV.SC-05
+  similarity: 0.872
+  rationale: Both describe formalizing cybersecurity requirements directly into supplier contracts and agreements.
+- c2m2_practice_id: THIRD-PARTIES-2d
+  nist_subcategory_id: GV.SC-06
+  similarity: 0.743
+  rationale: Both describe a defined evaluation and selection process performed before or during entering a supplier relationship.
+- c2m2_practice_id: THIRD-PARTIES-1c
+  nist_subcategory_id: GV.SC-07
+  similarity: 0.780
+  rationale: Both describe identifying and tracking the risk a specific supplier relationship poses over its lifetime.
+- c2m2_practice_id: RESPONSE-3j
+  nist_subcategory_id: GV.SC-08
+  similarity: 0.777
+  rationale: Both explicitly describe coordinating incident response activities with vendors and other external parties.
+- c2m2_practice_id: ASSET-1a
+  nist_subcategory_id: ID.AM-01
+  similarity: 0.733
+  rationale: Both describe inventorying hardware (IT/OT) assets important to the organization.
+- c2m2_practice_id: ASSET-1f
+  nist_subcategory_id: ID.AM-02
+  similarity: 0.722
+  rationale: Both describe maintaining a complete asset inventory, which C2M2 frames as IT/OT assets including software and systems.
+- c2m2_practice_id: ASSET-1c
+  nist_subcategory_id: ID.AM-05
+  similarity: 0.760
+  rationale: Both describe prioritizing assets using defined criteria tied to importance and impact.
+- c2m2_practice_id: ASSET-2a
+  nist_subcategory_id: ID.AM-07
+  similarity: 0.684
+  rationale: Both describe inventorying information/data assets specifically, distinct from hardware.
+- c2m2_practice_id: ARCHITECTURE-3l
+  nist_subcategory_id: ID.AM-08
+  similarity: 0.780
+  rationale: Both describe managing configuration and changes to assets across their full lifecycle.
+- c2m2_practice_id: THREAT-1b
+  nist_subcategory_id: ID.RA-01
+  similarity: 0.736
+  rationale: Both describe gathering and interpreting vulnerability information to identify and record it.
+- c2m2_practice_id: THREAT-2a
+  nist_subcategory_id: ID.RA-02
+  similarity: 0.789
+  rationale: Both describe identifying information sources that feed threat intelligence into the organization.
+- c2m2_practice_id: THREAT-2c
+  nist_subcategory_id: ID.RA-03
+  similarity: 0.747
+  rationale: Both describe identifying the specific threats (objectives and actors) relevant to the organization.
+- c2m2_practice_id: THREAT-1g
+  nist_subcategory_id: ID.RA-04
+  similarity: 0.829
+  rationale: Both describe analyzing and prioritizing identified vulnerabilities by their potential impact.
+- c2m2_practice_id: RISK-4b
+  nist_subcategory_id: ID.RA-05
+  similarity: 0.826
+  rationale: Both describe using threat, vulnerability, and impact information to choose a risk response.
+- c2m2_practice_id: RISK-4a
+  nist_subcategory_id: ID.RA-06
+  similarity: 0.769
+  rationale: Both describe selecting, implementing, and tracking risk responses.
+- c2m2_practice_id: THREAT-1m
+  nist_subcategory_id: ID.RA-08
+  similarity: 0.780
+  rationale: Nearly identical intent - both describe an established mechanism to receive and respond to external/public vulnerability disclosure reports.
+- c2m2_practice_id: ARCHITECTURE-4g
+  nist_subcategory_id: ID.RA-09
+  similarity: 0.856
+  rationale: Both describe validating the authenticity of hardware/software/firmware before it is deployed or used.
+- c2m2_practice_id: THIRD-PARTIES-2d
+  nist_subcategory_id: ID.RA-10
+  similarity: 0.726
+  rationale: Both describe assessing/evaluating a supplier before entering into or continuing a relationship.
+- c2m2_practice_id: RESPONSE-3d
+  nist_subcategory_id: ID.IM-04
+  similarity: 0.881
+  rationale: Both describe establishing, maintaining, and improving incident response plans that address the full incident lifecycle.
+- c2m2_practice_id: ACCESS-1a
+  nist_subcategory_id: PR.AA-01
+  similarity: 0.761
+  rationale: Both describe provisioning/managing identities and credentials for authorized users and entities.
+- c2m2_practice_id: ACCESS-1i
+  nist_subcategory_id: PR.AA-03
+  similarity: 0.743
+  rationale: Both describe authenticating users/entities before granting access, with C2M2's MFA practice as the concrete authentication mechanism.
+- c2m2_practice_id: ACCESS-2d
+  nist_subcategory_id: PR.AA-05
+  similarity: 0.720
+  rationale: Both describe access permissions incorporating the principle of least privilege.
+- c2m2_practice_id: ACCESS-3a
+  nist_subcategory_id: PR.AA-06
+  similarity: 0.703
+  rationale: Both describe implementing and managing physical access controls.
+- c2m2_practice_id: WORKFORCE-2a
+  nist_subcategory_id: PR.AT-01
+  similarity: 0.782
+  rationale: Both describe general cybersecurity awareness activities for the workforce.
+- c2m2_practice_id: WORKFORCE-2e
+  nist_subcategory_id: PR.AT-02
+  similarity: 0.875
+  rationale: Both describe training tailored to specialized/higher-responsibility roles, not general awareness.
+- c2m2_practice_id: ARCHITECTURE-5a
+  nist_subcategory_id: PR.DS-01
+  similarity: 0.894
+  rationale: Both describe protecting the confidentiality/integrity of data at rest.
+- c2m2_practice_id: ARCHITECTURE-5c
+  nist_subcategory_id: PR.DS-02
+  similarity: 0.808
+  rationale: Both describe protecting data specifically while it is in transit.
+- c2m2_practice_id: RESPONSE-4b
+  nist_subcategory_id: PR.DS-11
+  similarity: 0.907
+  rationale: Both describe backups being created, available, and tested.
+- c2m2_practice_id: ASSET-3a
+  nist_subcategory_id: PR.PS-01
+  similarity: 0.816
+  rationale: Both describe establishing configuration baselines/management practices.
+- c2m2_practice_id: ASSET-4e
+  nist_subcategory_id: PR.PS-02
+  similarity: 0.748
+  rationale: Both describe changes to software assets being implemented/managed securely.
+- c2m2_practice_id: ASSET-4f
+  nist_subcategory_id: PR.PS-03
+  similarity: 0.742
+  rationale: Both describe controlled change management for hardware assets over their lifecycle, though this is a looser match than most entries in this file.
+- c2m2_practice_id: SITUATION-1a
+  nist_subcategory_id: PR.PS-04
+  similarity: 0.754
+  rationale: Both describe generating logs for assets to support monitoring.
+- c2m2_practice_id: ARCHITECTURE-3m
+  nist_subcategory_id: PR.PS-05
+  similarity: 0.783
+  rationale: Both describe controls specifically preventing execution of unauthorized code/software.
+- c2m2_practice_id: ARCHITECTURE-4a
+  nist_subcategory_id: PR.PS-06
+  similarity: 0.849
+  rationale: Both describe secure software development practices being applied and monitored through the development lifecycle.
+- c2m2_practice_id: ARCHITECTURE-2a
+  nist_subcategory_id: PR.IR-01
+  similarity: 0.841
+  rationale: Both describe implementing protections against unauthorized network access.
+- c2m2_practice_id: ARCHITECTURE-3j
+  nist_subcategory_id: PR.IR-02
+  similarity: 0.746
+  rationale: Both describe controlling the physical operating environment to protect assets.
+- c2m2_practice_id: RESPONSE-4d
+  nist_subcategory_id: PR.IR-03
+  similarity: 0.708
+  rationale: Both describe continuity/resilience mechanisms addressing potential incident impacts on operations.
+- c2m2_practice_id: RESPONSE-4g
+  nist_subcategory_id: PR.IR-04
+  similarity: 0.671
+  rationale: Both describe recovery time/point objectives (capacity planning for availability), a lower-scoring but precise match the raw similarity ranking under-ranked relative to a generic "adequate resources" false positive.
+- c2m2_practice_id: SITUATION-2a
+  nist_subcategory_id: DE.CM-01
+  similarity: 0.709
+  rationale: Both describe periodic review/monitoring of network and log data.
+- c2m2_practice_id: ACCESS-3j
+  nist_subcategory_id: DE.CM-02
+  similarity: 0.768
+  rationale: Both describe monitoring the physical environment to identify adverse cybersecurity events.
+- c2m2_practice_id: SITUATION-2d
+  nist_subcategory_id: DE.CM-03
+  similarity: 0.742
+  rationale: Both describe monitoring for anomalous activity across the IT/OT environment, though NIST's personnel-activity framing is broader than C2M2's asset/system framing here.
+- c2m2_practice_id: SITUATION-2d
+  nist_subcategory_id: DE.CM-09
+  similarity: 0.751
+  rationale: Both describe monitoring computing hardware/software/data for indicators of anomalous activity.
+- c2m2_practice_id: RESPONSE-1d
+  nist_subcategory_id: DE.AE-02
+  similarity: 0.793
+  rationale: Both describe analyzing/correlating event information to understand associated activity.
+- c2m2_practice_id: RESPONSE-1d
+  nist_subcategory_id: DE.AE-03
+  similarity: 0.743
+  rationale: Both are explicitly about correlating information from multiple sources.
+- c2m2_practice_id: RISK-3c
+  nist_subcategory_id: DE.AE-04
+  similarity: 0.768
+  rationale: Both describe estimating the impact of an identified event/risk using a defined method.
+- c2m2_practice_id: RESPONSE-1a
+  nist_subcategory_id: DE.AE-06
+  similarity: 0.684
+  rationale: Both describe detected events being reported/provided to a specified person or role.
+- c2m2_practice_id: RISK-2j
+  nist_subcategory_id: DE.AE-07
+  similarity: 0.814
+  rationale: Both describe threat intelligence being used to update/inform risk or event analysis.
+- c2m2_practice_id: RESPONSE-2d
+  nist_subcategory_id: DE.AE-08
+  similarity: 0.837
+  rationale: Both describe declaring an incident once established criteria for adverse events are met.
+- c2m2_practice_id: RESPONSE-3e
+  nist_subcategory_id: RS.MA-01
+  similarity: 0.798
+  rationale: Both describe executing the incident response plan according to defined procedures.
+- c2m2_practice_id: RESPONSE-2b
+  nist_subcategory_id: RS.MA-02
+  similarity: 0.689
+  rationale: Both describe analyzing cybersecurity events to determine/validate whether they should be treated as incidents.
+- c2m2_practice_id: RESPONSE-2c
+  nist_subcategory_id: RS.MA-03
+  similarity: 0.717
+  rationale: Both describe using established criteria based on potential impact to categorize/prioritize incidents.
+- c2m2_practice_id: RESPONSE-2g
+  nist_subcategory_id: RS.MA-04
+  similarity: 0.679
+  rationale: Both describe notifying/escalating to identified stakeholders once an incident occurs, a lower-scoring match the raw ranking missed.
+- c2m2_practice_id: RESPONSE-4h
+  nist_subcategory_id: RS.MA-05
+  similarity: 0.757
+  rationale: Both describe defined criteria that trigger recovery/continuity execution.
+- c2m2_practice_id: RESPONSE-3i
+  nist_subcategory_id: RS.AN-03
+  similarity: 0.772
+  rationale: Both explicitly describe root-cause analysis of what took place during an incident.
+- c2m2_practice_id: RESPONSE-3j
+  nist_subcategory_id: RS.AN-06
+  similarity: 0.633
+  rationale: C2M2's practice explicitly names "evidence collection and preservation" during external coordination - the specific phrase NIST's subcategory is about, even though the two texts otherwise emphasize different things (vendor coordination vs. record integrity), which is why the raw similarity score is lower than most entries here.
+- c2m2_practice_id: RESPONSE-2f
+  nist_subcategory_id: RS.AN-07
+  similarity: 0.741
+  rationale: Both describe a repository where incident data is documented and its record maintained.
+- c2m2_practice_id: RESPONSE-2c
+  nist_subcategory_id: RS.AN-08
+  similarity: 0.697
+  rationale: Both describe using impact-based criteria to estimate/validate an incident's magnitude.
+- c2m2_practice_id: RESPONSE-2g
+  nist_subcategory_id: RS.CO-02
+  similarity: 0.868
+  rationale: Both explicitly describe notifying internal and external stakeholders of an incident.
+- c2m2_practice_id: RESPONSE-3f
+  nist_subcategory_id: RS.CO-03
+  similarity: 0.712
+  rationale: Both describe a communications plan for sharing incident information with designated stakeholders.
+- c2m2_practice_id: RESPONSE-3b
+  nist_subcategory_id: RS.MI-01
+  similarity: 0.691
+  rationale: Both describe executing a response that limits/contains the impact of an incident.
+- c2m2_practice_id: RESPONSE-3b
+  nist_subcategory_id: RS.MI-02
+  similarity: 0.686
+  rationale: C2M2 does not separate "containment" from "eradication" as distinctly as NIST does; this is the closest practice covering both, restoring normal operations.
+- c2m2_practice_id: RESPONSE-3e
+  nist_subcategory_id: RC.RP-01
+  similarity: 0.778
+  rationale: Both describe executing the (incident/recovery) plan according to defined procedures once triggered.
+- c2m2_practice_id: RESPONSE-4a
+  nist_subcategory_id: RC.RP-02
+  similarity: 0.678
+  rationale: Both describe developing and performing actions to sustain/restore operation of the function.
+- c2m2_practice_id: RESPONSE-2f
+  nist_subcategory_id: RC.RP-06
+  similarity: 0.693
+  rationale: Both describe an incident being tracked through to documented closure.
+- c2m2_practice_id: RESPONSE-3f
+  nist_subcategory_id: RC.CO-03
+  similarity: 0.726
+  rationale: C2M2 does not distinguish recovery-phase communications from general incident communications as separately as NIST does; the same communications-plan practice covers both.

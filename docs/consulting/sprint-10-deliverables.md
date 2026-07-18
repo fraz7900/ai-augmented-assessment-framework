@@ -1,7 +1,7 @@
 # Sprint 10 — Consulting Deliverables
 
-**Sprint:** 10 — Frontend (React) + Docker Compose deployment stack + full C2M2 transcription
-**Period:** 2026-07-17
+**Sprint:** 10 — Frontend (React) + Docker Compose deployment stack + full C2M2 transcription + cross-framework equivalence
+**Period:** 2026-07-17 to 2026-07-18
 **Prepared as:** end-of-sprint client-style reporting, per the project's consulting-engagement operating model
 
 ---
@@ -106,20 +106,46 @@ failing, after first confirming the general "unpopulated domain" mechanic they p
 remained tested elsewhere via a synthetic fixture. See
 `docs/adr/ADR-0018-c2m2-full-transcription.md`.
 
+**A fourth piece of work, same sprint: cross-framework equivalence (US-5.2/FR-14), deferred since
+Sprint 5, is now delivered.** `.claude/skills/framework-mapping/SKILL.md` point 3 was found before
+writing any code and is a hard constraint, not a preference: "Cross-framework equivalence is
+additive, not automatic... not inferred by embedding similarity alone... embedding similarity can
+seed a candidate mapping for human review; it should not silently become an accepted mapping." A
+version-matched official crosswalk was checked for first (NCCoE publishes a C2M2 v2.1 ↔ NIST CSF
+**1.1** mapping, but this project's NIST data is CSF **2.0**, which restructured categories relative
+to 1.1 — chaining through a second translation hop was rejected as adding unverified risk for no
+clear gain). The pipeline that shipped instead: a new script embeds every C2M2 practice and NIST
+subcategory with the same local embedder used everywhere else and prints top-3 candidates per NIST
+subcategory for review — genuine human review then read all 106 subcategories against their
+candidates and accepted 79 with a real rationale sentence each, rejecting the rest for one of two
+disclosed reasons (a genuine standards gap C2M2 has no practice for, or a structural ambiguity found
+mid-review: C2M2's "Management Activities" objective repeats near-identical boilerplate text across
+all 10 domains, so a NIST subcategory matching that pattern doesn't have *one* C2M2 equivalent — it
+matches all ten equally, and accepting one would misrepresent that). Ten accepted entries score lower
+than the rejected top-3 candidates for the same subcategory (down to 0.633) — found by recognizing
+the correct match from having actually transcribed both frameworks, not from the embedding ranking,
+which is the concrete demonstration of why human review is required rather than a threshold. Surfaces
+as an "Also satisfies" note in the Evidence tab (framework, practice ID, resolved text, similarity,
+and the rationale — never the score alone), live-verified against a real assessment with zero console
+errors. See `docs/adr/ADR-0019-cross-framework-equivalence.md`.
+
 ## Client Update
 
 **What was delivered:** a working frontend (previously nonexistent) covering 100% of the existing
 API surface's user-facing flows; a working, live-verified Docker Compose deployment stack (also
-previously nonexistent); a fully transcribed C2M2 (all 10 domains, previously 2 of 10); three new
-ADRs (0016, 0017, 0018); NFR-4 closed at the UI layer; three real bugs found and fixed during live
-verification rather than shipped and discovered later (two in the frontend, one in the Docker build);
-one backend change (CORS) verified not to regress the existing test suite; two stale tests updated
-after the C2M2 transcription, full 181-test suite re-verified passing.
+previously nonexistent); a fully transcribed C2M2 (all 10 domains, previously 2 of 10); cross-framework
+equivalence for 79 of 106 NIST subcategories (previously none); four new ADRs (0016-0019); NFR-4
+closed at the UI layer; three real bugs found and fixed during live verification rather than shipped
+and discovered later (two in the frontend, one in the Docker build); one backend change (CORS)
+verified not to regress the existing test suite; two stale tests updated after the C2M2 transcription,
+3 new tests for equivalence merging, full 184-test suite passing.
 
 **What was intentionally not delivered this sprint:** authentication/login (out of scope for MVP,
 charter Section 12); any new backend feature or scoring change; full component-tree integration tests
 (the live Playwright walkthrough covers real integrated behavior; targeted unit tests cover the two
-components that are the actual enforcement points for product invariants).
+components that are the actual enforcement points for product invariants); equivalence coverage for
+the remaining 27 NIST subcategories (disclosed as either a genuine standards gap or a structural
+ambiguity, not silently dropped — see ADR-0019).
 
 **Decisions made and disclosed, not escalated:** styling approach (Tailwind CSS vs. plain CSS Modules
 vs. a component library) was put to the project owner directly rather than decided unilaterally,
@@ -135,6 +161,7 @@ not a unilateral call — recorded as such in ADR-0017 rather than presented as 
 | 0016 | Frontend built as Vite/React/TypeScript with TanStack Query, react-router, OpenAPI-generated types, and Tailwind CSS; backend gained CORS middleware; Vite's dev-server file watcher switched to polling after a live, measured stale-code symptom on this repo's WSL2/OneDrive mount | The platform's entire value proposition was previously locked behind Swagger — this is the change that makes it demoable as an actual product to a non-technical reviewer |
 | 0017 | Docker Compose stack: one named volume, Ollama gated behind a Compose profile rather than default-on, `python:3.12-slim` base, frontend API base URL baked in to the backend's published host port; live-verified end to end after fixing an `npm ci` peer-dependency issue found on first real build | Packages the now-complete backend+frontend pair for reproducible local deployment, one command instead of two manually-run dev servers |
 | 0018 | The remaining 8 C2M2 domains (285 practices) transcribed from the real source PDF following ADR-0009's established process; 3 objectives with a dropped MIL-level label caught by a systematic anomaly scan and cross-checked before transcribing | Closes a 3-sprint-old, deliberately-scoped-down gap (R-14/US-3.1a) — a C2M2 assessment can now be meaningfully scored across every domain, not just 2 of 10 |
+| 0019 | Cross-framework equivalence ships as computed candidates + hand-curated acceptance (79 of 106 NIST subcategories), per a hard constraint in the framework-mapping skill against automatic similarity-threshold acceptance; review caught a real false-positive pattern (repeated domain boilerplate) automation alone would have missed | Closes a 5-sprint-old deferred backlog item (US-5.2/FR-14) — Priya no longer has to independently discover that one piece of evidence covers practices in both frameworks |
 
 ## Business Value Assessment
 
@@ -164,6 +191,12 @@ not a unilateral call — recorded as such in ADR-0017 rather than presented as 
   way ADR-0009 said it would be** — a known, repeatable process executed with zero changes to the
   loader/scoring/validation code, plus a systematic check (not a trust-the-tool assumption) that
   caught 3 objectives where the extraction had silently dropped a MIL-level label.
+- **A hard constraint found in a skill file, not a preference, materially changed the cross-framework
+  equivalence design before any code was written** — the framework-mapping skill's explicit ban on
+  accepting embedding similarity alone forced a two-stage (candidates then human review) design, and
+  that review caught a real false-positive class (repeated domain boilerplate) and several genuine
+  matches the raw ranking scored too low to surface on its own, concretely justifying why the
+  constraint exists rather than treating it as bureaucratic overhead.
 
 ## Risk Assessment
 
@@ -176,7 +209,10 @@ Full register in `docs/product/risk_register.md`; summarized here for Sprint 10 
 | R-14, only 2 of 10 C2M2 domains transcribed | **Closed** — all 10 domains, 356 of 356 practices, verified against the source document's own stated total |
 
 NFR-4's UI-level status in `docs/product/requirements.md` is updated from "pending an actual
-frontend" to delivered and verified.
+frontend" to delivered and verified. FR-14/US-5.2 is updated from "planned, deferred" to "delivered,
+partial coverage" — no new risk opened for the cross-framework equivalence work; the 27 excluded NIST
+subcategories are disclosed reasons (standards gap or boilerplate ambiguity) recorded in ADR-0019 and
+the committed YAML's own header, not a hidden gap.
 
 ## ROI Estimate
 
@@ -199,23 +235,26 @@ frontend" to delivered and verified.
   `EvidenceReviewControls` split means any future screen that needs to show evidence-review state
   reuses an already-tested component rather than re-implementing the NFR-4 rule from scratch; the
   deployment stack's env-var wiring means any future backend `Settings` field addition is a one-line
-  Dockerfile/compose change, not a re-derivation; cross-framework equivalence mapping (US-5.2, still
-  unstarted) is now buildable against both frameworks' full domain sets rather than blocked on C2M2
-  coverage first.
+  Dockerfile/compose change, not a re-derivation; the cross-framework equivalence candidate-generation
+  script is rerunnable as-is if either framework's transcription is ever corrected or extended, and
+  `EquivalentPractice` is a reusable component if a future screen (e.g. the dashboard) wants to surface
+  the same information.
 
 ## Executive Dashboard
 
 | Metric | Status |
 |---|---|
-| Sprint 10 scope items delivered | Full frontend covering every persona's primary flow — delivered, live-verified; NFR-4 UI-level requirement — closed; Docker Compose stack — delivered, live-verified end to end, closes R-24; C2M2 full transcription — delivered, verified, closes R-14/US-3.1a |
-| New ADRs produced | 3 (0016, 0017, 0018) |
+| Sprint 10 scope items delivered | Full frontend covering every persona's primary flow — delivered, live-verified; NFR-4 UI-level requirement — closed; Docker Compose stack — delivered, live-verified end to end, closes R-24; C2M2 full transcription — delivered, verified, closes R-14/US-3.1a; cross-framework equivalence — delivered, partial (79/106), closes US-5.2/FR-14 |
+| New ADRs produced | 4 (0016, 0017, 0018, 0019) |
 | Frontend automated tests | 13 passing (Vitest + RTL), targeted at NFR-4/FR-13a and R-15 enforcement points |
 | Frontend build/lint | `npm run build` and `npm run lint` (oxlint) — both clean |
-| Backend tests (re-verified after CORS change and C2M2 transcription) | 181 passing (2 rewritten for the completed transcription, not net-added) |
+| Backend tests | 184 passing (181 + 3 new for equivalence merging; 2 of the original 181 rewritten for the C2M2 transcription, not net-added) |
 | C2M2 coverage | 10 of 10 domains, 356 of 356 practices — matches the source document's own stated total exactly |
+| Cross-framework equivalence coverage | 79 of 106 NIST CSF 2.0 subcategories have a real, human-reviewed C2M2 equivalent with a rationale; remaining 27 disclosed with a specific reason each |
 | Live verification outcome (frontend, dev servers) | Full Playwright walkthrough against the real backend; zero console errors on final pass; PDF (3 pages)/XLSX downloads byte-verified as valid files, not just HTTP 200 |
 | Live verification outcome (Docker Compose stack) | `docker compose build`/`up` succeed; `ollama` correctly excluded by default and starts correctly via `--profile ollama`; full persona walkthrough against real containers, zero console errors, 349 AI mapping candidates proposed (reflecting full C2M2); PDF (15 pages)/XLSX byte-verified; data and model cache confirmed to survive `docker compose down`/`up` |
-| Bugs/anomalies found and fixed during this sprint's own verification | 3 code bugs (chat results React key collision; Vite dev-server stale-file-watch symptom on WSL2/OneDrive tied to R-11; `npm ci` peer-dependency failure in the Docker build) + 3 C2M2 transcription anomalies (dropped MIL-level labels, all corrected and cross-checked) |
+| Live verification outcome (cross-framework equivalence) | Linked evidence to `ACCESS-1a` on a real assessment; Evidence tab correctly rendered "Also satisfies NIST CSF 2.0: PR.AA-01" with resolved text, a 76% similarity meter, and the rationale sentence; zero console errors |
+| Bugs/anomalies found and fixed during this sprint's own verification | 3 code bugs (chat results React key collision; Vite dev-server stale-file-watch symptom on WSL2/OneDrive tied to R-11; `npm ci` peer-dependency failure in the Docker build) + 3 C2M2 transcription anomalies (dropped MIL-level labels) + 1 systematic false-positive pattern found during equivalence review (repeated domain boilerplate) |
 | Blocking decisions outstanding for Sprint 11 | 0 |
 
 ## Change Log
@@ -244,8 +283,19 @@ frontend" to delivered and verified.
   `unpopulated_domains` assertion) for the completed transcription.
 - Fixed `deployment/frontend.Dockerfile`'s `npm ci` to `npm ci --legacy-peer-deps` (found on the
   first real `docker build`, see ADR-0017 Decision 7).
-- Updated `docs/product/{decision_log,risk_register,prioritization,requirements}.md`,
-  `docs/current_sprint.md`, root `README.md` (Status, Technology, ADR count), `frontend/README.md`
+- Added `backend/scripts/generate_cross_framework_equivalence.py` (candidate generator, not the
+  source of truth) and `framework_mapping/cross_framework_equivalence.yaml` (79 hand-curated,
+  rationale-backed entries).
+- Added `Equivalent` model and `Practice.equivalents` field to
+  `backend/src/compliance_platform/models/framework.py`; added equivalence-merging to
+  `services/framework_loader.py`'s `FrameworkRegistry`.
+- Added 3 tests to `test_framework_loader.py`: a C2M2 practice with a known equivalent, the NIST side
+  of the same pairing, and a practice with none (empty list).
+- Added `frontend/src/components/EquivalentPractice.tsx`; updated `EvidenceTab.tsx` to render it per
+  linked practice; regenerated `frontend/src/api/schema.ts` and updated `types.ts`.
+- Added `docs/adr/ADR-0019-cross-framework-equivalence.md`.
+- Updated `docs/product/{decision_log,risk_register,prioritization,requirements,epics_and_user_stories}.md`,
+  `docs/current_sprint.md`, root `README.md` (Status, ADR count), `frontend/README.md`
   (replaced the generic Vite scaffold README with a project-specific one), `deployment/README.md`
   (replaced the placeholder with real run instructions, the port map, and the live-verification
   results).

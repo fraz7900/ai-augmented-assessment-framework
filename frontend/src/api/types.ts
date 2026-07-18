@@ -9,6 +9,7 @@ export type CreateAssessmentRequest = components['schemas']['CreateAssessmentReq
 export type DashboardReport = components['schemas']['DashboardReport']
 export type Domain = components['schemas']['Domain']
 export type DomainGapGroup = components['schemas']['DomainGapGroup']
+export type Equivalent = components['schemas']['Equivalent']
 export type EvidenceLink = components['schemas']['EvidenceLink']
 export type EvidenceReviewStatus = components['schemas']['EvidenceReviewStatus']
 export type EvidenceSource = components['schemas']['EvidenceSource']

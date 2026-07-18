@@ -33,12 +33,34 @@ class MilLevelDefinition(BaseModel):
     description: str
 
 
+class Equivalent(BaseModel):
+    """One reviewed, deliberately-curated cross-framework equivalence
+    (Sprint 10, US-5.2/FR-14 — see ADR-0019). Populated by
+    services/framework_loader.py from framework_mapping/
+    cross_framework_equivalence.yaml, never hand-constructed elsewhere —
+    per the framework-mapping skill, equivalence is additive and
+    human-reviewed, not inferred by embedding similarity alone, so
+    `similarity` is disclosed context for a judgment already made, not
+    the basis for accepting this pairing at request time.
+    """
+
+    framework_name: str
+    practice_id: str
+    practice_text: str
+    similarity: float
+    rationale: str
+
+
 class Practice(BaseModel):
     id: str
     text: str
     # None for frameworks with no native maturity levels (e.g. NIST CSF
     # 2.0 subcategories) — see FrameworkDefinition.scoring_model.
     mil: int | None = None
+    # Reviewed equivalents in *other* frameworks (ADR-0019) — empty for
+    # any practice with no curated entry, not merely absent/None, so
+    # callers never need a null check.
+    equivalents: list[Equivalent] = []
 
 
 class Objective(BaseModel):

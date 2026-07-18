@@ -457,6 +457,29 @@ export interface components {
             so_what: string;
         };
         /**
+         * Equivalent
+         * @description One reviewed, deliberately-curated cross-framework equivalence
+         *     (Sprint 10, US-5.2/FR-14 — see ADR-0019). Populated by
+         *     services/framework_loader.py from framework_mapping/
+         *     cross_framework_equivalence.yaml, never hand-constructed elsewhere —
+         *     per the framework-mapping skill, equivalence is additive and
+         *     human-reviewed, not inferred by embedding similarity alone, so
+         *     `similarity` is disclosed context for a judgment already made, not
+         *     the basis for accepting this pairing at request time.
+         */
+        Equivalent: {
+            /** Framework Name */
+            framework_name: string;
+            /** Practice Id */
+            practice_id: string;
+            /** Practice Text */
+            practice_text: string;
+            /** Similarity */
+            similarity: number;
+            /** Rationale */
+            rationale: string;
+        };
+        /**
          * EvidenceLink
          * @description Associates an ingested document (Sprint 1, identified by
          *     document_id from the vector store) with an assessment and a practice
@@ -652,6 +675,11 @@ export interface components {
             text: string;
             /** Mil */
             mil?: number | null;
+            /**
+             * Equivalents
+             * @default []
+             */
+            equivalents: components["schemas"]["Equivalent"][];
         };
         /**
          * ResolutionItem

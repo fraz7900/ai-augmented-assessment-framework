@@ -22,13 +22,15 @@ then open `http://localhost:5173`: upload a document (a sample is in `data/sampl
 
 **And: C2M2 is now fully transcribed** (`framework_mapping/c2m2_v2_1.yaml`, ADR-0018) — the remaining 8 domains (285 of 356 practices) were transcribed from the real DOE source PDF following the exact process ADR-0009 established for the original 2 domains, closing risk R-14 and backlog item US-3.1a. All 10 domains, 356 of 356 practices, matching the source document's own stated total exactly; two existing tests that hardcoded the old 2-of-10 state were updated (not left failing), and the full 181-test suite re-verified passing.
 
+**And: cross-framework equivalence** (`framework_mapping/cross_framework_equivalence.yaml`, ADR-0019) — closes US-5.2/FR-14, deferred since Sprint 5. `.claude/skills/framework-mapping/SKILL.md` requires equivalence to be "additive, not automatic... not inferred by embedding similarity alone," so this shipped as computed candidates (via the same local embedder used everywhere else) followed by a real human review pass: 79 of 106 NIST CSF 2.0 subcategories got a genuine, rationale-backed C2M2 equivalent; the review itself caught a real false-positive pattern (C2M2's near-identical "Management Activities" boilerplate repeated across all 10 domains, which would otherwise falsely match generic NIST governance subcategories) that similarity ranking alone could not have distinguished. Surfaces as an "Also satisfies" note in the Evidence tab, always showing the rationale next to the similarity score, never the score alone.
+
 ## Start here
 
 - [`PROJECT_CHARTER.md`](./PROJECT_CHARTER.md) — business problem, stakeholders, success metrics, risks, MVP scope
 - [`docs/product/`](./docs/product/) — PRD, personas, epics/user stories, requirements, assumptions log, decision log, risk register, prioritized backlog
 - [`docs/architecture/00-repository-architecture.md`](./docs/architecture/00-repository-architecture.md) — repository layout and rationale
 - [`docs/architecture/01-claude-code-workspace.md`](./docs/architecture/01-claude-code-workspace.md) — hooks, skills, and MCP design for this project's `.claude/` workspace
-- [`docs/adr/`](./docs/adr/) — Architecture Decision Records (18 as of Sprint 10)
+- [`docs/adr/`](./docs/adr/) — Architecture Decision Records (19 as of Sprint 10)
 - [`docs/consulting/`](./docs/consulting/) — per-sprint executive summaries, business value/risk/ROI assessments, and MBA/interview narrative
 - [`docs/current_sprint.md`](./docs/current_sprint.md) — single-source-of-truth sprint tracker
 
