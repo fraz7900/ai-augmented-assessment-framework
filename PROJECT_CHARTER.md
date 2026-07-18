@@ -144,7 +144,7 @@ Framed as hypotheses to validate during the sprints, not pre-claimed results:
 
 ## 13. Future Roadmap
 
-- **Near-term extension:** NERC CIP mapping, given its direct regulatory relevance to the same bulk electric system entities that use C2M2. **Started, Sprint 11** — all 13 currently-mandatory standards present with real sourced metadata, one (CIP-004-7) fully transcribed; see `docs/adr/ADR-0021-nerc-cip-roadmap-extension-start.md`.
+- **Near-term extension:** NERC CIP mapping, given its direct regulatory relevance to the same bulk electric system entities that use C2M2. **Delivered, Sprint 11** — all 13 currently-mandatory standards fully transcribed, 141 of 141 practices; see `docs/adr/ADR-0021-nerc-cip-roadmap-extension-start.md` and `docs/adr/ADR-0022-nerc-cip-full-transcription.md`. Cross-framework equivalence involving NERC CIP remains open backlog.
 - **Framework breadth:** ISO 27001, CIS Controls, SOC 2, PCI DSS, reusing the same versioned-schema mapping engine.
 - **"Chat with your assessment"** conversational interface over completed assessments (Sprint 8 in the sprint sequence).
 - **Continuous monitoring:** ingestion of recurring evidence (e.g., quarterly access reviews) to shift from point-in-time assessment to continuous maturity tracking.

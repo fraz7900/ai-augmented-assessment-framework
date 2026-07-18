@@ -9,15 +9,14 @@ source_publisher: North American Electric Reliability Corporation
 source_date: see each domain's own source_version
 source_url: https://www.nerc.com/standards/reliability-standards/cip
 retrieved_date: '2026-07-18'
-total_practices_in_source: 19
+total_practices_in_source: 141
 scoring_model: coverage
 mil_levels: []
-scoring_note: 'NERC CIP is a compliance/audit standard, not a native maturity model — like NIST CSF 2.0
+scoring_note: NERC CIP is a compliance/audit standard, not a native maturity model — like NIST CSF 2.0
   (ADR-0010), it has no MIL concept, so Practice.mil is always None here. Scores are the project-defined
-  coverage measure (fraction of a standard''s Parts with accepted/edited evidence), via services/scoring_service.py''s
-  compute_domain_coverage. Only CIP-004-7 is fully transcribed as of ADR-0021; the other 12 domains are
-  real structural stubs (practices_populated: False) with no practices to score yet, not silently-omitted
-  coverage.'
+  coverage measure (fraction of a standard's Parts with accepted/edited evidence), via services/scoring_service.py's
+  compute_domain_coverage. All 13 currently-mandatory standards are fully transcribed as of ADR-0022;
+  CIP-015 (approved but not yet in force) is deliberately excluded — see the nerc-cip-expert skill.
 domains:
 - short_code: CIP-002
   full_name: Cyber Security — BES Cyber System Categorization
@@ -26,8 +25,42 @@ domains:
     or misuse of those BES Cyber Systems could have on the reliable operation of the BES. Identification
     and categorization of BES Cyber Systems support appropriate protection against compromises that could
     lead to misoperation or instability in the BES.
-  practices_populated: false
-  objectives: []
+  practices_populated: true
+  objectives:
+  - number: 1
+    title: R1 – BES Cyber System Categorization
+    purpose: 'Each Responsible Entity shall implement a process that considers each of the following assets
+      for purposes of parts 1.1 through 1.3: Control Centers and backup Control Centers; Transmission
+      stations and substations; Generation resources; systems and facilities critical to system restoration,
+      including Blackstart Resources and Cranking Paths and initial switching requirements; Special Protection
+      Systems that support the reliable operation of the Bulk Electric System; and, for Distribution Providers,
+      Protection Systems specified in Applicability section 4.2.1.'
+    practices:
+    - id: CIP-002-1.1
+      text: Identify each of the high impact BES Cyber Systems according to Attachment 1, Section 1, if
+        any, at each asset.
+      applicability: ''
+    - id: CIP-002-1.2
+      text: Identify each of the medium impact BES Cyber Systems according to Attachment 1, Section 2,
+        if any, at each asset.
+      applicability: ''
+    - id: CIP-002-1.3
+      text: Identify each asset that contains a low impact BES Cyber System according to Attachment 1,
+        Section 3, if any (a discrete list of low impact BES Cyber Systems is not required).
+      applicability: ''
+  - number: 2
+    title: R2 – Review and Approval
+    purpose: 'The Responsible Entity shall:'
+    practices:
+    - id: CIP-002-2.1
+      text: Review the identifications in Requirement R1 and its parts (and update them if there are changes
+        identified) at least once every 15 calendar months, even if it has no identified items in Requirement
+        R1.
+      applicability: ''
+    - id: CIP-002-2.2
+      text: Have its CIP Senior Manager or delegate approve the identifications required by Requirement
+        R1 at least once every 15 calendar months, even if it has no identified items in Requirement R1.
+      applicability: ''
   source_version: CIP-002-5.1a
   source_url: https://www.nerc.com/globalassets/standards/reliability-standards/cip/cip-002-5.1a.pdf
 - short_code: CIP-003
@@ -35,8 +68,56 @@ domains:
   purpose: To specify consistent and sustainable security management controls that establish responsibility
     and accountability to protect BES Cyber Systems against compromise that could lead to misoperation
     or instability in the Bulk Electric System (BES).
-  practices_populated: false
-  objectives: []
+  practices_populated: true
+  objectives:
+  - number: 1
+    title: R1 – Cyber Security Policy
+    purpose: 'Each Responsible Entity shall review and obtain CIP Senior Manager approval at least once
+      every 15 calendar months for one or more documented cyber security policies that collectively address
+      the following topics:'
+    practices:
+    - id: CIP-003-1.1
+      text: Personnel and training (CIP-004); Electronic Security Perimeters (CIP-005) including Interactive
+        Remote Access; Physical security of BES Cyber Systems (CIP-006); System security management (CIP-007);
+        Incident reporting and response planning (CIP-008); Recovery plans for BES Cyber Systems (CIP-009);
+        Configuration change management and vulnerability assessments (CIP-010); Information protection
+        (CIP-011); and Declaring and responding to CIP Exceptional Circumstances.
+      applicability: High impact and medium impact BES Cyber Systems, if any
+    - id: CIP-003-1.2
+      text: Cyber security awareness; Physical security controls; Electronic access controls; Cyber Security
+        Incident response; Transient Cyber Assets and Removable Media malicious code risk mitigation;
+        Vendor electronic remote access security controls; and Declaring and responding to CIP Exceptional
+        Circumstances.
+      applicability: Assets identified in CIP-002 containing low impact BES Cyber Systems, if any
+  - number: 2
+    title: R2 – Low Impact BES Cyber Systems Cyber Security Plan(s)
+    purpose: ''
+    practices:
+    - id: CIP-003-2
+      text: Each Responsible Entity with at least one asset identified in CIP-002 containing low impact
+        BES Cyber Systems shall implement one or more documented cyber security plan(s) for its low impact
+        BES Cyber Systems that include the sections in Attachment 1.
+      applicability: Assets identified in CIP-002 containing low impact BES Cyber Systems
+  - number: 3
+    title: R3 – CIP Senior Manager
+    purpose: ''
+    practices:
+    - id: CIP-003-3
+      text: Each Responsible Entity shall identify a CIP Senior Manager by name and document any change
+        within 30 calendar days of the change.
+      applicability: ''
+  - number: 4
+    title: R4 – Delegations
+    purpose: ''
+    practices:
+    - id: CIP-003-4
+      text: The Responsible Entity shall implement a documented process to delegate authority, unless
+        no delegations are used. Where allowed by the CIP Standards, the CIP Senior Manager may delegate
+        authority for specific actions to a delegate or delegates. These delegations shall be documented,
+        including the name or title of the delegate, the specific actions delegated, and the date of the
+        delegation; approved by the CIP Senior Manager; and updated within 30 days of any change to the
+        delegation. Delegation changes do not need to be reinstated with a change to the delegator.
+      applicability: ''
   source_version: CIP-003-9
   source_url: https://www.nerc.com/globalassets/standards/reliability-standards/cip/cip-003-9.pdf
 - short_code: CIP-004
@@ -242,8 +323,95 @@ domains:
   purpose: To manage electronic access to BES Cyber Systems by specifying a controlled Electronic Security
     Perimeter in support of protecting BES Cyber Systems against compromise that could lead to misoperation
     or instability in the BES.
-  practices_populated: false
-  objectives: []
+  practices_populated: true
+  objectives:
+  - number: 1
+    title: R1 – Electronic Security Perimeter
+    purpose: Each Responsible Entity shall implement one or more documented processes that collectively
+      include each of the applicable requirement parts in CIP-005-7 Table R1 – Electronic Security Perimeter.
+    practices:
+    - id: CIP-005-1.1
+      text: All applicable Cyber Assets connected to a network via a routable protocol shall reside within
+        a defined ESP.
+      applicability: 'High Impact BES Cyber Systems and their associated: PCA
+
+        Medium Impact BES Cyber Systems and their associated: PCA'
+    - id: CIP-005-1.2
+      text: All External Routable Connectivity must be through an identified Electronic Access Point (EAP).
+      applicability: 'High Impact BES Cyber Systems with External Routable Connectivity and their associated:
+        PCA
+
+        Medium Impact BES Cyber Systems with External Routable Connectivity and their associated: PCA'
+    - id: CIP-005-1.3
+      text: Require inbound and outbound access permissions, including the reason for granting access,
+        and deny all other access by default.
+      applicability: 'Electronic Access Points for High Impact BES Cyber Systems
+
+        Electronic Access Points for Medium Impact BES Cyber Systems'
+    - id: CIP-005-1.4
+      text: Where technically feasible, perform authentication when establishing Dial-up Connectivity
+        with applicable Cyber Assets.
+      applicability: 'High Impact BES Cyber Systems with Dial-up Connectivity and their associated: PCA
+
+        Medium Impact BES Cyber Systems with Dial-up Connectivity and their associated: PCA'
+    - id: CIP-005-1.5
+      text: Have one or more methods for detecting known or suspected malicious communications for both
+        inbound and outbound communications.
+      applicability: 'Electronic Access Points for High Impact BES Cyber Systems
+
+        Electronic Access Points for Medium Impact BES Cyber Systems at Control Centers'
+  - number: 2
+    title: R2 – Remote Access Management
+    purpose: Each Responsible Entity shall implement one or more documented processes that collectively
+      include the applicable requirement parts, where technically feasible, in CIP-005-7 Table R2 – Remote
+      Access Management.
+    practices:
+    - id: CIP-005-2.1
+      text: For all Interactive Remote Access, utilize an Intermediate System such that the Cyber Asset
+        initiating Interactive Remote Access does not directly access an applicable Cyber Asset.
+      applicability: 'High Impact BES Cyber Systems and their associated: PCA
+
+        Medium Impact BES Cyber Systems with External Routable Connectivity and their associated: PCA'
+    - id: CIP-005-2.2
+      text: For all Interactive Remote Access sessions, utilize encryption that terminates at an Intermediate
+        System.
+      applicability: 'High Impact BES Cyber Systems and their associated: PCA
+
+        Medium Impact BES Cyber Systems with External Routable Connectivity and their associated: PCA'
+    - id: CIP-005-2.3
+      text: Require multi-factor authentication for all Interactive Remote Access sessions.
+      applicability: 'High Impact BES Cyber Systems and their associated: PCA
+
+        Medium Impact BES Cyber Systems with External Routable Connectivity and their associated: PCA'
+    - id: CIP-005-2.4
+      text: Have one or more methods for determining active vendor remote access sessions (including Interactive
+        Remote Access and system-to-system remote access).
+      applicability: 'High Impact BES Cyber Systems and their associated: PCA
+
+        Medium Impact BES Cyber Systems with External Routable Connectivity and their associated: PCA'
+    - id: CIP-005-2.5
+      text: Have one or more method(s) to disable active vendor remote access (including Interactive Remote
+        Access and system-to-system remote access).
+      applicability: 'High Impact BES Cyber Systems and their associated: PCA
+
+        Medium Impact BES Cyber Systems with External Routable Connectivity and their associated: PCA'
+  - number: 3
+    title: R3 – Vendor Remote Access Management for EACMS and PACS
+    purpose: Each Responsible Entity shall implement one or more documented processes that collectively
+      include the applicable requirement parts in CIP-005-7 Table R3 – Vendor Remote Access Management
+      for EACMS and PACS.
+    practices:
+    - id: CIP-005-3.1
+      text: Have one or more method(s) to determine authenticated vendor-initiated remote connections.
+      applicability: 'EACMS and PACS associated with High Impact BES Cyber Systems
+
+        EACMS and PACS associated with Medium Impact BES Cyber Systems with External Routable Connectivity'
+    - id: CIP-005-3.2
+      text: Have one or more method(s) to terminate authenticated vendor-initiated remote connections
+        and control the ability to reconnect.
+      applicability: 'EACMS and PACS associated with High Impact BES Cyber Systems
+
+        EACMS and PACS associated with Medium Impact BES Cyber Systems with External Routable Connectivity'
   source_version: CIP-005-7
   source_url: https://www.nerc.com/globalassets/standards/reliability-standards/cip/cip-005-7.pdf
 - short_code: CIP-006
@@ -251,8 +419,128 @@ domains:
   purpose: To manage physical access to Bulk Electric System (BES) Cyber Systems by specifying a physical
     security plan in support of protecting BES Cyber Systems against compromise that could lead to misoperation
     or instability in the BES.
-  practices_populated: false
-  objectives: []
+  practices_populated: true
+  objectives:
+  - number: 1
+    title: R1 – Physical Security Plan
+    purpose: Each Responsible Entity shall implement one or more documented physical security plan(s)
+      that collectively include all of the applicable requirement parts in CIP-006-6 Table R1 – Physical
+      Security Plan.
+    practices:
+    - id: CIP-006-1.1
+      text: Define operational or procedural controls to restrict physical access.
+      applicability: 'Medium Impact BES Cyber Systems without External Routable Connectivity
+
+        Physical Access Control Systems (PACS) associated with: High Impact BES Cyber Systems, or Medium
+        Impact BES Cyber Systems with External Routable Connectivity'
+    - id: CIP-006-1.2
+      text: Utilize at least one physical access control to allow unescorted physical access into each
+        applicable Physical Security Perimeter to only those individuals who have authorized unescorted
+        physical access.
+      applicability: 'Medium Impact BES Cyber Systems with External Routable Connectivity and their associated:
+        EACMS; PCA'
+    - id: CIP-006-1.3
+      text: Where technically feasible, utilize two or more different physical access controls (this does
+        not require two completely independent physical access control systems) to collectively allow
+        unescorted physical access into Physical Security Perimeters to only those individuals who have
+        authorized unescorted physical access.
+      applicability: 'High Impact BES Cyber Systems and their associated: EACMS; PCA'
+    - id: CIP-006-1.4
+      text: Monitor for unauthorized access through a physical access point into a Physical Security Perimeter.
+      applicability: 'High Impact BES Cyber Systems and their associated: EACMS; PCA
+
+        Medium Impact BES Cyber Systems with External Routable Connectivity and their associated: EACMS;
+        PCA'
+    - id: CIP-006-1.5
+      text: Issue an alarm or alert in response to detected unauthorized access through a physical access
+        point into a Physical Security Perimeter to the personnel identified in the BES Cyber Security
+        Incident response plan within 15 minutes of detection.
+      applicability: 'High Impact BES Cyber Systems and their associated: EACMS; PCA
+
+        Medium Impact BES Cyber Systems with External Routable Connectivity and their associated: EACMS;
+        PCA'
+    - id: CIP-006-1.6
+      text: Monitor each Physical Access Control System for unauthorized physical access to a Physical
+        Access Control System.
+      applicability: 'Physical Access Control Systems (PACS) associated with: High Impact BES Cyber Systems,
+        or Medium Impact BES Cyber Systems with External Routable Connectivity'
+    - id: CIP-006-1.7
+      text: Issue an alarm or alert in response to detected unauthorized physical access to a Physical
+        Access Control System to the personnel identified in the BES Cyber Security Incident response
+        plan within 15 minutes of the detection.
+      applicability: 'Physical Access Control Systems (PACS) associated with: High Impact BES Cyber Systems,
+        or Medium Impact BES Cyber Systems with External Routable Connectivity'
+    - id: CIP-006-1.8
+      text: Log (through automated means or by personnel who control entry) entry of each individual with
+        authorized unescorted physical access into each Physical Security Perimeter, with information
+        to identify the individual and date and time of entry.
+      applicability: 'High Impact BES Cyber Systems and their associated: EACMS; PCA
+
+        Medium Impact BES Cyber Systems with External Routable Connectivity and their associated: EACMS;
+        PCA'
+    - id: CIP-006-1.9
+      text: Retain physical access logs of entry of individuals with authorized unescorted physical access
+        into each Physical Security Perimeter for at least ninety calendar days.
+      applicability: 'High Impact BES Cyber Systems and their associated: EACMS; PCA
+
+        Medium Impact BES Cyber Systems with External Routable Connectivity and their associated: EACMS;
+        PCA'
+    - id: CIP-006-1.10
+      text: 'Restrict physical access to cabling and other nonprogrammable communication components used
+        for connection between applicable Cyber Assets within the same Electronic Security Perimeter in
+        those instances when such cabling and components are located outside of a Physical Security Perimeter.
+        Where physical access restrictions to such cabling and components are not implemented, the Responsible
+        Entity shall document and implement one or more of the following: encryption of data that transits
+        such cabling and components; or monitoring the status of the communication link composed of such
+        cabling and components and issuing an alarm or alert in response to detected communication failures
+        to the personnel identified in the BES Cyber Security Incident response plan within 15 minutes
+        of detection; or an equally effective logical protection.'
+      applicability: 'High Impact BES Cyber Systems and their associated: PCA
+
+        Medium Impact BES Cyber Systems at Control Centers and their associated: PCA'
+  - number: 2
+    title: R2 – Visitor Control Program
+    purpose: Each Responsible Entity shall implement one or more documented visitor control program(s)
+      that include each of the applicable requirement parts in CIP-006-6 Table R2 – Visitor Control Program.
+    practices:
+    - id: CIP-006-2.1
+      text: Require continuous escorted access of visitors (individuals who are provided access but are
+        not authorized for unescorted physical access) within each Physical Security Perimeter, except
+        during CIP Exceptional Circumstances.
+      applicability: 'High Impact BES Cyber Systems and their associated: EACMS; PCA
+
+        Medium Impact BES Cyber Systems with External Routable Connectivity and their associated: EACMS;
+        PCA'
+    - id: CIP-006-2.2
+      text: Require manual or automated logging of visitor entry into and exit from the Physical Security
+        Perimeter that includes date and time of the initial entry and last exit, the visitor's name,
+        and the name of an individual point of contact responsible for the visitor, except during CIP
+        Exceptional Circumstances.
+      applicability: 'High Impact BES Cyber Systems and their associated: EACMS; PCA
+
+        Medium Impact BES Cyber Systems with External Routable Connectivity and their associated: EACMS;
+        PCA'
+    - id: CIP-006-2.3
+      text: Retain visitor logs for at least ninety calendar days.
+      applicability: 'High Impact BES Cyber Systems and their associated: EACMS; PCA
+
+        Medium Impact BES Cyber Systems with External Routable Connectivity and their associated: EACMS;
+        PCA'
+  - number: 3
+    title: R3 – Physical Access Control System Maintenance and Testing Program
+    purpose: Each Responsible Entity shall implement one or more documented Physical Access Control System
+      maintenance and testing program(s) that collectively include each of the applicable requirement
+      parts in CIP-006-6 Table R3 – Maintenance and Testing Program.
+    practices:
+    - id: CIP-006-3.1
+      text: Maintenance and testing of each Physical Access Control System and locally mounted hardware
+        or devices at the Physical Security Perimeter at least once every 24 calendar months to ensure
+        they function properly.
+      applicability: 'Physical Access Control Systems (PACS) associated with: High Impact BES Cyber Systems,
+        or Medium Impact BES Cyber Systems with External Routable Connectivity
+
+        Locally mounted hardware or devices at the Physical Security Perimeter associated with: High Impact
+        BES Cyber Systems, or Medium Impact BES Cyber Systems with External Routable Connectivity'
   source_version: CIP-006-6
   source_url: https://www.nerc.com/globalassets/standards/reliability-standards/cip/cip-006-6.pdf
 - short_code: CIP-007
@@ -260,24 +548,389 @@ domains:
   purpose: To manage system security by specifying select technical, operational, and procedural requirements
     in support of protecting BES Cyber Systems against compromise that could lead to misoperation or instability
     in the Bulk Electric System (BES).
-  practices_populated: false
-  objectives: []
+  practices_populated: true
+  objectives:
+  - number: 1
+    title: R1 – Ports and Services
+    purpose: Each Responsible Entity shall implement one or more documented process(es) that collectively
+      include each of the applicable requirement parts in CIP-007-6 Table R1 – Ports and Services.
+    practices:
+    - id: CIP-007-1.1
+      text: Where technically feasible, enable only logical network accessible ports that have been determined
+        to be needed by the Responsible Entity, including port ranges or services where needed to handle
+        dynamic ports. If a device has no provision for disabling or restricting logical ports on the
+        device then those ports that are open are deemed needed.
+      applicability: 'High Impact BES Cyber Systems and their associated: EACMS; PACS; and PCA
+
+        Medium Impact BES Cyber Systems with External Routable Connectivity and their associated: EACMS;
+        PACS; and PCA'
+    - id: CIP-007-1.2
+      text: Protect against the use of unnecessary physical input/output ports used for network connectivity,
+        console commands, or Removable Media.
+      applicability: 'High Impact BES Cyber Systems and their associated: PCA; and Nonprogrammable communication
+        components located inside both a PSP and an ESP.
+
+        Medium Impact BES Cyber Systems at Control Centers and their associated: PCA; and Nonprogrammable
+        communication components located inside both a PSP and an ESP.'
+  - number: 2
+    title: R2 – Security Patch Management
+    purpose: Each Responsible Entity shall implement one or more documented process(es) that collectively
+      include each of the applicable requirement parts in CIP-007-6 Table R2 – Security Patch Management.
+    practices:
+    - id: CIP-007-2.1
+      text: A patch management process for tracking, evaluating, and installing cyber security patches
+        for applicable Cyber Assets. The tracking portion shall include the identification of a source
+        or sources that the Responsible Entity tracks for the release of cyber security patches for applicable
+        Cyber Assets that are updateable and for which a patching source exists.
+      applicability: 'High Impact BES Cyber Systems and their associated: EACMS; PACS; and PCA
+
+        Medium Impact BES Cyber Systems and their associated: EACMS; PACS; and PCA'
+    - id: CIP-007-2.2
+      text: At least once every 35 calendar days, evaluate security patches for applicability that have
+        been released since the last evaluation from the source or sources identified in Part 2.1.
+      applicability: 'High Impact BES Cyber Systems and their associated: EACMS; PACS; and PCA
+
+        Medium Impact BES Cyber Systems and their associated: EACMS; PACS; and PCA'
+    - id: CIP-007-2.3
+      text: 'For applicable patches identified in Part 2.2, within 35 calendar days of the evaluation
+        completion, take one of the following actions: apply the applicable patches; or create a dated
+        mitigation plan; or revise an existing mitigation plan. Mitigation plans shall include the Responsible
+        Entity''s planned actions to mitigate the vulnerabilities addressed by each security patch and
+        a timeframe to complete these mitigations.'
+      applicability: 'High Impact BES Cyber Systems and their associated: EACMS; PACS; and PCA
+
+        Medium Impact BES Cyber Systems and their associated: EACMS; PACS; and PCA'
+    - id: CIP-007-2.4
+      text: For each mitigation plan created or revised in Part 2.3, implement the plan within the timeframe
+        specified in the plan, unless a revision to the plan or an extension to the timeframe specified
+        in Part 2.3 is approved by the CIP Senior Manager or delegate.
+      applicability: 'High Impact BES Cyber Systems and their associated: EACMS; PACS; and PCA
+
+        Medium Impact BES Cyber Systems and their associated: EACMS; PACS; and PCA'
+  - number: 3
+    title: R3 – Malicious Code Prevention
+    purpose: Each Responsible Entity shall implement one or more documented process(es) that collectively
+      include each of the applicable requirement parts in CIP-007-6 Table R3 – Malicious Code Prevention.
+    practices:
+    - id: CIP-007-3.1
+      text: Deploy method(s) to deter, detect, or prevent malicious code.
+      applicability: 'High Impact BES Cyber Systems and their associated: EACMS; PACS; and PCA
+
+        Medium Impact BES Cyber Systems and their associated: EACMS; PACS; and PCA'
+    - id: CIP-007-3.2
+      text: Mitigate the threat of detected malicious code.
+      applicability: 'High Impact BES Cyber Systems and their associated: EACMS; PACS; and PCA
+
+        Medium Impact BES Cyber Systems and their associated: EACMS; PACS; and PCA'
+    - id: CIP-007-3.3
+      text: For those methods identified in Part 3.1 that use signatures or patterns, have a process for
+        the update of the signatures or patterns. The process must address testing and installing the
+        signatures or patterns.
+      applicability: 'High Impact BES Cyber Systems and their associated: EACMS; PACS; and PCA
+
+        Medium Impact BES Cyber Systems and their associated: EACMS; PACS; and PCA'
+  - number: 4
+    title: R4 – Security Event Monitoring
+    purpose: Each Responsible Entity shall implement one or more documented process(es) that collectively
+      include each of the applicable requirement parts in CIP-007-6 Table R4 – Security Event Monitoring.
+    practices:
+    - id: CIP-007-4.1
+      text: 'Log events at the BES Cyber System level (per BES Cyber System capability) or at the Cyber
+        Asset level (per Cyber Asset capability) for identification of, and after-the-fact investigations
+        of, Cyber Security Incidents that includes, as a minimum, each of the following types of events:
+        detected successful login attempts; detected failed access attempts and failed login attempts;
+        detected malicious code.'
+      applicability: 'High Impact BES Cyber Systems and their associated: EACMS; PACS; and PCA
+
+        Medium Impact BES Cyber Systems and their associated: EACMS; PACS; and PCA'
+    - id: CIP-007-4.2
+      text: 'Generate alerts for security events that the Responsible Entity determines necessitates an
+        alert, that includes, as a minimum, each of the following types of events (per Cyber Asset or
+        BES Cyber System capability): detected malicious code from Part 4.1; and detected failure of Part
+        4.1 event logging.'
+      applicability: 'High Impact BES Cyber Systems and their associated: EACMS; PACS; and PCA
+
+        Medium Impact BES Cyber Systems with External Routable Connectivity and their associated: EACMS;
+        PACS; and PCA'
+    - id: CIP-007-4.3
+      text: Where technically feasible, retain applicable event logs identified in Part 4.1 for at least
+        the last 90 consecutive calendar days except under CIP Exceptional Circumstances.
+      applicability: 'High Impact BES Cyber Systems and their associated: EACMS; PACS; and PCA
+
+        Medium Impact BES Cyber Systems at Control Centers and their associated: EACMS; PACS; and PCA'
+    - id: CIP-007-4.4
+      text: Review a summarization or sampling of logged events as determined by the Responsible Entity
+        at intervals no greater than 15 calendar days to identify undetected Cyber Security Incidents.
+      applicability: 'High Impact BES Cyber Systems and their associated: EACMS; and PCA'
+  - number: 5
+    title: R5 – System Access Control
+    purpose: Each Responsible Entity shall implement one or more documented process(es) that collectively
+      include each of the applicable requirement parts in CIP-007-6 Table R5 – System Access Controls.
+    practices:
+    - id: CIP-007-5.1
+      text: Have a method(s) to enforce authentication of interactive user access, where technically feasible.
+      applicability: 'High Impact BES Cyber Systems and their associated: EACMS; PACS; and PCA
+
+        Medium Impact BES Cyber Systems at Control Centers and their associated: EACMS; PACS; and PCA
+
+        Medium Impact BES Cyber Systems with External Routable Connectivity and their associated: EACMS;
+        PACS; and PCA'
+    - id: CIP-007-5.2
+      text: Identify and inventory all known enabled default or other generic account types, either by
+        system, by groups of systems, by location, or by system type(s).
+      applicability: 'High Impact BES Cyber Systems and their associated: EACMS; PACS; and PCA
+
+        Medium Impact BES Cyber Systems and their associated: EACMS; PACS; and PCA'
+    - id: CIP-007-5.3
+      text: Identify individuals who have authorized access to shared accounts.
+      applicability: 'High Impact BES Cyber Systems and their associated: EACMS; PACS; and PCA
+
+        Medium Impact BES Cyber Systems with External Routable Connectivity and their associated: EACMS;
+        PACS; and PCA'
+    - id: CIP-007-5.4
+      text: Change known default passwords, per Cyber Asset capability.
+      applicability: 'High Impact BES Cyber Systems and their associated: EACMS; PACS; and PCA
+
+        Medium Impact BES Cyber Systems and their associated: EACMS; PACS; and PCA'
+    - id: CIP-007-5.5
+      text: 'For password-only authentication for interactive user access, either technically or procedurally
+        enforce the following password parameters: password length that is, at least, the lesser of eight
+        characters or the maximum length supported by the Cyber Asset; and minimum password complexity
+        that is the lesser of three or more different types of characters (e.g., uppercase alphabetic,
+        lowercase alphabetic, numeric, non-alphanumeric) or the maximum complexity supported by the Cyber
+        Asset.'
+      applicability: 'High Impact BES Cyber Systems and their associated: EACMS; PACS; and PCA
+
+        Medium Impact BES Cyber Systems and their associated: EACMS; PACS; and PCA'
+    - id: CIP-007-5.6
+      text: Where technically feasible, for password-only authentication for interactive user access,
+        either technically or procedurally enforce password changes or an obligation to change the password
+        at least once every 15 calendar months.
+      applicability: 'High Impact BES Cyber Systems and their associated: EACMS; PACS; and PCA
+
+        Medium Impact BES Cyber Systems with External Routable Connectivity and their associated: EACMS;
+        PACS; and PCA'
+    - id: CIP-007-5.7
+      text: 'Where technically feasible, either: limit the number of unsuccessful authentication attempts;
+        or generate alerts after a threshold of unsuccessful authentication attempts.'
+      applicability: 'High Impact BES Cyber Systems and their associated: EACMS; PACS; and PCA
+
+        Medium Impact BES Cyber Systems at Control Centers and their associated: EACMS; PACS; and PCA'
   source_version: CIP-007-6
   source_url: https://www.nerc.com/globalassets/standards/reliability-standards/cip/cip-007-6.pdf
 - short_code: CIP-008
   full_name: Cyber Security — Incident Reporting and Response Planning
   purpose: To mitigate the risk to the reliable operation of the BES as the result of a Cyber Security
     Incident by specifying incident response requirements.
-  practices_populated: false
-  objectives: []
+  practices_populated: true
+  objectives:
+  - number: 1
+    title: R1 – Cyber Security Incident Response Plan Specifications
+    purpose: Each Responsible Entity shall document one or more Cyber Security Incident response plan(s)
+      that collectively include each of the applicable requirement parts in CIP-008-6 Table R1 – Cyber
+      Security Incident Response Plan Specifications.
+    practices:
+    - id: CIP-008-1.1
+      text: One or more processes to identify, classify, and respond to Cyber Security Incidents.
+      applicability: 'High Impact BES Cyber Systems and their associated: EACMS
+
+        Medium Impact BES Cyber Systems and their associated: EACMS'
+    - id: CIP-008-1.2
+      text: 'One or more processes: that include criteria to evaluate and define attempts to compromise;
+        to determine if an identified Cyber Security Incident is a Reportable Cyber Security Incident
+        or an attempt to compromise, as determined by applying the criteria from Part 1.2.1, one or more
+        systems identified in the "Applicable Systems" column for this Part; and to provide notification
+        per Requirement R4.'
+      applicability: 'High Impact BES Cyber Systems and their associated: EACMS
+
+        Medium Impact BES Cyber Systems and their associated: EACMS'
+    - id: CIP-008-1.3
+      text: The roles and responsibilities of Cyber Security Incident response groups or individuals.
+      applicability: 'High Impact BES Cyber Systems and their associated: EACMS
+
+        Medium Impact BES Cyber Systems and their associated: EACMS'
+    - id: CIP-008-1.4
+      text: Incident handling procedures for Cyber Security Incidents.
+      applicability: 'High Impact BES Cyber Systems and their associated: EACMS
+
+        Medium Impact BES Cyber Systems and their associated: EACMS'
+  - number: 2
+    title: R2 – Cyber Security Incident Response Plan Implementation and Testing
+    purpose: Each Responsible Entity shall implement each of its documented Cyber Security Incident response
+      plans to collectively include each of the applicable requirement parts in CIP-008-6 Table R2 – Cyber
+      Security Incident Response Plan Implementation and Testing.
+    practices:
+    - id: CIP-008-2.1
+      text: 'Test each Cyber Security Incident response plan(s) at least once every 15 calendar months:
+        by responding to an actual Reportable Cyber Security Incident; with a paper drill or tabletop
+        exercise of a Reportable Cyber Security Incident; or with an operational exercise of a Reportable
+        Cyber Security Incident.'
+      applicability: 'High Impact BES Cyber Systems and their associated: EACMS
+
+        Medium Impact BES Cyber Systems and their associated: EACMS'
+    - id: CIP-008-2.2
+      text: Use the Cyber Security Incident response plan(s) under Requirement R1 when responding to a
+        Reportable Cyber Security Incident, responding to a Cyber Security Incident that attempted to
+        compromise a system identified in the "Applicable Systems" column for this Part, or performing
+        an exercise of a Reportable Cyber Security Incident. Document deviations from the plan(s) taken
+        during the response to the incident or exercise.
+      applicability: 'High Impact BES Cyber Systems and their associated: EACMS
+
+        Medium Impact BES Cyber Systems and their associated: EACMS'
+    - id: CIP-008-2.3
+      text: Retain records related to Reportable Cyber Security Incidents and Cyber Security Incidents
+        that attempted to compromise a system identified in the "Applicable Systems" column for this Part
+        as per the Cyber Security Incident response plan(s) under Requirement R1.
+      applicability: 'High Impact BES Cyber Systems and their associated: EACMS
+
+        Medium Impact BES Cyber Systems and their associated: EACMS'
+  - number: 3
+    title: R3 – Cyber Security Incident Response Plan Review, Update, and Communication
+    purpose: Each Responsible Entity shall maintain each of its Cyber Security Incident response plans
+      according to each of the applicable requirement parts in CIP-008-6 Table R3 – Cyber Security Incident
+      Response Plan Review, Update, and Communication.
+    practices:
+    - id: CIP-008-3.1
+      text: 'No later than 90 calendar days after completion of a Cyber Security Incident response plan(s)
+        test or actual Reportable Cyber Security Incident response: document any lessons learned or document
+        the absence of any lessons learned; update the Cyber Security Incident response plan based on
+        any documented lessons learned associated with the plan; and notify each person or group with
+        a defined role in the Cyber Security Incident response plan of the updates based on any documented
+        lessons learned.'
+      applicability: 'High Impact BES Cyber Systems and their associated: EACMS
+
+        Medium Impact BES Cyber Systems and their associated: EACMS'
+    - id: CIP-008-3.2
+      text: 'No later than 60 calendar days after a change to the roles or responsibilities, Cyber Security
+        Incident response groups or individuals, or technology that the Responsible Entity determines
+        would impact the ability to execute the plan: update the Cyber Security Incident response plan(s);
+        and notify each person or group with a defined role in the Cyber Security Incident response plan
+        of the updates.'
+      applicability: 'High Impact BES Cyber Systems and their associated: EACMS
+
+        Medium Impact BES Cyber Systems and their associated: EACMS'
+  - number: 4
+    title: R4 – Notifications and Reporting for Cyber Security Incidents
+    purpose: Each Responsible Entity shall notify the Electricity Information Sharing and Analysis Center
+      (E-ISAC) and, if subject to the jurisdiction of the United States, the United States National Cybersecurity
+      and Communications Integration Center (NCCIC), or their successors, of a Reportable Cyber Security
+      Incident and a Cyber Security Incident that was an attempt to compromise, as determined by applying
+      the criteria from Requirement R1, Part 1.2.1, a system identified in the "Applicable Systems" column,
+      unless prohibited by law, in accordance with each of the applicable requirement parts in CIP-008-6
+      Table R4 – Notifications and Reporting for Cyber Security Incidents.
+    practices:
+    - id: CIP-008-4.1
+      text: 'Initial notifications and updates shall include the following attributes, at a minimum, to
+        the extent known: the functional impact; the attack vector used; and the level of intrusion that
+        was achieved or attempted.'
+      applicability: 'High Impact BES Cyber Systems and their associated: EACMS
+
+        Medium Impact BES Cyber Systems and their associated: EACMS'
+    - id: CIP-008-4.2
+      text: 'After the Responsible Entity''s determination made pursuant to documented process(es) in
+        Requirement R1, Part 1.2, provide initial notification within the following timelines: one hour
+        after the determination of a Reportable Cyber Security Incident; by the end of the next calendar
+        day after determination that a Cyber Security Incident was an attempt to compromise a system identified
+        in the "Applicable Systems" column for this Part.'
+      applicability: 'High Impact BES Cyber Systems and their associated: EACMS
+
+        Medium Impact BES Cyber Systems and their associated: EACMS'
+    - id: CIP-008-4.3
+      text: Provide updates, if any, within 7 calendar days of determination of new or changed attribute
+        information required in Part 4.1.
+      applicability: 'High Impact BES Cyber Systems and their associated: EACMS
+
+        Medium Impact BES Cyber Systems and their associated: EACMS'
   source_version: CIP-008-6
   source_url: https://www.nerc.com/globalassets/standards/reliability-standards/cip/cip-008-6.pdf
 - short_code: CIP-009
   full_name: Cyber Security — Recovery Plans for BES Cyber Systems
   purpose: To recover reliability functions performed by BES Cyber Systems by specifying recovery plan
     requirements in support of the continued stability, operability, and reliability of the BES.
-  practices_populated: false
-  objectives: []
+  practices_populated: true
+  objectives:
+  - number: 1
+    title: R1 – Recovery Plan Specifications
+    purpose: Each Responsible Entity shall have one or more documented recovery plan(s) that collectively
+      include each of the applicable requirement parts in CIP-009-6 Table R1 – Recovery Plan Specifications.
+    practices:
+    - id: CIP-009-1.1
+      text: Conditions for activation of the recovery plan(s).
+      applicability: 'High Impact BES Cyber Systems and their associated: EACMS; and PACS
+
+        Medium Impact BES Cyber Systems and their associated: EACMS; and PACS'
+    - id: CIP-009-1.2
+      text: Roles and responsibilities of responders.
+      applicability: 'High Impact BES Cyber Systems and their associated: EACMS; and PACS
+
+        Medium Impact BES Cyber Systems and their associated: EACMS; and PACS'
+    - id: CIP-009-1.3
+      text: One or more processes for the backup and storage of information required to recover BES Cyber
+        System functionality.
+      applicability: 'High Impact BES Cyber Systems and their associated: EACMS; and PACS
+
+        Medium Impact BES Cyber Systems and their associated: EACMS; and PACS'
+    - id: CIP-009-1.4
+      text: One or more processes to verify the successful completion of the backup processes in Part
+        1.3 and to address any backup failures.
+      applicability: 'High Impact BES Cyber Systems and their associated: EACMS; and PACS
+
+        Medium Impact BES Cyber Systems at Control Centers and their associated: EACMS; and PACS'
+    - id: CIP-009-1.5
+      text: One or more processes to preserve data, per Cyber Asset capability, for determining the cause
+        of a Cyber Security Incident that triggers activation of the recovery plan(s). Data preservation
+        should not impede or restrict recovery.
+      applicability: 'High Impact BES Cyber Systems and their associated: EACMS; and PACS
+
+        Medium Impact BES Cyber Systems and their associated: EACMS; and PACS'
+  - number: 2
+    title: R2 – Recovery Plan Implementation and Testing
+    purpose: Each Responsible Entity shall implement its documented recovery plan(s) to collectively include
+      each of the applicable requirement parts in CIP-009-6 Table R2 – Recovery Plan Implementation and
+      Testing.
+    practices:
+    - id: CIP-009-2.1
+      text: 'Test each of the recovery plans referenced in Requirement R1 at least once every 15 calendar
+        months: by recovering from an actual incident; with a paper drill or tabletop exercise; or with
+        an operational exercise.'
+      applicability: 'High Impact BES Cyber Systems and their associated: EACMS; and PACS
+
+        Medium Impact BES Cyber Systems at Control Centers and their associated: EACMS; and PACS'
+    - id: CIP-009-2.2
+      text: Test a representative sample of information used to recover BES Cyber System functionality
+        at least once every 15 calendar months to ensure that the information is useable and is compatible
+        with current configurations. An actual recovery that incorporates the information used to recover
+        BES Cyber System functionality substitutes for this test.
+      applicability: 'High Impact BES Cyber Systems and their associated: EACMS; and PACS
+
+        Medium Impact BES Cyber Systems at Control Centers and their associated: EACMS; and PACS'
+    - id: CIP-009-2.3
+      text: Test each of the recovery plans referenced in Requirement R1 at least once every 36 calendar
+        months through an operational exercise of the recovery plans in an environment representative
+        of the production environment. An actual recovery response may substitute for an operational exercise.
+      applicability: High Impact BES Cyber Systems
+  - number: 3
+    title: R3 – Recovery Plan Review, Update and Communication
+    purpose: Each Responsible Entity shall maintain each of its recovery plan(s) in accordance with each
+      of the applicable requirement parts in CIP-009-6 Table R3 – Recovery Plan Review, Update and Communication.
+    practices:
+    - id: CIP-009-3.1
+      text: 'No later than 90 calendar days after completion of a recovery plan test or actual recovery:
+        document any lessons learned associated with a recovery plan test or actual recovery or document
+        the absence of any lessons learned; update the recovery plan based on any documented lessons learned
+        associated with the plan; and notify each person or group with a defined role in the recovery
+        plan of the updates based on any documented lessons learned.'
+      applicability: 'High Impact BES Cyber Systems and their associated: EACMS; and PACS
+
+        Medium Impact BES Cyber Systems at Control Centers and their associated: EACMS; and PACS'
+    - id: CIP-009-3.2
+      text: 'No later than 60 calendar days after a change to the roles or responsibilities, responders,
+        or technology that the Responsible Entity determines would impact the ability to execute the recovery
+        plan: update the recovery plan; and notify each person or group with a defined role in the recovery
+        plan of the updates.'
+      applicability: 'High Impact BES Cyber Systems and their associated: EACMS; and PACS
+
+        Medium Impact BES Cyber Systems at Control Centers and their associated: EACMS; and PACS'
   source_version: CIP-009-6
   source_url: https://www.nerc.com/globalassets/standards/reliability-standards/cip/cip-009-6.pdf
 - short_code: CIP-010
@@ -285,8 +938,111 @@ domains:
   purpose: To prevent and detect unauthorized changes to BES Cyber Systems by specifying configuration
     change management and vulnerability assessment requirements in support of protecting BES Cyber Systems
     from compromise that could lead to misoperation or instability in the Bulk Electric System (BES).
-  practices_populated: false
-  objectives: []
+  practices_populated: true
+  objectives:
+  - number: 1
+    title: R1 – Configuration Change Management
+    purpose: Each Responsible Entity shall implement one or more documented process(es) that collectively
+      include each of the applicable requirement parts in CIP-010-4 Table R1 – Configuration Change Management.
+    practices:
+    - id: CIP-010-1.1
+      text: 'Develop a baseline configuration, individually or by group, which shall include the following
+        items: operating system(s) (including version) or firmware where no independent operating system
+        exists; any commercially available or open-source application software (including version) intentionally
+        installed; any custom software installed; any logical network accessible ports; and any security
+        patches applied.'
+      applicability: 'High Impact BES Cyber Systems and their associated: EACMS; PACS; and PCA
+
+        Medium Impact BES Cyber Systems and their associated: EACMS; PACS; and PCA'
+    - id: CIP-010-1.2
+      text: Authorize and document changes that deviate from the existing baseline configuration.
+      applicability: 'High Impact BES Cyber Systems and their associated: EACMS; PACS; and PCA
+
+        Medium Impact BES Cyber Systems and their associated: EACMS; PACS; and PCA'
+    - id: CIP-010-1.3
+      text: For a change that deviates from the existing baseline configuration, update the baseline configuration
+        as necessary within 30 calendar days of completing the change.
+      applicability: 'High Impact BES Cyber Systems and their associated: EACMS; PACS; and PCA
+
+        Medium Impact BES Cyber Systems and their associated: EACMS; PACS; and PCA'
+    - id: CIP-010-1.4
+      text: 'For a change that deviates from the existing baseline configuration: prior to the change,
+        determine required cyber security controls in CIP-005 and CIP-007 that could be impacted by the
+        change; following the change, verify that required cyber security controls determined are not
+        adversely affected; and document the results of the verification.'
+      applicability: 'High Impact BES Cyber Systems and their associated: EACMS; PACS; and PCA
+
+        Medium Impact BES Cyber Systems and their associated: EACMS; PACS; and PCA'
+    - id: CIP-010-1.5
+      text: 'Where technically feasible, for each change that deviates from the existing baseline configuration:
+        prior to implementing any change in the production environment, test the changes in a test environment
+        or test the changes in a production environment where the test is performed in a manner that minimizes
+        adverse effects, that models the baseline configuration to ensure that required cyber security
+        controls in CIP-005 and CIP-007 are not adversely affected; and document the results of the testing
+        and, if a test environment was used, the differences between the test environment and the production
+        environment, including a description of the measures used to account for any differences in operation
+        between the test and production environments.'
+      applicability: High Impact BES Cyber Systems
+    - id: CIP-010-1.6
+      text: 'Prior to a change that deviates from the existing baseline configuration associated with
+        baseline items in Parts 1.1.1, 1.1.2, and 1.1.5, and when the method to do so is available to
+        the Responsible Entity from the software source: verify the identity of the software source; and
+        verify the integrity of the software obtained from the software source.'
+      applicability: 'High Impact BES Cyber Systems and their associated: EACMS; and PACS
+
+        Medium Impact BES Cyber Systems and their associated: EACMS; and PACS'
+  - number: 2
+    title: R2 – Configuration Monitoring
+    purpose: Each Responsible Entity shall implement one or more documented process(es) that collectively
+      include each of the applicable requirement parts in CIP-010-4 Table R2 – Configuration Monitoring.
+    practices:
+    - id: CIP-010-2.1
+      text: Monitor at least once every 35 calendar days for changes to the baseline configuration (as
+        described in Requirement R1, Part 1.1). Document and investigate detected unauthorized changes.
+      applicability: 'High Impact BES Cyber Systems and their associated: EACMS; and PCA'
+  - number: 3
+    title: R3 – Vulnerability Assessments
+    purpose: Each Responsible Entity shall implement one or more documented process(es) that collectively
+      include each of the applicable requirement parts in CIP-010-4 Table R3 – Vulnerability Assessments.
+    practices:
+    - id: CIP-010-3.1
+      text: At least once every 15 calendar months, conduct a paper or active vulnerability assessment.
+      applicability: 'High Impact BES Cyber Systems and their associated: EACMS; PACS; and PCA
+
+        Medium Impact BES Cyber Systems and their associated: EACMS; PACS; and PCA'
+    - id: CIP-010-3.2
+      text: 'Where technically feasible, at least once every 36 calendar months: perform an active vulnerability
+        assessment in a test environment, or perform an active vulnerability assessment in a production
+        environment where the test is performed in a manner that minimizes adverse effects, that models
+        the baseline configuration of the BES Cyber System in a production environment; and document the
+        results of the testing and, if a test environment was used, the differences between the test environment
+        and the production environment, including a description of the measures used to account for any
+        differences in operation between the test and production environments.'
+      applicability: High Impact BES Cyber Systems
+    - id: CIP-010-3.3
+      text: Prior to adding a new applicable Cyber Asset to a production environment, perform an active
+        vulnerability assessment of the new Cyber Asset, except for CIP Exceptional Circumstances and
+        like replacements of the same type of Cyber Asset with a baseline configuration that models an
+        existing baseline configuration of the previous or other existing Cyber Asset.
+      applicability: 'High Impact BES Cyber Systems and their associated: EACMS; and PCA'
+    - id: CIP-010-3.4
+      text: Document the results of the assessments conducted according to Parts 3.1, 3.2, and 3.3 and
+        the action plan to remediate or mitigate vulnerabilities identified in the assessments including
+        the planned date of completing the action plan and the execution status of any remediation or
+        mitigation action items.
+      applicability: 'High Impact BES Cyber Systems and their associated: EACMS; PACS; and PCA
+
+        Medium Impact BES Cyber Systems and their associated: EACMS; PACS; and PCA'
+  - number: 4
+    title: R4 – Transient Cyber Assets and Removable Media
+    purpose: ''
+    practices:
+    - id: CIP-010-4
+      text: Each Responsible Entity, for its high impact and medium impact BES Cyber Systems and associated
+        Protected Cyber Assets, shall implement, except under CIP Exceptional Circumstances, one or more
+        documented plan(s) for Transient Cyber Assets and Removable Media that include the sections in
+        Attachment 1.
+      applicability: High impact and medium impact BES Cyber Systems and associated Protected Cyber Assets
   source_version: CIP-010-4
   source_url: https://www.nerc.com/globalassets/standards/reliability-standards/cip/cip-010-4.pdf
 - short_code: CIP-011
@@ -294,24 +1050,129 @@ domains:
   purpose: To prevent unauthorized access to BES Cyber System Information (BCSI) by specifying information
     protection requirements in support of protecting BES Cyber Systems against compromise that could lead
     to misoperation or instability in the Bulk Electric System (BES).
-  practices_populated: false
-  objectives: []
+  practices_populated: true
+  objectives:
+  - number: 1
+    title: R1 – Information Protection Program
+    purpose: Each Responsible Entity shall implement one or more documented information protection program(s)
+      for BES Cyber System Information (BCSI) pertaining to "Applicable Systems" identified in CIP-011-3
+      Table R1 – Information Protection Program that collectively includes each of the applicable requirement
+      parts in CIP-011-3 Table R1 – Information Protection Program.
+    practices:
+    - id: CIP-011-1.1
+      text: Method(s) to identify BCSI.
+      applicability: 'High Impact BES Cyber Systems and their associated: EACMS; and PACS
+
+        Medium Impact BES Cyber Systems and their associated: EACMS; and PACS'
+    - id: CIP-011-1.2
+      text: Method(s) to protect and securely handle BCSI to mitigate risks of compromising confidentiality.
+      applicability: 'High Impact BES Cyber Systems and their associated: EACMS; and PACS
+
+        Medium Impact BES Cyber Systems and their associated: EACMS; and PACS'
+  - number: 2
+    title: R2 – BES Cyber Asset Reuse and Disposal
+    purpose: Each Responsible Entity shall implement one or more documented process(es) that collectively
+      include the applicable requirement parts in CIP-011-3 Table R2 – BES Cyber Asset Reuse and Disposal.
+    practices:
+    - id: CIP-011-2.1
+      text: Prior to the release for reuse of applicable Cyber Assets that contain BCSI (except for reuse
+        within other systems identified in the "Applicable Systems" column), the Responsible Entity shall
+        take action to prevent the unauthorized retrieval of BCSI from the Cyber Asset data storage media.
+      applicability: 'High Impact BES Cyber Systems and their associated: EACMS; PACS; and PCA
+
+        Medium Impact BES Cyber Systems and their associated: EACMS; PACS; and PCA'
+    - id: CIP-011-2.2
+      text: Prior to the disposal of applicable Cyber Assets that contain BCSI, the Responsible Entity
+        shall take action to prevent the unauthorized retrieval of BCSI from the Cyber Asset or destroy
+        the data storage media.
+      applicability: 'High Impact BES Cyber Systems and their associated: EACMS; PACS; and PCA
+
+        Medium Impact BES Cyber Systems and their associated: EACMS; PACS; and PCA'
   source_version: CIP-011-3
   source_url: https://www.nerc.com/globalassets/standards/reliability-standards/cip/cip-011-3.pdf
 - short_code: CIP-012
   full_name: Cyber Security – Communications between Control Centers
   purpose: To protect the confidentiality, integrity, and availability of Real-time Assessment and Real-time
     monitoring data transmitted between Control Centers.
-  practices_populated: false
-  objectives: []
+  practices_populated: true
+  objectives:
+  - number: 1
+    title: R1 – Communications between Control Centers
+    purpose: The Responsible Entity shall implement, except under CIP Exceptional Circumstances, one or
+      more documented plan(s) to mitigate the risks posed by unauthorized disclosure, unauthorized modification,
+      and loss of availability, of data used in Real-time Assessment and Real-time monitoring while such
+      data is being transmitted between any applicable Control Centers. The Responsible Entity is not
+      required to include oral communications in its plan.
+    practices:
+    - id: CIP-012-1.1
+      text: Identification of method(s) used to mitigate the risk(s) posed by unauthorized disclosure
+        and unauthorized modification of data used in Real-time Assessment and Real-time monitoring while
+        such data is being transmitted between Control Centers.
+      applicability: ''
+    - id: CIP-012-1.2
+      text: Identification of method(s) used to mitigate the risk(s) posed by the loss of the ability
+        to communicate Real-time Assessment and Real-time monitoring data between Control Centers.
+      applicability: ''
+    - id: CIP-012-1.3
+      text: Identification of method(s) used to initiate the recovery of communication links used to transmit
+        Real-time Assessment and Real-time monitoring data between Control Centers.
+      applicability: ''
+    - id: CIP-012-1.4
+      text: Identification of where the Responsible Entity implemented method(s) as required in Parts
+        1.1 and 1.2.
+      applicability: ''
+    - id: CIP-012-1.5
+      text: If the Control Centers are owned or operated by different Responsible Entities, identification
+        of the responsibilities of each Responsible Entity for implementing method(s) as required in Parts
+        1.1, 1.2, and 1.3.
+      applicability: ''
   source_version: CIP-012-2
   source_url: https://www.nerc.com/globalassets/standards/reliability-standards/cip/cip-012-2.pdf
 - short_code: CIP-013
   full_name: Cyber Security - Supply Chain Risk Management
   purpose: To mitigate cyber security risks to the reliable operation of the Bulk Electric System (BES)
     by implementing security controls for supply chain risk management of BES Cyber Systems.
-  practices_populated: false
-  objectives: []
+  practices_populated: true
+  objectives:
+  - number: 1
+    title: R1 – Supply Chain Cyber Security Risk Management Plan(s)
+    purpose: Each Responsible Entity shall develop one or more documented supply chain cyber security
+      risk management plan(s) for high and medium impact BES Cyber Systems and their associated Electronic
+      Access Control or Monitoring Systems (EACMS) and Physical Access Control Systems (PACS).
+    practices:
+    - id: CIP-013-1.1
+      text: 'One or more process(es) used in planning for the procurement of BES Cyber Systems and their
+        associated EACMS and PACS to identify and assess cyber security risk(s) to the Bulk Electric System
+        from vendor products or services resulting from: procuring and installing vendor equipment and
+        software; and transitions from one vendor(s) to another vendor(s).'
+      applicability: High and medium impact BES Cyber Systems and their associated EACMS and PACS
+    - id: CIP-013-1.2
+      text: 'One or more process(es) used in procuring BES Cyber Systems, and their associated EACMS and
+        PACS, that address the following, as applicable: notification by the vendor of vendor-identified
+        incidents related to the products or services provided that pose cyber security risk; coordination
+        of responses to vendor-identified incidents; notification by vendors when remote or onsite access
+        should no longer be granted to vendor representatives; disclosure by vendors of known vulnerabilities
+        related to the products or services provided; verification of software integrity and authenticity
+        of all software and patches provided by the vendor; and coordination of controls for vendor-initiated
+        remote access.'
+      applicability: High and medium impact BES Cyber Systems and their associated EACMS and PACS
+  - number: 2
+    title: R2 – Implementation
+    purpose: ''
+    practices:
+    - id: CIP-013-2
+      text: Each Responsible Entity shall implement its supply chain cyber security risk management plan(s)
+        specified in Requirement R1.
+      applicability: High and medium impact BES Cyber Systems and their associated EACMS and PACS
+  - number: 3
+    title: R3 – Plan Review and Approval
+    purpose: ''
+    practices:
+    - id: CIP-013-3
+      text: Each Responsible Entity shall review and obtain CIP Senior Manager or delegate approval of
+        its supply chain cyber security risk management plan(s) specified in Requirement R1 at least once
+        every 15 calendar months.
+      applicability: ''
   source_version: CIP-013-2
   source_url: https://www.nerc.com/globalassets/standards/reliability-standards/cip/cip-013-2.pdf
 - short_code: CIP-014
@@ -319,7 +1180,167 @@ domains:
   purpose: To identify and protect Transmission stations and Transmission substations, and their associated
     primary control centers, that if rendered inoperable or damaged as a result of a physical attack could
     result in instability, uncontrolled separation, or Cascading within an Interconnection.
-  practices_populated: false
-  objectives: []
+  practices_populated: true
+  objectives:
+  - number: 1
+    title: R1 – Risk Assessment
+    purpose: Each Transmission Owner shall perform an initial risk assessment and subsequent risk assessments
+      of its Transmission stations and Transmission substations (existing and planned to be in service
+      within 24 months) that meet the criteria specified in Applicability Section 4.1.1. The initial and
+      subsequent risk assessments shall consist of a transmission analysis or transmission analyses designed
+      to identify the Transmission station(s) and Transmission substation(s) that if rendered inoperable
+      or damaged could result in instability, uncontrolled separation, or Cascading within an Interconnection.
+    practices:
+    - id: CIP-014-1.1
+      text: 'Subsequent risk assessments shall be performed: at least once every 30 calendar months for
+        a Transmission Owner that has identified in its previous risk assessment (as verified according
+        to Requirement R2) one or more Transmission stations or Transmission substations that if rendered
+        inoperable or damaged could result in instability, uncontrolled separation, or Cascading within
+        an Interconnection; or at least once every 60 calendar months for a Transmission Owner that has
+        not identified any such stations or substations in its previous risk assessment.'
+      applicability: ''
+    - id: CIP-014-1.2
+      text: The Transmission Owner shall identify the primary control center that operationally controls
+        each Transmission station or Transmission substation identified in the Requirement R1 risk assessment.
+      applicability: ''
+  - number: 2
+    title: R2 – Verification
+    purpose: Each Transmission Owner shall have an unaffiliated third party verify the risk assessment
+      performed under Requirement R1. The verification may occur concurrent with or after the risk assessment
+      performed under Requirement R1.
+    practices:
+    - id: CIP-014-2.1
+      text: 'Each Transmission Owner shall select an unaffiliated verifying entity that is either: a registered
+        Planning Coordinator, Transmission Planner, or Reliability Coordinator; or an entity that has
+        transmission planning or analysis experience.'
+      applicability: ''
+    - id: CIP-014-2.2
+      text: The unaffiliated third party verification shall verify the Transmission Owner's risk assessment
+        performed under Requirement R1, which may include recommendations for the addition or deletion
+        of a Transmission station(s) or Transmission substation(s). The Transmission Owner shall ensure
+        the verification is completed within 90 calendar days following the completion of the Requirement
+        R1 risk assessment.
+      applicability: ''
+    - id: CIP-014-2.3
+      text: 'If the unaffiliated verifying entity recommends that the Transmission Owner add a Transmission
+        station(s) or Transmission substation(s) to, or remove a Transmission station(s) or Transmission
+        substation(s) from, its identification under Requirement R1, the Transmission Owner shall either,
+        within 60 calendar days of completion of the verification, for each recommended addition or removal:
+        modify its identification under Requirement R1 consistent with the recommendation; or document
+        the technical basis for not modifying the identification in accordance with the recommendation.'
+      applicability: ''
+    - id: CIP-014-2.4
+      text: Each Transmission Owner shall implement procedures, such as the use of non-disclosure agreements,
+        for protecting sensitive or confidential information made available to the unaffiliated third
+        party verifier and to protect or exempt sensitive or confidential information developed pursuant
+        to this Reliability Standard from public disclosure.
+      applicability: ''
+  - number: 3
+    title: R3 – Notification of Primary Control Center
+    purpose: ''
+    practices:
+    - id: CIP-014-3
+      text: 'For a primary control center(s) identified by the Transmission Owner according to Requirement
+        R1, Part 1.2 that (a) operationally controls an identified Transmission station or Transmission
+        substation verified according to Requirement R2, and (b) is not under the operational control
+        of the Transmission Owner: the Transmission Owner shall, within seven calendar days following
+        completion of Requirement R2, notify the Transmission Operator that has operational control of
+        the primary control center of such identification and the date of completion of Requirement R2.'
+      applicability: ''
+    - id: CIP-014-3.1
+      text: If a Transmission station or Transmission substation previously identified under Requirement
+        R1 and verified according to Requirement R2 is removed from the identification during a subsequent
+        risk assessment performed according to Requirement R1 or a verification according to Requirement
+        R2, then the Transmission Owner shall, within seven calendar days following the verification or
+        the subsequent risk assessment, notify the Transmission Operator that has operational control
+        of the primary control center of the removal.
+      applicability: ''
+  - number: 4
+    title: R4 – Threat and Vulnerability Evaluation
+    purpose: 'Each Transmission Owner that identified a Transmission station, Transmission substation,
+      or a primary control center in Requirement R1 and verified according to Requirement R2, and each
+      Transmission Operator notified by a Transmission Owner according to Requirement R3, shall conduct
+      an evaluation of the potential threats and vulnerabilities of a physical attack to each of their
+      respective Transmission station(s), Transmission substation(s), and primary control center(s) identified
+      in Requirement R1 and verified according to Requirement R2. The evaluation shall consider the following:'
+    practices:
+    - id: CIP-014-4.1
+      text: Unique characteristics of the identified and verified Transmission station(s), Transmission
+        substation(s), and primary control center(s).
+      applicability: ''
+    - id: CIP-014-4.2
+      text: Prior history of attack on similar facilities taking into account the frequency, geographic
+        proximity, and severity of past physical security related events.
+      applicability: ''
+    - id: CIP-014-4.3
+      text: Intelligence or threat warnings received from sources such as law enforcement, the Electric
+        Reliability Organization (ERO), the Electricity Sector Information Sharing and Analysis Center
+        (ES-ISAC), U.S. federal and/or Canadian governmental agencies, or their successors.
+      applicability: ''
+  - number: 5
+    title: R5 – Physical Security Plan
+    purpose: 'Each Transmission Owner that identified a Transmission station, Transmission substation,
+      or primary control center in Requirement R1 and verified according to Requirement R2, and each Transmission
+      Operator notified by a Transmission Owner according to Requirement R3, shall develop and implement
+      a documented physical security plan(s) that covers their respective Transmission station(s), Transmission
+      substation(s), and primary control center(s). The physical security plan(s) shall be developed within
+      120 calendar days following the completion of Requirement R2 and executed according to the timeline
+      specified in the physical security plan(s). The physical security plan(s) shall include the following
+      attributes:'
+    practices:
+    - id: CIP-014-5.1
+      text: Resiliency or security measures designed collectively to deter, detect, delay, assess, communicate,
+        and respond to potential physical threats and vulnerabilities identified during the evaluation
+        conducted in Requirement R4.
+      applicability: ''
+    - id: CIP-014-5.2
+      text: Law enforcement contact and coordination information.
+      applicability: ''
+    - id: CIP-014-5.3
+      text: A timeline for executing the physical security enhancements and modifications specified in
+        the physical security plan.
+      applicability: ''
+    - id: CIP-014-5.4
+      text: Provisions to evaluate evolving physical threats, and their corresponding security measures,
+        to the Transmission station(s), Transmission substation(s), or primary control center(s).
+      applicability: ''
+  - number: 6
+    title: R6 – Third-Party Review
+    purpose: Each Transmission Owner that identified a Transmission station, Transmission substation,
+      or primary control center in Requirement R1 and verified according to Requirement R2, and each Transmission
+      Operator notified by a Transmission Owner according to Requirement R3, shall have an unaffiliated
+      third party review the evaluation performed under Requirement R4 and the security plan(s) developed
+      under Requirement R5. The review may occur concurrently with or after completion of the evaluation
+      performed under Requirement R4 and the security plan development under Requirement R5.
+    practices:
+    - id: CIP-014-6.1
+      text: 'Each Transmission Owner and Transmission Operator shall select an unaffiliated third party
+        reviewer from the following: an entity or organization with electric industry physical security
+        experience and whose review staff has at least one member who holds either a Certified Protection
+        Professional (CPP) or Physical Security Professional (PSP) certification; an entity or organization
+        approved by the ERO; a governmental agency with physical security expertise; or an entity or organization
+        with demonstrated law enforcement, government, or military physical security expertise.'
+      applicability: ''
+    - id: CIP-014-6.2
+      text: The Transmission Owner or Transmission Operator, respectively, shall ensure that the unaffiliated
+        third party review is completed within 90 calendar days of completing the security plan(s) developed
+        in Requirement R5. The unaffiliated third party review may, but is not required to, include recommended
+        changes to the evaluation performed under Requirement R4 or the security plan(s) developed under
+        Requirement R5.
+      applicability: ''
+    - id: CIP-014-6.3
+      text: 'If the unaffiliated third party reviewer recommends changes to the evaluation performed under
+        Requirement R4 or security plan(s) developed under Requirement R5, the Transmission Owner or Transmission
+        Operator shall, within 60 calendar days of the completion of the unaffiliated third party review,
+        for each recommendation: modify its evaluation or security plan(s) consistent with the recommendation;
+        or document the reason(s) for not modifying the evaluation or security plan(s) consistent with
+        the recommendation.'
+      applicability: ''
+    - id: CIP-014-6.4
+      text: Each Transmission Owner and Transmission Operator shall implement procedures, such as the
+        use of non-disclosure agreements, for protecting sensitive or confidential information made available
+        to the unaffiliated third party reviewer and to protect or exempt sensitive or confidential information
+        developed pursuant to this Reliability Standard from public disclosure.
+      applicability: ''
   source_version: CIP-014-3
   source_url: https://www.nerc.com/globalassets/standards/reliability-standards/cip/cip-014-3.pdf

@@ -223,9 +223,9 @@ def test_get_returns_none_when_known_filename_is_missing_on_disk(tmp_path) -> No
     assert registry.get("C2M2") is None
 
 
-# --- NERC CIP (ADR-0021 — roadmap extension started, not fully
-# transcribed: 13 standards present as real sourced stubs, only
-# CIP-004-7 fully transcribed) ---
+# --- NERC CIP (ADR-0021 started the roadmap extension with CIP-004-7
+# only; ADR-0022 completed the remaining 12 standards — all 13 are now
+# fully transcribed, mirroring C2M2's ADR-0009 -> ADR-0018 arc) ---
 
 
 def test_nerc_cip_loads_with_all_thirteen_currently_mandatory_standards() -> None:
@@ -249,27 +249,27 @@ def test_nerc_cip_loads_with_all_thirteen_currently_mandatory_standards() -> Non
     }
 
 
-def test_cip_004_is_fully_populated_and_others_are_real_stubs() -> None:
-    """Mirrors C2M2's original Sprint 3 state (ADR-0009): partial-but-real,
-    not fabricated-complete. Only CIP-004-7 has practices transcribed;
-    the other 12 domains are honest stubs with real purpose/version/url
-    but no objectives yet.
+def test_all_nerc_cip_standards_are_fully_populated() -> None:
+    """ADR-0022: all 13 currently-mandatory standards now have real,
+    transcribed Requirements/Parts — 141 is this file's own asserted
+    total (backend/scripts/generate_nerc_cip_yaml.py), matching the
+    same "assert at generation time and again at load time" pattern
+    test_nist_csf_subcategory_count_matches_the_official_total and
+    test_all_c2m2_domains_are_fully_populated already use.
     """
+    framework = _registry().require("NERC CIP")
+    assert all(d.practices_populated for d in framework.domains)
+    assert all(d.source_version for d in framework.domains)
+    assert all(d.source_url for d in framework.domains)
+    assert len(framework.all_practice_ids()) == 141
+
+
+def test_cip_004_practice_count_matches_source_document() -> None:
     framework = _registry().require("NERC CIP")
     cip004 = framework.domain("CIP-004")
     assert cip004 is not None
-    assert cip004.practices_populated
     assert cip004.source_version == "CIP-004-7"
     assert len(cip004.practice_ids()) == 19
-
-    stubs = [d for d in framework.domains if d.short_code != "CIP-004"]
-    assert len(stubs) == 12
-    assert all(not d.practices_populated for d in stubs)
-    assert all(d.objectives == [] for d in stubs)
-    # Real, source-verified metadata even though unpopulated — not blank.
-    assert all(d.purpose for d in stubs)
-    assert all(d.source_version for d in stubs)
-    assert all(d.source_url for d in stubs)
 
 
 def test_cip_004_practice_has_real_applicability_text() -> None:
@@ -292,6 +292,32 @@ def test_c2m2_and_nist_practices_have_empty_applicability() -> None:
     nist = _registry().require("NIST CSF 2.0")
     assert _find_practice(c2m2, "ACCESS-1a").applicability == ""
     assert _find_practice(nist, "PR.AA-01").applicability == ""
+
+
+def test_nerc_cip_standard_without_applicable_systems_table_has_empty_applicability() -> None:
+    """CIP-002 (impact categorization itself), CIP-012, and CIP-014
+    (physical security of Transmission stations, not BES Cyber Systems
+    by impact tier) genuinely have no "Applicable Systems" table in
+    their source text — empty applicability here is a real structural
+    fact about these standards, not a missed transcription (see the
+    nerc-cip-expert skill).
+    """
+    framework = _registry().require("NERC CIP")
+    for standard, practice_id in [("CIP-002", "CIP-002-1.1"), ("CIP-012", "CIP-012-1.1"), ("CIP-014", "CIP-014-4.1")]:
+        practice = _find_practice(framework, practice_id)
+        assert practice is not None, f"{practice_id} not found"
+        assert practice.applicability == ""
+
+
+def test_nerc_cip_atomic_requirement_with_no_parts_has_bare_practice_id() -> None:
+    """CIP-003's R3/R4 and CIP-013's R2/R3 have no sub-numbered Parts in
+    the source text — the Requirement itself is the atomic practice,
+    so its id has no decimal part number.
+    """
+    framework = _registry().require("NERC CIP")
+    for practice_id in ["CIP-003-3", "CIP-003-4", "CIP-013-2", "CIP-013-3"]:
+        practice = _find_practice(framework, practice_id)
+        assert practice is not None, f"{practice_id} not found"
 
 
 def test_nerc_cip_domain_for_practice_id_resolves_correctly() -> None:
