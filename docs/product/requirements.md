@@ -15,9 +15,9 @@ Derived from `PROJECT_CHARTER.md` and `docs/product/prd.md`. Each functional req
 | FR-7 | System shall enforce a defined assessment status state machine (draft/in_review/finalized) | Delivered | US-2.3 |
 | FR-8 | System shall retain a complete, ordered history of every assessment status change | Delivered | US-2.4 |
 | FR-9 | System shall reject evidence changes to a finalized assessment | Delivered | US-2.5 |
-| FR-10 | System shall represent C2M2 structure (domains, practices, MILs) as validated, versioned data | Delivered, partial coverage (2 of 10 domains fully populated; see ADR-0009) | US-3.1 |
+| FR-10 | System shall represent C2M2 structure (domains, practices, MILs) as validated, versioned data | Delivered, full coverage (all 10 domains, 356 of 356 practices; see ADR-0009, ADR-0018) | US-3.1 |
 | FR-11 | System shall enforce C2M2's cumulative MIL scoring semantics | Delivered, verified against real data live | US-3.2 |
-| FR-10a | System shall transcribe the remaining 8 C2M2 domains with the same verified rigor | Planned | US-3.1a |
+| FR-10a | System shall transcribe the remaining 8 C2M2 domains with the same verified rigor | Delivered (Sprint 10; see ADR-0018) | US-3.1a |
 | FR-12 | System shall represent NIST CSF 2.0 structure including the Govern function | Delivered, full coverage (all 6 functions, 106 of 106 subcategories; see ADR-0010) | US-4.1 |
 | FR-12a | System shall score NIST CSF 2.0 without fabricating maturity levels the standard does not define | Delivered — coverage-based scoring, verified against real data live | US-4.2 |
 | FR-13 | System shall propose evidence-to-practice mappings with a verified citation and confidence score | Delivered, retrieval-only (see ADR-0011) — confidence from retrieval similarity, citation is the literal retrieved chunk (trivially verified, nothing generated), verified live against real data | US-5.1 |
