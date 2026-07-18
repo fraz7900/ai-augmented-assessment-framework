@@ -6,7 +6,13 @@ This repository is developed as a structured, sprint-based engagement — every 
 
 ## Status
 
-**Sprint 10 complete: the platform has a real frontend, not just an API.**
+**MVP complete as of Sprint 10.** Every item in `PROJECT_CHARTER.md` Section 12 is now either
+delivered or, for local-first Ollama inference / optional cloud API fallback, formally and finally
+not built — evaluated twice before (Sprint 5, Sprint 8) and, asked directly a third time at MVP
+closure, resolved as retrieval-only being the platform's permanent architecture, not a deferred
+placeholder. See `docs/adr/ADR-0020-mvp-closure-retrieval-only.md`.
+
+**Sprint 10: the platform gained a real frontend, not just an API.**
 A real FastAPI app (`backend/src/compliance_platform`) ingests documents, embeds them locally (ONNX, no PyTorch, no network calls), tracks assessments through a draft → in-review → finalized lifecycle, scores both C2M2 maturity and NIST CSF 2.0 coverage, proposes evidence-to-practice mappings via retrieval-based semantic matching with mandatory human review, produces a structured dashboard (`GET /assessments/{id}/dashboard`, see ADR-0012) exportable as PDF/XLSX (`.../report/pdf` / `.../report/xlsx`, see ADR-0013), and answers natural-language questions grounded only in an assessment's own reviewed evidence (`POST /assessments/{id}/chat`, retrieval-only, no LLM — see ADR-0014). Through Sprint 9 every one of those capabilities was reachable only via Swagger/curl; `frontend/` (Vite + React + TypeScript, ADR-0016) now covers every persona's primary flow end to end — upload, assessment create/status/history, evidence link + AI-propose + accept/edit/reject, the dashboard with PDF/XLSX download, and chat — and closes NFR-4's UI-level requirement (AI-proposed evidence must be visibly distinguishable from human-confirmed, not just at the data-model/API layers). Verified live against the real running backend via a Playwright-driven walkthrough, not just built: zero console errors on the final pass, and two real bugs (a React key collision, a stale-dev-server symptom traced to this repo's OneDrive/WSL2 filesystem — R-11) were found and fixed during that same verification. Run it yourself:
 
 ```
@@ -30,7 +36,7 @@ then open `http://localhost:5173`: upload a document (a sample is in `data/sampl
 - [`docs/product/`](./docs/product/) — PRD, personas, epics/user stories, requirements, assumptions log, decision log, risk register, prioritized backlog
 - [`docs/architecture/00-repository-architecture.md`](./docs/architecture/00-repository-architecture.md) — repository layout and rationale
 - [`docs/architecture/01-claude-code-workspace.md`](./docs/architecture/01-claude-code-workspace.md) — hooks, skills, and MCP design for this project's `.claude/` workspace
-- [`docs/adr/`](./docs/adr/) — Architecture Decision Records (19 as of Sprint 10)
+- [`docs/adr/`](./docs/adr/) — Architecture Decision Records (20 as of Sprint 10)
 - [`docs/consulting/`](./docs/consulting/) — per-sprint executive summaries, business value/risk/ROI assessments, and MBA/interview narrative
 - [`docs/current_sprint.md`](./docs/current_sprint.md) — single-source-of-truth sprint tracker
 
@@ -40,7 +46,7 @@ All evidence documents and assessment data used in this repository during develo
 
 ## Technology
 
-Python (FastAPI, backend live as of Sprint 1), React (frontend, Vite + TypeScript, live as of Sprint 10 — TanStack Query for server state, react-router for navigation, types generated directly from the backend's own OpenAPI schema, Tailwind CSS for styling; see ADR-0016), LanceDB (vector storage, decided in ADR-0005), a local ONNX semantic embedding backend (fastembed / BAAI/bge-small-en-v1.5, decided in ADR-0008, superseding the interim hashed-vector backend of ADR-0006), SQLite via SQLModel (assessment/evidence storage, decided in ADR-0007), a retrieval-based framework mapping engine (ADR-0011, Sprint 5) and retrieval-only chat over reviewed evidence (ADR-0014, Sprint 8) built on the same embedder, fpdf2 and openpyxl for PDF/XLSX report export (ADR-0013, Sprint 7, both pure Python with no system-level binary dependency). Ollama (local LLM reasoning) was evaluated for Sprint 5 and explicitly deferred, not abandoned, and re-evaluated for Sprint 8 (a sudo-free path was confirmed viable this time, and deliberately not taken — see ADR-0011 and ADR-0014). Optional Claude/OpenAI API fallback remains planned, explicitly opt-in only.
+Python (FastAPI, backend live as of Sprint 1), React (frontend, Vite + TypeScript, live as of Sprint 10 — TanStack Query for server state, react-router for navigation, types generated directly from the backend's own OpenAPI schema, Tailwind CSS for styling; see ADR-0016), LanceDB (vector storage, decided in ADR-0005), a local ONNX semantic embedding backend (fastembed / BAAI/bge-small-en-v1.5, decided in ADR-0008, superseding the interim hashed-vector backend of ADR-0006), SQLite via SQLModel (assessment/evidence storage, decided in ADR-0007), a retrieval-based framework mapping engine (ADR-0011, Sprint 5) and retrieval-only chat over reviewed evidence (ADR-0014, Sprint 8) built on the same embedder, fpdf2 and openpyxl for PDF/XLSX report export (ADR-0013, Sprint 7, both pure Python with no system-level binary dependency). Ollama (local LLM reasoning) was evaluated for Sprint 5 and deferred, re-evaluated for Sprint 8 (a sudo-free path was confirmed viable that time, and deliberately not taken — see ADR-0011 and ADR-0014), and finally, asked directly a third time at MVP closure, formally not built (ADR-0020) — retrieval-only is this platform's permanent architecture, not a placeholder awaiting a future generative layer. The optional Claude/OpenAI API fallback named in the original MVP scope was resolved the same way and will not be built under this MVP.
 
 ## Roadmap
 

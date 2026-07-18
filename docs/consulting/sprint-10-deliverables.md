@@ -1,6 +1,6 @@
 # Sprint 10 — Consulting Deliverables
 
-**Sprint:** 10 — Frontend (React) + Docker Compose deployment stack + full C2M2 transcription + cross-framework equivalence
+**Sprint:** 10 — Frontend (React) + Docker Compose deployment stack + full C2M2 transcription + cross-framework equivalence + **MVP closure**
 **Period:** 2026-07-17 to 2026-07-18
 **Prepared as:** end-of-sprint client-style reporting, per the project's consulting-engagement operating model
 
@@ -129,6 +129,19 @@ as an "Also satisfies" note in the Evidence tab (framework, practice ID, resolve
 and the rationale — never the score alone), live-verified against a real assessment with zero console
 errors. See `docs/adr/ADR-0019-cross-framework-equivalence.md`.
 
+**A fifth and final piece: the MVP is closed.** With every other `PROJECT_CHARTER.md` Section 12
+item delivered, one remained genuinely open: "Local-first inference via Ollama; optional, explicitly
+flagged Claude/OpenAI API fallback." This had already been evaluated twice — deferred at Sprint 5
+(D-18, cost/footprint checked directly) and re-evaluated at Sprint 8 (D-25, a viable sudo-free path
+confirmed but still not taken). Rather than let a third sprint pass with the same item still
+technically open, the project owner was asked directly a third time: build it now, or close the MVP
+without it. The answer was to close the MVP with retrieval-only as the platform's permanent
+architecture. This is recorded as a real decision, not a default — R-1's previously-open residual
+condition ("a future generative layer would reintroduce this risk") is now closed, NFR-2 moves from
+"planned" to closed/will-not-build, and the Ollama backlog item moves to Won't, the same MoSCoW
+category the MVP's other genuinely out-of-scope items already use. See
+`docs/adr/ADR-0020-mvp-closure-retrieval-only.md`.
+
 ## Client Update
 
 **What was delivered:** a working frontend (previously nonexistent) covering 100% of the existing
@@ -162,6 +175,7 @@ not a unilateral call — recorded as such in ADR-0017 rather than presented as 
 | 0017 | Docker Compose stack: one named volume, Ollama gated behind a Compose profile rather than default-on, `python:3.12-slim` base, frontend API base URL baked in to the backend's published host port; live-verified end to end after fixing an `npm ci` peer-dependency issue found on first real build | Packages the now-complete backend+frontend pair for reproducible local deployment, one command instead of two manually-run dev servers |
 | 0018 | The remaining 8 C2M2 domains (285 practices) transcribed from the real source PDF following ADR-0009's established process; 3 objectives with a dropped MIL-level label caught by a systematic anomaly scan and cross-checked before transcribing | Closes a 3-sprint-old, deliberately-scoped-down gap (R-14/US-3.1a) — a C2M2 assessment can now be meaningfully scored across every domain, not just 2 of 10 |
 | 0019 | Cross-framework equivalence ships as computed candidates + hand-curated acceptance (79 of 106 NIST subcategories), per a hard constraint in the framework-mapping skill against automatic similarity-threshold acceptance; review caught a real false-positive pattern (repeated domain boilerplate) automation alone would have missed | Closes a 5-sprint-old deferred backlog item (US-5.2/FR-14) — Priya no longer has to independently discover that one piece of evidence covers practices in both frameworks |
+| 0020 | The MVP closes with retrieval-only as its permanent architecture; local-first Ollama inference and optional Claude/OpenAI API fallback, evaluated twice before (Sprint 5, Sprint 8), are formally not built after being asked about directly a third time | Every `PROJECT_CHARTER.md` Section 12 item is now resolved — delivered, or, for this one, deliberately and finally closed rather than left open indefinitely |
 
 ## Business Value Assessment
 
@@ -245,7 +259,8 @@ the committed YAML's own header, not a hidden gap.
 | Metric | Status |
 |---|---|
 | Sprint 10 scope items delivered | Full frontend covering every persona's primary flow — delivered, live-verified; NFR-4 UI-level requirement — closed; Docker Compose stack — delivered, live-verified end to end, closes R-24; C2M2 full transcription — delivered, verified, closes R-14/US-3.1a; cross-framework equivalence — delivered, partial (79/106), closes US-5.2/FR-14 |
-| New ADRs produced | 4 (0016, 0017, 0018, 0019) |
+| New ADRs produced | 5 (0016, 0017, 0018, 0019, 0020) |
+| MVP status | **Complete** — every `PROJECT_CHARTER.md` Section 12 item delivered or, for local-first/cloud-fallback inference, formally closed retrieval-only (ADR-0020) |
 | Frontend automated tests | 13 passing (Vitest + RTL), targeted at NFR-4/FR-13a and R-15 enforcement points |
 | Frontend build/lint | `npm run build` and `npm run lint` (oxlint) — both clean |
 | Backend tests | 184 passing (181 + 3 new for equivalence merging; 2 of the original 181 rewritten for the C2M2 transcription, not net-added) |
@@ -299,3 +314,10 @@ the committed YAML's own header, not a hidden gap.
   (replaced the generic Vite scaffold README with a project-specific one), `deployment/README.md`
   (replaced the placeholder with real run instructions, the port map, and the live-verification
   results).
+- Added `docs/adr/ADR-0020-mvp-closure-retrieval-only.md`. Annotated `PROJECT_CHARTER.md` Section 12's
+  Ollama/API-fallback bullet in place (not rewritten). Updated `docs/product/risk_register.md` (R-1's
+  residual condition closed), `docs/product/requirements.md` (NFR-2 closed/will-not-build),
+  `docs/product/prioritization.md` (Ollama backlog item moved to Won't in both the MoSCoW and RICE
+  tables), `docs/product/decision_log.md` (D-34), `docs/current_sprint.md`, and root `README.md`
+  (Status section leads with MVP-complete; Technology section's Ollama paragraph updated) to record
+  the MVP's closure.

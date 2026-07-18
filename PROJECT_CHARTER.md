@@ -133,7 +133,7 @@ Framed as hypotheses to validate during the sprints, not pre-claimed results:
 - Human-in-the-loop review UI.
 - Maturity scoring and gap analysis dashboard.
 - PDF/XLSX report generation.
-- Local-first inference via Ollama; optional, explicitly flagged Claude/OpenAI API fallback.
+- Local-first inference via Ollama; optional, explicitly flagged Claude/OpenAI API fallback. **Resolved at MVP closure (Sprint 10): evaluated twice (D-18/Sprint 5, D-25/Sprint 8) and, asked directly a third time, formally not built — the MVP closes with retrieval-only as its permanent architecture, not a deferred placeholder. See ADR-0020.**
 
 **Explicitly out of scope for MVP:**
 - Multi-tenant authentication and role-based access control.
