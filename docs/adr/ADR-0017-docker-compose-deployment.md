@@ -1,6 +1,6 @@
-# ADR-0017: Docker Compose deployment stack — one named volume, Ollama gated behind a profile, and live verification not completed in the authoring environment
+# ADR-0017: Docker Compose deployment stack — one named volume, Ollama gated behind a profile, live-verified end to end
 
-**Status:** Accepted, verification partially outstanding
+**Status:** Accepted, fully verified
 **Sprint:** 10 (follow-up to ADR-0016)
 **Deciders:** Fraz Ahmed
 **Related:** `deployment/README.md`, ADR-0002 (data as code), ADR-0011/ADR-0014 (Ollama evaluated,
@@ -26,16 +26,22 @@ Two decisions were made by the project owner directly, not left to my judgment:
   uses, exactly the kind of speculative addition ADR-0015 already argued against for code; the same
   discipline applies to infrastructure.
 
-**A material constraint discovered while implementing this ADR, disclosed here rather than
-elsewhere:** the authoring environment (this WSL2 session) has no Docker installed and no
+**A material constraint hit while first implementing this ADR, disclosed rather than worked around
+silently:** the authoring environment (this WSL2 session) initially had no Docker installed and no
 passwordless `sudo` available to install it — the same blocker previously hit trying to install
-Playwright's OS-level dependencies for Sprint 10's frontend verification. This stack was therefore
-**designed and statically verified** (every environment variable and path cross-checked directly
-against the real `Settings` class by importing it with the exact override values this compose file
-sets; the `pip install .` step replicated in an isolated venv; the compose YAML parsed to confirm
-structural validity) but **not run end-to-end via `docker compose up`**. This is disclosed explicitly
-because this project's own standing discipline is "verify before claiming," and claiming full live
-verification here would violate it.
+Playwright's OS-level dependencies for Sprint 10's frontend verification. A rootless-Docker install
+was attempted directly (no sudo required for the daemon itself) and got close — `newuidmap`/
+`newgidmap` were extracted from the `uidmap` `.deb` package without needing `apt install` — but hit a
+genuine hard wall: those binaries must be owned by root with a real setuid bit to perform privileged
+UID-namespace mapping, and extracting them as a non-root user can't grant that. The stack was
+therefore first **designed and statically verified only** (every environment variable and path
+cross-checked directly against the real `Settings` class; the `pip install .` step replicated in an
+isolated venv; the compose YAML parsed to confirm structural validity), with the live-run gap
+disclosed as risk R-24 rather than glossed over.
+
+**R-24 was subsequently closed in the same sprint** once Docker Desktop was installed and its WSL2
+integration enabled for this distro — see the Decision and Consequences sections below for what that
+live run actually found and fixed.
 
 ## Decision
 
@@ -76,6 +82,13 @@ verification here would violate it.
    proposed per-directory ignore files before the context choice's actual Docker semantics were
    checked — noted here rather than quietly fixed, per this project's standing practice of recording
    when a stated plan changed.)
+7. **`frontend.Dockerfile` runs `npm ci --legacy-peer-deps`, not plain `npm ci`** — found necessary
+   only once a real `docker build` was actually run: `openapi-typescript` declares a peer range of
+   `typescript@^5.x`, but this project pins `typescript ~6.0.2` (the same conflict ADR-0016 already
+   hit and resolved with the same flag for local `npm install`). `npm ci` re-validates peer
+   dependencies strictly regardless of what the lockfile already resolved, so it failed on this
+   exact conflict even though `npm install --legacy-peer-deps` had already produced a working
+   `package-lock.json` — a real build-time gap a purely static review would not have caught.
 
 ## Rationale
 
@@ -93,29 +106,40 @@ verification here would violate it.
    user actually interacts with it (every API call). Matching the frontend's published port to the
    existing CORS allowlist was chosen specifically to avoid a second, unrelated change (widening
    CORS) for a deployment-only concern.
-4. **Disclosing the missing live verification, rather than presenting `docker compose up` as
-   "done,"** follows directly from this project's own repeatedly-stated standard (ADR-0013:
-   "verified live against a running server... not merely by unit test"; ADR-0015; ADR-0016's own
-   Playwright-driven walkthrough). Every static check that *was* possible here (YAML structural
-   validity, the exact env-var-to-Settings-field cross-check, replicating `pip install .` in an
-   isolated venv) was actually run, not skipped — the gap being named is specifically the one thing
-   that could not be checked in this environment (starting real containers), not a general
-   "verification happened" claim covering it.
+4. **Disclosing the missing live verification when it was in fact missing, rather than presenting
+   `docker compose up` as "done" on the strength of static review alone,** followed directly from
+   this project's own repeatedly-stated standard (ADR-0013: "verified live against a running
+   server... not merely by unit test"; ADR-0015; ADR-0016's own Playwright-driven walkthrough). That
+   discipline paid off concretely once Docker became available: the live run immediately surfaced
+   two real issues (a stale-session group-membership problem needing `sg docker` rather than a plain
+   `docker` invocation, and the `npm ci --legacy-peer-deps` gap in Decision 7) that no amount of
+   additional static review would have found, because both are specifically about what happens when
+   the build/runtime actually executes, not about whether the configuration reads correctly.
 
 ## Consequences
 
 - New: `deployment/docker-compose.yml`, `deployment/backend.Dockerfile`,
   `deployment/frontend.Dockerfile`, `deployment/frontend.nginx.conf`, root `.dockerignore`.
 - No backend or frontend application code changed — this ADR is purely packaging.
-- `deployment/README.md` rewritten with the real run instructions, the port map, and an explicit
-  "verify this yourself" note for the one thing not confirmed here.
-- **Owed, not done:** an actual `docker compose build && docker compose up` run, the full persona
-  walkthrough against the containerized stack (already verified against the dev servers in
-  ADR-0016), a restart-persistence check (data survives `docker compose down` without `-v`), and a
-  `--profile ollama` run confirming that service starts only when explicitly requested. Whoever runs
-  this next (the project owner, on a machine with Docker available) should treat those as the
-  sprint's real closing step, not a formality — this ADR's Decision section reasons carefully about
-  what *should* happen, which is not the same claim as confirming what *does* happen.
+- `deployment/README.md` rewritten with the real run instructions and the port map.
+- **Live-verified, closing risk R-24:**
+  - `docker compose build` succeeds for both images (after the Decision 7 fix).
+  - `docker compose up` (no profile) starts exactly `backend` (healthy) and `frontend` — `ollama`
+    correctly does not start.
+  - A full persona walkthrough (upload, create a C2M2 assessment, link evidence, propose AI mappings,
+    accept/edit/reject, dashboard, chat) run against the real containers via the same
+    Playwright-driven script ADR-0016 used against the dev servers — zero console errors. The
+    propose-mappings step correctly proposed 349 candidates (not 68, the dev-server figure from
+    before ADR-0018's full C2M2 transcription), confirming the completed transcription is live in the
+    containerized build too.
+  - PDF (15 pages, reflecting full C2M2 coverage) and XLSX report downloads confirmed as genuinely
+    valid files via `file`/`pypdf`, not just HTTP 200.
+  - `docker compose down` (no `-v`) followed by `docker compose up` confirmed the named volume
+    persists real data (the same assessment was still retrievable) and the ONNX model was not
+    re-downloaded (no `Fetching 5 files` line in the fresh container's startup log).
+  - `docker compose --profile ollama up -d ollama` started the service correctly, its API responded
+    ("Ollama is running" on port 11434), and it was stopped afterward — confirming the profile gate
+    works in both directions (off by default, on when explicitly requested).
 
 ## Alternatives considered
 

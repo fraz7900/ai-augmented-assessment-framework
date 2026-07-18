@@ -40,13 +40,16 @@ docker compose --profile ollama up
 This exists so the generative extraction path ADR-0011/ADR-0014 evaluated and deliberately did not
 take remains a real, runnable option, without adding a default-on service nothing uses.
 
-## Known gap: this stack has not been run end-to-end in this repo's authoring environment
+## Verification
 
-The environment this stack was built in has no Docker installed and no passwordless `sudo` to install
-it. Every check that *was* possible here was actually run (not skipped): the compose YAML was parsed
-to confirm structural validity, every environment variable this stack sets was cross-checked by
-importing the real `Settings` class with those exact values, and the backend's `pip install .` step
-was replicated in an isolated venv and confirmed to install cleanly with no dev-only dependencies
-leaking in. What has **not** been confirmed is an actual `docker compose build && docker compose up`
-run, or a live walkthrough against the running containers. See ADR-0017's Consequences section for
-the specific list of what's still owed — treat that as this piece of work's real closing step.
+Live-verified end to end (see ADR-0017's Consequences section for the full list): `docker compose
+build` succeeds for both images; `docker compose up` starts exactly `backend`/`frontend` with `ollama`
+correctly excluded; a full persona walkthrough (upload, create assessment, link evidence, propose AI
+mappings, review, dashboard, PDF/XLSX download, chat) passes against the real containers with zero
+console errors; data and the ONNX model cache both survive `docker compose down` (without `-v`)
+followed by `docker compose up`; and `docker compose --profile ollama up` starts Ollama correctly on
+request.
+
+If you're running this in WSL2 with Docker Desktop: after enabling WSL integration for your distro,
+open a **new** shell session before running `docker compose` commands — group membership changes
+(being added to the `docker` group) don't apply retroactively to already-running shells.

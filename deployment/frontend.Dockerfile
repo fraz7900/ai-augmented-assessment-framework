@@ -6,7 +6,12 @@ FROM node:24-slim AS build
 WORKDIR /app
 
 COPY frontend/package.json frontend/package-lock.json ./
-RUN npm ci
+# --legacy-peer-deps: openapi-typescript declares a peer range of
+# typescript@^5.x but this project pins typescript ~6.0.2 (matches the
+# same flag needed for local `npm install`, see ADR-0016) - openapi-typescript
+# is a build-time codegen CLI, not something that touches the compiler API,
+# so the mismatch is cosmetic for this use, not a real incompatibility.
+RUN npm ci --legacy-peer-deps
 
 COPY frontend/ ./
 
