@@ -40,6 +40,7 @@ class FrameworkNotFoundError(Exception):
 _KNOWN_FRAMEWORKS: dict[str, str] = {
     "C2M2": "c2m2_v2_1.yaml",
     "NIST CSF 2.0": "nist_csf_2_0.yaml",
+    "NERC CIP": "nerc_cip.yaml",
 }
 
 

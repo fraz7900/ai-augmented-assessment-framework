@@ -61,6 +61,12 @@ class Practice(BaseModel):
     # any practice with no curated entry, not merely absent/None, so
     # callers never need a null check.
     equivalents: list[Equivalent] = []
+    # NERC CIP-only (ADR-0021): the real "Applicable Systems" column text
+    # for this Part (e.g. "High Impact BES Cyber Systems"), since not
+    # every requirement part applies to every BES Cyber System impact
+    # tier — a real structural concept C2M2/NIST CSF 2.0 have no
+    # equivalent of. Empty string for every C2M2/NIST practice.
+    applicability: str = ""
 
 
 class Objective(BaseModel):
@@ -80,6 +86,13 @@ class Domain(BaseModel):
     purpose: str
     practices_populated: bool
     objectives: list[Objective]
+    # NERC CIP-only (ADR-0021): each NERC CIP "domain" is actually its own
+    # independently-versioned standard (e.g. CIP-004-7), unlike C2M2/NIST
+    # CSF 2.0, which each cite one single source document at the
+    # FrameworkDefinition level. Empty for C2M2/NIST domains, whose
+    # citation lives on FrameworkDefinition instead.
+    source_version: str = ""
+    source_url: str = ""
 
     def all_practices(self) -> list[Practice]:
         return [practice for objective in self.objectives for practice in objective.practices]

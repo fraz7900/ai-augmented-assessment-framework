@@ -432,6 +432,16 @@ export interface components {
             practices_populated: boolean;
             /** Objectives */
             objectives: components["schemas"]["Objective"][];
+            /**
+             * Source Version
+             * @default
+             */
+            source_version: string;
+            /**
+             * Source Url
+             * @default
+             */
+            source_url: string;
         };
         /**
          * DomainGapGroup
@@ -680,6 +690,11 @@ export interface components {
              * @default []
              */
             equivalents: components["schemas"]["Equivalent"][];
+            /**
+             * Applicability
+             * @default
+             */
+            applicability: string;
         };
         /**
          * ResolutionItem

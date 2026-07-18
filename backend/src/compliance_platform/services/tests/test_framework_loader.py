@@ -221,3 +221,81 @@ def test_get_returns_none_when_known_filename_is_missing_on_disk(tmp_path) -> No
     """
     registry = FrameworkRegistry(tmp_path)
     assert registry.get("C2M2") is None
+
+
+# --- NERC CIP (ADR-0021 — roadmap extension started, not fully
+# transcribed: 13 standards present as real sourced stubs, only
+# CIP-004-7 fully transcribed) ---
+
+
+def test_nerc_cip_loads_with_all_thirteen_currently_mandatory_standards() -> None:
+    framework = _registry().require("NERC CIP")
+    assert framework.scoring_model == "coverage"
+    assert len(framework.domains) == 13
+    assert {d.short_code for d in framework.domains} == {
+        "CIP-002",
+        "CIP-003",
+        "CIP-004",
+        "CIP-005",
+        "CIP-006",
+        "CIP-007",
+        "CIP-008",
+        "CIP-009",
+        "CIP-010",
+        "CIP-011",
+        "CIP-012",
+        "CIP-013",
+        "CIP-014",
+    }
+
+
+def test_cip_004_is_fully_populated_and_others_are_real_stubs() -> None:
+    """Mirrors C2M2's original Sprint 3 state (ADR-0009): partial-but-real,
+    not fabricated-complete. Only CIP-004-7 has practices transcribed;
+    the other 12 domains are honest stubs with real purpose/version/url
+    but no objectives yet.
+    """
+    framework = _registry().require("NERC CIP")
+    cip004 = framework.domain("CIP-004")
+    assert cip004 is not None
+    assert cip004.practices_populated
+    assert cip004.source_version == "CIP-004-7"
+    assert len(cip004.practice_ids()) == 19
+
+    stubs = [d for d in framework.domains if d.short_code != "CIP-004"]
+    assert len(stubs) == 12
+    assert all(not d.practices_populated for d in stubs)
+    assert all(d.objectives == [] for d in stubs)
+    # Real, source-verified metadata even though unpopulated — not blank.
+    assert all(d.purpose for d in stubs)
+    assert all(d.source_version for d in stubs)
+    assert all(d.source_url for d in stubs)
+
+
+def test_cip_004_practice_has_real_applicability_text() -> None:
+    """The whole reason ADR-0021 added Practice.applicability: NERC CIP's
+    "Applicable Systems" column varies per Part by BES Cyber System
+    impact tier, unlike anything in C2M2/NIST CSF 2.0.
+    """
+    framework = _registry().require("NERC CIP")
+    practice = _find_practice(framework, "CIP-004-1.1")
+    assert practice is not None
+    assert practice.mil is None
+    assert "High Impact BES Cyber Systems" in practice.applicability
+
+
+def test_c2m2_and_nist_practices_have_empty_applicability() -> None:
+    """Backward-compat: the new field is additive and empty for every
+    practice in frameworks that predate it.
+    """
+    c2m2 = _registry().require("C2M2")
+    nist = _registry().require("NIST CSF 2.0")
+    assert _find_practice(c2m2, "ACCESS-1a").applicability == ""
+    assert _find_practice(nist, "PR.AA-01").applicability == ""
+
+
+def test_nerc_cip_domain_for_practice_id_resolves_correctly() -> None:
+    framework = _registry().require("NERC CIP")
+    domain = framework.domain_for_practice_id("CIP-004-3.2")
+    assert domain is not None
+    assert domain.short_code == "CIP-004"

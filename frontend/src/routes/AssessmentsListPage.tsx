@@ -3,10 +3,11 @@ import { Link } from 'react-router-dom'
 import { useAssessments, useCreateAssessment } from '../api/assessments'
 import StatusBadge from '../components/StatusBadge'
 
-// framework_name is free text at the API level (models/assessment.py), but
-// only these two have real transcribed data as of Sprint 9 — C2M2 partial
-// (ASSET/ACCESS only, US-3.1a), NIST CSF 2.0 full (ADR-0009/0010).
-const KNOWN_FRAMEWORKS = ['C2M2', 'NIST CSF 2.0']
+// framework_name is free text at the API level (models/assessment.py).
+// C2M2 and NIST CSF 2.0 are fully transcribed (ADR-0018, ADR-0010); NERC
+// CIP is a real but partial roadmap extension (ADR-0021) — only CIP-004-7
+// has transcribed practices, the other 12 standards are structural stubs.
+const KNOWN_FRAMEWORKS = ['C2M2', 'NIST CSF 2.0', 'NERC CIP']
 
 export default function AssessmentsListPage() {
   const { data: assessments, isLoading, isError, error } = useAssessments()

@@ -61,6 +61,11 @@ export default function EvidenceTab() {
           </div>
           <EvidenceSourceBadge source={link.source} reviewStatus={link.review_status} />
         </div>
+        {practice != null && practice.applicability && (
+          <p className="mt-1 text-xs text-slate-500">
+            <span className="font-medium">Applicable systems:</span> {practice.applicability}
+          </p>
+        )}
         <p className="mt-1 text-xs text-slate-500">
           document {link.document_id}
           {link.chunk_id ? ` · chunk ${link.chunk_id}` : ''}

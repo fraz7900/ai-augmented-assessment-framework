@@ -12,6 +12,26 @@ not built — evaluated twice before (Sprint 5, Sprint 8) and, asked directly a 
 closure, resolved as retrieval-only being the platform's permanent architecture, not a deferred
 placeholder. See `docs/adr/ADR-0020-mvp-closure-retrieval-only.md`.
 
+**Sprint 11 (post-MVP roadmap): NERC CIP started.** The first item from `PROJECT_CHARTER.md` Section
+13's post-MVP roadmap — mirroring exactly how C2M2 and NIST CSF 2.0 began: fetch the real source,
+verify structure, encode partial-but-real data rather than fabricate coverage. NERC's site
+(`nerc.com`) blocks `WebFetch` with a domain-wide WAF, the same "WebFetch fails, curl succeeds"
+pattern ADR-0009 already documented for C2M2 — a direct `curl` with a browser User-Agent succeeded
+cleanly. Parsing the real, structured JSON page model embedded in NERC's own standards index
+confirmed 13 standards are currently "Mandatory Subject to Enforcement" (CIP-002 through CIP-014);
+all 13 are now present in `framework_mapping/nerc_cip.yaml` with real, source-verified purpose/
+version/URL metadata. Fully parsing CIP-004-7 (Personnel & Training) confirmed a genuine schema
+mismatch — NERC CIP's per-Part "Applicable Systems" scoping by BES Cyber System impact tier has no
+analogue in C2M2/NIST CSF 2.0, and it is a *suite* of 13 independently-versioned standards, not one
+document — so `models/framework.py` gained `Practice.applicability` and `Domain.source_version`/
+`source_url`, both additive and verified not to break existing C2M2/NIST data. CIP-004-7 itself is
+fully transcribed (6 Requirements, 19 of 19 Parts); the other 12 standards are honest structural
+stubs, not fabricated. A new `.claude/skills/nerc-cip-expert/SKILL.md` documents the structure and
+fetch method for future transcription passes. Verified live end to end: a NERC CIP assessment was
+created in the running frontend, evidence linked to `CIP-004-1.1`, and its "Applicable systems" text
+rendered correctly with zero console errors. 189 backend tests passing (8 new). See
+`docs/adr/ADR-0021-nerc-cip-roadmap-extension-start.md`.
+
 **Sprint 10: the platform gained a real frontend, not just an API.**
 A real FastAPI app (`backend/src/compliance_platform`) ingests documents, embeds them locally (ONNX, no PyTorch, no network calls), tracks assessments through a draft → in-review → finalized lifecycle, scores both C2M2 maturity and NIST CSF 2.0 coverage, proposes evidence-to-practice mappings via retrieval-based semantic matching with mandatory human review, produces a structured dashboard (`GET /assessments/{id}/dashboard`, see ADR-0012) exportable as PDF/XLSX (`.../report/pdf` / `.../report/xlsx`, see ADR-0013), and answers natural-language questions grounded only in an assessment's own reviewed evidence (`POST /assessments/{id}/chat`, retrieval-only, no LLM — see ADR-0014). Through Sprint 9 every one of those capabilities was reachable only via Swagger/curl; `frontend/` (Vite + React + TypeScript, ADR-0016) now covers every persona's primary flow end to end — upload, assessment create/status/history, evidence link + AI-propose + accept/edit/reject, the dashboard with PDF/XLSX download, and chat — and closes NFR-4's UI-level requirement (AI-proposed evidence must be visibly distinguishable from human-confirmed, not just at the data-model/API layers). Verified live against the real running backend via a Playwright-driven walkthrough, not just built: zero console errors on the final pass, and two real bugs (a React key collision, a stale-dev-server symptom traced to this repo's OneDrive/WSL2 filesystem — R-11) were found and fixed during that same verification. Run it yourself:
 
@@ -36,7 +56,7 @@ then open `http://localhost:5173`: upload a document (a sample is in `data/sampl
 - [`docs/product/`](./docs/product/) — PRD, personas, epics/user stories, requirements, assumptions log, decision log, risk register, prioritized backlog
 - [`docs/architecture/00-repository-architecture.md`](./docs/architecture/00-repository-architecture.md) — repository layout and rationale
 - [`docs/architecture/01-claude-code-workspace.md`](./docs/architecture/01-claude-code-workspace.md) — hooks, skills, and MCP design for this project's `.claude/` workspace
-- [`docs/adr/`](./docs/adr/) — Architecture Decision Records (20 as of Sprint 10)
+- [`docs/adr/`](./docs/adr/) — Architecture Decision Records (21 as of Sprint 11)
 - [`docs/consulting/`](./docs/consulting/) — per-sprint executive summaries, business value/risk/ROI assessments, and MBA/interview narrative
 - [`docs/current_sprint.md`](./docs/current_sprint.md) — single-source-of-truth sprint tracker
 
@@ -50,4 +70,4 @@ Python (FastAPI, backend live as of Sprint 1), React (frontend, Vite + TypeScrip
 
 ## Roadmap
 
-Primary frameworks: C2M2, NIST CSF 2.0. Future extensibility: NERC CIP, ISO 27001, CIS Controls, SOC 2, PCI DSS. Full sprint sequence in `PROJECT_CHARTER.md` Section 13.
+Primary frameworks: C2M2, NIST CSF 2.0. NERC CIP started (Sprint 11): all 13 currently-mandatory standards present with real sourced metadata, CIP-004-7 fully transcribed, the remaining 12 real disclosed backlog. Future extensibility: ISO 27001, CIS Controls, SOC 2, PCI DSS. Full sprint sequence in `PROJECT_CHARTER.md` Section 13.

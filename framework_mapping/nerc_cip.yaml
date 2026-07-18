@@ -1,0 +1,325 @@
+# GENERATED FILE. Do not hand-edit — regenerate via
+# backend/scripts/generate_nerc_cip_yaml.py, which is the source of truth
+# for this file's content and carries the source citations.
+name: NERC CIP
+full_name: NERC Critical Infrastructure Protection Standards
+version: see each domain's own source_version
+source_title: NERC Critical Infrastructure Protection (CIP) Reliability Standards
+source_publisher: North American Electric Reliability Corporation
+source_date: see each domain's own source_version
+source_url: https://www.nerc.com/standards/reliability-standards/cip
+retrieved_date: '2026-07-18'
+total_practices_in_source: 19
+scoring_model: coverage
+mil_levels: []
+scoring_note: 'NERC CIP is a compliance/audit standard, not a native maturity model — like NIST CSF 2.0
+  (ADR-0010), it has no MIL concept, so Practice.mil is always None here. Scores are the project-defined
+  coverage measure (fraction of a standard''s Parts with accepted/edited evidence), via services/scoring_service.py''s
+  compute_domain_coverage. Only CIP-004-7 is fully transcribed as of ADR-0021; the other 12 domains are
+  real structural stubs (practices_populated: False) with no practices to score yet, not silently-omitted
+  coverage.'
+domains:
+- short_code: CIP-002
+  full_name: Cyber Security — BES Cyber System Categorization
+  purpose: To identify and categorize BES Cyber Systems and their associated BES Cyber Assets for the
+    application of cyber security requirements commensurate with the adverse impact that loss, compromise,
+    or misuse of those BES Cyber Systems could have on the reliable operation of the BES. Identification
+    and categorization of BES Cyber Systems support appropriate protection against compromises that could
+    lead to misoperation or instability in the BES.
+  practices_populated: false
+  objectives: []
+  source_version: CIP-002-5.1a
+  source_url: https://www.nerc.com/globalassets/standards/reliability-standards/cip/cip-002-5.1a.pdf
+- short_code: CIP-003
+  full_name: Cyber Security — Security Management Controls
+  purpose: To specify consistent and sustainable security management controls that establish responsibility
+    and accountability to protect BES Cyber Systems against compromise that could lead to misoperation
+    or instability in the Bulk Electric System (BES).
+  practices_populated: false
+  objectives: []
+  source_version: CIP-003-9
+  source_url: https://www.nerc.com/globalassets/standards/reliability-standards/cip/cip-003-9.pdf
+- short_code: CIP-004
+  full_name: Cyber Security — Personnel & Training
+  purpose: To minimize the risk against compromise that could lead to misoperation or instability in the
+    Bulk Electric System (BES) from individuals accessing BES Cyber Systems by requiring an appropriate
+    level of personnel risk assessment, training, security awareness, and access management in support
+    of protecting BES Cyber Systems.
+  practices_populated: true
+  objectives:
+  - number: 1
+    title: R1 – Security Awareness Program
+    purpose: Each Responsible Entity shall implement one or more documented processes that collectively
+      include each of the applicable requirement parts in CIP-004-7 Table R1 – Security Awareness Program.
+    practices:
+    - id: CIP-004-1.1
+      text: Security awareness that, at least once each calendar quarter, reinforces cyber security practices
+        (which may include associated physical security practices) for the Responsible Entity's personnel
+        who have authorized electronic or authorized unescorted physical access to BES Cyber Systems.
+      applicability: 'High Impact BES Cyber Systems
+
+        Medium Impact BES Cyber Systems'
+  - number: 2
+    title: R2 – Cyber Security Training Program
+    purpose: Each Responsible Entity shall implement one or more cyber security training program(s) appropriate
+      to individual roles, functions, or responsibilities that collectively includes each of the applicable
+      requirement parts in CIP-004-7 Table R2 – Cyber Security Training Program.
+    practices:
+    - id: CIP-004-2.1
+      text: 'Training content on: cyber security policies; physical access controls; electronic access
+        controls; the visitor control program; handling of BES Cyber System Information and its storage;
+        identification of a Cyber Security Incident and initial notifications in accordance with the entity''s
+        incident response plan; recovery plans for BES Cyber Systems; response to Cyber Security Incidents;
+        and cyber security risks associated with a BES Cyber System''s electronic interconnectivity and
+        interoperability with other Cyber Assets, including Transient Cyber Assets, and with Removable
+        Media.'
+      applicability: 'High Impact BES Cyber Systems and their associated: 1. EACMS; and 2. PACS
+
+        Medium Impact BES Cyber Systems with External Routable Connectivity and their associated: 1. EACMS;
+        and 2. PACS'
+    - id: CIP-004-2.2
+      text: Require completion of the training specified in Part 2.1 prior to granting authorized electronic
+        access and authorized unescorted physical access to applicable Cyber Assets, except during CIP
+        Exceptional Circumstances.
+      applicability: 'High Impact BES Cyber Systems and their associated: 1. EACMS; and 2. PACS
+
+        Medium Impact BES Cyber Systems with External Routable Connectivity and their associated: 1. EACMS;
+        and 2. PACS'
+    - id: CIP-004-2.3
+      text: Require completion of the training specified in Part 2.1 at least once every 15 calendar months.
+      applicability: 'High Impact BES Cyber Systems and their associated: 1. EACMS; and 2. PACS
+
+        Medium Impact BES Cyber Systems with External Routable Connectivity and their associated: 1. EACMS;
+        and 2. PACS'
+  - number: 3
+    title: R3 – Personnel Risk Assessment Program
+    purpose: Each Responsible Entity shall implement one or more documented personnel risk assessment
+      program(s) to attain and retain authorized electronic or authorized unescorted physical access to
+      BES Cyber Systems that collectively include each of the applicable requirement parts in CIP-004-7
+      Table R3 – Personnel Risk Assessment Program.
+    practices:
+    - id: CIP-004-3.1
+      text: Process to confirm identity.
+      applicability: 'High Impact BES Cyber Systems and their associated: 1. EACMS; and 2. PACS
+
+        Medium Impact BES Cyber Systems with External Routable Connectivity and their associated: 1. EACMS;
+        and 2. PACS'
+    - id: CIP-004-3.2
+      text: 'Process to perform a seven year criminal history records check as part of each personnel
+        risk assessment that includes: current residence, regardless of duration; and other locations
+        where, during the seven years immediately prior to the date of the criminal history records check,
+        the subject has resided for six consecutive months or more. If it is not possible to perform a
+        full seven year criminal history records check, conduct as much of the seven year criminal history
+        records check as possible and document the reason the full seven year criminal history records
+        check could not be performed.'
+      applicability: 'High Impact BES Cyber Systems and their associated: 1. EACMS; and 2. PACS
+
+        Medium Impact BES Cyber Systems with External Routable Connectivity and their associated: 1. EACMS;
+        and 2. PACS'
+    - id: CIP-004-3.3
+      text: Criteria or process to evaluate criminal history records checks for authorizing access.
+      applicability: 'High Impact BES Cyber Systems and their associated: 1. EACMS; and 2. PACS
+
+        Medium Impact BES Cyber Systems with External Routable Connectivity and their associated: 1. EACMS;
+        and 2. PACS'
+    - id: CIP-004-3.4
+      text: Criteria or process for verifying that personnel risk assessments performed for contractors
+        or service vendors are conducted according to Parts 3.1 through 3.3.
+      applicability: 'High Impact BES Cyber Systems and their associated: 1. EACMS; and 2. PACS
+
+        Medium Impact BES Cyber Systems with External Routable Connectivity and their associated: 1. EACMS;
+        and 2. PACS'
+    - id: CIP-004-3.5
+      text: Process to ensure that individuals with authorized electronic or authorized unescorted physical
+        access have had a personnel risk assessment completed according to Parts 3.1 to 3.4 within the
+        last seven years.
+      applicability: 'High Impact BES Cyber Systems and their associated: 1. EACMS; and 2. PACS
+
+        Medium Impact BES Cyber Systems with External Routable Connectivity and their associated: 1. EACMS;
+        and 2. PACS'
+  - number: 4
+    title: R4 – Access Management Program
+    purpose: Each Responsible Entity shall implement one or more documented access management program(s)
+      that collectively include each of the applicable requirement parts in CIP-004-7 Table R4 – Access
+      Management Program.
+    practices:
+    - id: CIP-004-4.1
+      text: 'Process to authorize based on need, as determined by the Responsible Entity, except for CIP
+        Exceptional Circumstances: electronic access; and unescorted physical access into a Physical Security
+        Perimeter.'
+      applicability: 'High Impact BES Cyber Systems and their associated: 1. EACMS; and 2. PACS
+
+        Medium Impact BES Cyber Systems with External Routable Connectivity and their associated: 1. EACMS;
+        and 2. PACS'
+    - id: CIP-004-4.2
+      text: Verify at least once each calendar quarter that individuals with active electronic access
+        or unescorted physical access have authorization records.
+      applicability: 'High Impact BES Cyber Systems and their associated: 1. EACMS; and 2. PACS
+
+        Medium Impact BES Cyber Systems with External Routable Connectivity and their associated: 1. EACMS;
+        and 2. PACS'
+    - id: CIP-004-4.3
+      text: For electronic access, verify at least once every 15 calendar months that all user accounts,
+        user account groups, or user role categories, and their specific, associated privileges are correct
+        and are those that the Responsible Entity determines are necessary.
+      applicability: 'High Impact BES Cyber Systems and their associated: 1. EACMS; and 2. PACS
+
+        Medium Impact BES Cyber Systems with External Routable Connectivity and their associated: 1. EACMS;
+        and 2. PACS'
+  - number: 5
+    title: R5 – Access Revocation
+    purpose: Each Responsible Entity shall implement one or more documented access revocation program(s)
+      that collectively include each of the applicable requirement parts in CIP-004-7 Table R5 – Access
+      Revocation.
+    practices:
+    - id: CIP-004-5.1
+      text: A process to initiate removal of an individual's ability for unescorted physical access and
+        Interactive Remote Access upon a termination action, and complete the removals within 24 hours
+        of the termination action (removal of the ability for access may be different than deletion, disabling,
+        revocation, or removal of all access rights).
+      applicability: 'High Impact BES Cyber Systems and their associated: 1. EACMS; and 2. PACS
+
+        Medium Impact BES Cyber Systems with External Routable Connectivity and their associated: 1. EACMS;
+        and 2. PACS'
+    - id: CIP-004-5.2
+      text: For reassignments or transfers, revoke the individual's authorized electronic access to individual
+        accounts and authorized unescorted physical access that the Responsible Entity determines are
+        not necessary by the end of the next calendar day following the date that the Responsible Entity
+        determines that the individual no longer requires retention of that access.
+      applicability: 'High Impact BES Cyber Systems and their associated: 1. EACMS; and 2. PACS
+
+        Medium Impact BES Cyber Systems with External Routable Connectivity and their associated: 1. EACMS;
+        and 2. PACS'
+    - id: CIP-004-5.3
+      text: For termination actions, revoke the individual's non-shared user accounts (unless already
+        revoked according to Part 5.1) within 30 calendar days of the effective date of the termination
+        action.
+      applicability: 'High Impact BES Cyber Systems and their associated: EACMS'
+    - id: CIP-004-5.4
+      text: For termination actions, change passwords for shared account(s) known to the user within 30
+        calendar days of the termination action. For reassignments or transfers, change passwords for
+        shared account(s) known to the user within 30 calendar days following the date that the Responsible
+        Entity determines that the individual no longer requires retention of that access. If the Responsible
+        Entity determines and documents that extenuating operating circumstances require a longer time
+        period, change the password(s) within 10 calendar days following the end of the operating circumstances.
+      applicability: 'High Impact BES Cyber Systems and their associated: EACMS'
+  - number: 6
+    title: R6 – Access Management for BES Cyber System Information
+    purpose: Each Responsible Entity shall implement one or more documented access management program(s)
+      to authorize, verify, and revoke provisioned access to BCSI pertaining to the "Applicable Systems"
+      identified in CIP-004-7 Table R6 – Access Management for BES Cyber System Information that collectively
+      include each of the applicable requirement parts in that table. To be considered access to BCSI
+      in the context of this requirement, an individual has both the ability to obtain and use BCSI.
+    practices:
+    - id: CIP-004-6.1
+      text: 'Prior to provisioning, authorize (unless already authorized according to Part 4.1) based
+        on need, as determined by the Responsible Entity, except for CIP Exceptional Circumstances: provisioned
+        electronic access to electronic BCSI; and provisioned physical access to physical BCSI.'
+      applicability: 'High Impact BES Cyber Systems and their associated: 1. EACMS; and 2. PACS
+
+        Medium Impact BES Cyber Systems with External Routable Connectivity and their associated: 1. EACMS;
+        and 2. PACS'
+    - id: CIP-004-6.2
+      text: 'Verify at least once every 15 calendar months that all individuals with provisioned access
+        to BCSI: have an authorization record; and still need the provisioned access to perform their
+        current work functions, as determined by the Responsible Entity.'
+      applicability: 'High Impact BES Cyber Systems and their associated: 1. EACMS; and 2. PACS
+
+        Medium Impact BES Cyber Systems with External Routable Connectivity and their associated: 1. EACMS;
+        and 2. PACS'
+    - id: CIP-004-6.3
+      text: For termination actions, remove the individual's ability to use provisioned access to BCSI
+        (unless already revoked according to Part 5.1) by the end of the next calendar day following the
+        effective date of the termination action.
+      applicability: 'High Impact BES Cyber Systems and their associated: 1. EACMS; and 2. PACS
+
+        Medium Impact BES Cyber Systems with External Routable Connectivity and their associated: 1. EACMS;
+        and 2. PACS'
+  source_version: CIP-004-7
+  source_url: https://www.nerc.com/globalassets/standards/reliability-standards/cip/cip-004-7.pdf
+- short_code: CIP-005
+  full_name: Cyber Security — Electronic Security Perimeter(s)
+  purpose: To manage electronic access to BES Cyber Systems by specifying a controlled Electronic Security
+    Perimeter in support of protecting BES Cyber Systems against compromise that could lead to misoperation
+    or instability in the BES.
+  practices_populated: false
+  objectives: []
+  source_version: CIP-005-7
+  source_url: https://www.nerc.com/globalassets/standards/reliability-standards/cip/cip-005-7.pdf
+- short_code: CIP-006
+  full_name: Cyber Security — Physical Security of BES Cyber Systems
+  purpose: To manage physical access to Bulk Electric System (BES) Cyber Systems by specifying a physical
+    security plan in support of protecting BES Cyber Systems against compromise that could lead to misoperation
+    or instability in the BES.
+  practices_populated: false
+  objectives: []
+  source_version: CIP-006-6
+  source_url: https://www.nerc.com/globalassets/standards/reliability-standards/cip/cip-006-6.pdf
+- short_code: CIP-007
+  full_name: Cyber Security — System Security Management
+  purpose: To manage system security by specifying select technical, operational, and procedural requirements
+    in support of protecting BES Cyber Systems against compromise that could lead to misoperation or instability
+    in the Bulk Electric System (BES).
+  practices_populated: false
+  objectives: []
+  source_version: CIP-007-6
+  source_url: https://www.nerc.com/globalassets/standards/reliability-standards/cip/cip-007-6.pdf
+- short_code: CIP-008
+  full_name: Cyber Security — Incident Reporting and Response Planning
+  purpose: To mitigate the risk to the reliable operation of the BES as the result of a Cyber Security
+    Incident by specifying incident response requirements.
+  practices_populated: false
+  objectives: []
+  source_version: CIP-008-6
+  source_url: https://www.nerc.com/globalassets/standards/reliability-standards/cip/cip-008-6.pdf
+- short_code: CIP-009
+  full_name: Cyber Security — Recovery Plans for BES Cyber Systems
+  purpose: To recover reliability functions performed by BES Cyber Systems by specifying recovery plan
+    requirements in support of the continued stability, operability, and reliability of the BES.
+  practices_populated: false
+  objectives: []
+  source_version: CIP-009-6
+  source_url: https://www.nerc.com/globalassets/standards/reliability-standards/cip/cip-009-6.pdf
+- short_code: CIP-010
+  full_name: Cyber Security — Configuration Change Management and Vulnerability Assessments
+  purpose: To prevent and detect unauthorized changes to BES Cyber Systems by specifying configuration
+    change management and vulnerability assessment requirements in support of protecting BES Cyber Systems
+    from compromise that could lead to misoperation or instability in the Bulk Electric System (BES).
+  practices_populated: false
+  objectives: []
+  source_version: CIP-010-4
+  source_url: https://www.nerc.com/globalassets/standards/reliability-standards/cip/cip-010-4.pdf
+- short_code: CIP-011
+  full_name: Cyber Security — Information Protection
+  purpose: To prevent unauthorized access to BES Cyber System Information (BCSI) by specifying information
+    protection requirements in support of protecting BES Cyber Systems against compromise that could lead
+    to misoperation or instability in the Bulk Electric System (BES).
+  practices_populated: false
+  objectives: []
+  source_version: CIP-011-3
+  source_url: https://www.nerc.com/globalassets/standards/reliability-standards/cip/cip-011-3.pdf
+- short_code: CIP-012
+  full_name: Cyber Security – Communications between Control Centers
+  purpose: To protect the confidentiality, integrity, and availability of Real-time Assessment and Real-time
+    monitoring data transmitted between Control Centers.
+  practices_populated: false
+  objectives: []
+  source_version: CIP-012-2
+  source_url: https://www.nerc.com/globalassets/standards/reliability-standards/cip/cip-012-2.pdf
+- short_code: CIP-013
+  full_name: Cyber Security - Supply Chain Risk Management
+  purpose: To mitigate cyber security risks to the reliable operation of the Bulk Electric System (BES)
+    by implementing security controls for supply chain risk management of BES Cyber Systems.
+  practices_populated: false
+  objectives: []
+  source_version: CIP-013-2
+  source_url: https://www.nerc.com/globalassets/standards/reliability-standards/cip/cip-013-2.pdf
+- short_code: CIP-014
+  full_name: Physical Security
+  purpose: To identify and protect Transmission stations and Transmission substations, and their associated
+    primary control centers, that if rendered inoperable or damaged as a result of a physical attack could
+    result in instability, uncontrolled separation, or Cascading within an Interconnection.
+  practices_populated: false
+  objectives: []
+  source_version: CIP-014-3
+  source_url: https://www.nerc.com/globalassets/standards/reliability-standards/cip/cip-014-3.pdf
