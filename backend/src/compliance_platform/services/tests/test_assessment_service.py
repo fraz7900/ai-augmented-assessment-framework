@@ -29,6 +29,7 @@ from compliance_platform.services.assessment_service import (
     AssessmentFinalizedError,
     AssessmentNotFoundError,
     AssessmentService,
+    ChatEngineUnavailableError,
     EvidenceAlreadyReviewedError,
     EvidenceDocumentNotIngestedError,
     EvidenceLinkNotFoundError,
@@ -119,15 +120,28 @@ class _FakeVectorRepository:
         self,
         known_documents: dict[str, list[str]] | None = None,
         search_results_by_index: dict[int, list[dict]] | None = None,
+        chunk_text: dict[tuple[str, str], str] | None = None,
     ) -> None:
         self._known = known_documents or {}
         self._search_results_by_index = search_results_by_index or {}
+        # Chat-specific (Sprint 9): optional real text per (document_id,
+        # chunk_id), since chat_service.answer_question reads row["text"]
+        # — mapping tests never read this key, so leaving it unset keeps
+        # their existing behavior identical.
+        self._chunk_text = chunk_text or {}
         self.search_calls: list[tuple[list[float], list[str], int]] = []
 
     def chunks_for_document(self, document_id: str) -> list[dict]:
         if document_id not in self._known:
             return []
-        return [{"chunk_id": cid, "document_id": document_id} for cid in self._known[document_id]]
+        return [
+            {
+                "chunk_id": cid,
+                "document_id": document_id,
+                "text": self._chunk_text.get((document_id, cid), f"text for {cid}"),
+            }
+            for cid in self._known[document_id]
+        ]
 
     def search_within_documents(
         self, query_vector: list[float], document_ids: list[str], limit: int = 5
@@ -212,15 +226,20 @@ def _make_service(
     embedder: _FakeEmbedder | None = None,
     search_results_by_index: dict[int, list[dict]] | None = None,
     mapping_similarity_threshold: float = 0.5,
+    chunk_text: dict[tuple[str, str], str] | None = None,
+    chat_similarity_threshold: float = 0.4,
+    chat_result_limit: int = 5,
 ) -> tuple[AssessmentService, _FakeAssessmentRepository, _FakeVectorRepository]:
     assessment_repo = _FakeAssessmentRepository()
-    vector_repo = _FakeVectorRepository(known_documents, search_results_by_index)
+    vector_repo = _FakeVectorRepository(known_documents, search_results_by_index, chunk_text)
     service = AssessmentService(
         assessment_repo,
         vector_repo,
         framework_registry=framework_registry,
         embedder=embedder,
         mapping_similarity_threshold=mapping_similarity_threshold,
+        chat_similarity_threshold=chat_similarity_threshold,
+        chat_result_limit=chat_result_limit,
     )
     return service, assessment_repo, vector_repo
 
@@ -570,3 +589,94 @@ def test_propose_mappings_blocked_on_finalized_assessment() -> None:
     service.transition_status(assessment.id, AssessmentStatus.FINALIZED)
     with pytest.raises(AssessmentFinalizedError):
         service.propose_mappings(assessment.id)
+
+
+# --- Retrieval-only chat (Sprint 8), unit tests added Sprint 9 to close a
+# real coverage gap: AssessmentService.answer_question had no direct
+# unit test before this, only chat_service.answer_question's own pure-
+# function tests and a live API integration test. ---
+
+
+class _TextKeyedFakeEmbedder:
+    """Vectors keyed by exact text match, not call-order index — unlike
+    the shared _FakeEmbedder above, which returns [index] per input and
+    is unsuitable here: every chat call embeds [question, *chunk_texts]
+    together, and [index]-based vectors would make the question (always
+    index 0) score an identical, meaningless similarity against every
+    chunk regardless of content. Mirrors
+    services/tests/test_chat_service.py's fake exactly.
+    """
+
+    def __init__(self, vectors_by_text: dict[str, list[float]]) -> None:
+        self._vectors_by_text = vectors_by_text
+
+    def embed(self, texts: list[str]) -> list[list[float]]:
+        return [self._vectors_by_text.get(text, [0.0, 0.0, 1.0]) for text in texts]
+
+    @property
+    def backend_name(self) -> str:
+        return "fake"
+
+    @property
+    def dimensions(self) -> int:
+        return 3
+
+
+def test_answer_question_raises_for_unknown_assessment() -> None:
+    service, _, _ = _make_service(embedder=_FakeEmbedder())
+    with pytest.raises(AssessmentNotFoundError):
+        service.answer_question("does-not-exist", "any question")
+
+
+def test_answer_question_raises_without_an_embedder_configured() -> None:
+    service, _, _ = _make_service()  # no embedder passed
+    assessment = service.create_assessment("A", "C2M2")
+    with pytest.raises(ChatEngineUnavailableError):
+        service.answer_question(assessment.id, "any question")
+
+
+def test_answer_question_returns_empty_with_no_evidence() -> None:
+    service, _, _ = _make_service(embedder=_FakeEmbedder())
+    assessment = service.create_assessment("A", "C2M2")
+    response = service.answer_question(assessment.id, "any question")
+    assert response.question == "any question"
+    assert response.results == []
+
+
+def test_answer_question_returns_ranked_hits_from_reviewed_evidence_only() -> None:
+    embedder = _TextKeyedFakeEmbedder(
+        {
+            "which practices cover MFA?": [1.0, 0.0, 0.0],
+            "multi-factor authentication is required": [1.0, 0.0, 0.0],
+            "unrelated policy text": [0.0, 1.0, 0.0],
+        }
+    )
+    service, _, _ = _make_service(
+        known_documents={"doc-1": ["chunk-mfa", "chunk-other"]},
+        chunk_text={
+            ("doc-1", "chunk-mfa"): "multi-factor authentication is required",
+            ("doc-1", "chunk-other"): "unrelated policy text",
+        },
+        embedder=embedder,
+        chat_similarity_threshold=0.5,
+    )
+    assessment = service.create_assessment("A", "C2M2")
+    accepted = service.link_evidence(
+        assessment.id, "doc-1", practice_reference="TEST-1a", chunk_id="chunk-mfa"
+    )
+    # AI-proposed, still pending — must never be answerable until reviewed.
+    service.link_evidence(
+        assessment.id,
+        "doc-1",
+        practice_reference="TEST-2a",
+        chunk_id="chunk-other",
+        source=EvidenceSource.AI_PROPOSED,
+    )
+
+    response = service.answer_question(assessment.id, "which practices cover MFA?")
+    assert len(response.results) == 1
+    result = response.results[0]
+    assert result.practice_reference == accepted.practice_reference == "TEST-1a"
+    assert result.chunk_id == "chunk-mfa"
+    assert result.chunk_text == "multi-factor authentication is required"
+    assert result.similarity == 1.0

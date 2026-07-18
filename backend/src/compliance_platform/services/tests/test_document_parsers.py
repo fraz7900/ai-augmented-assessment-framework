@@ -1,6 +1,10 @@
 from __future__ import annotations
 
+import io
+
 import pytest
+from docx import Document as DocxDocument
+from pypdf import PdfWriter
 
 from compliance_platform.models.schemas import FileType, ParseStatus
 from compliance_platform.services import document_parsers
@@ -62,3 +66,38 @@ def test_content_hash_is_deterministic_but_document_id_is_not() -> None:
     p2 = document_parsers.parse_document("b.txt", content)
     assert p1.metadata.content_hash == p2.metadata.content_hash
     assert p1.metadata.document_id != p2.metadata.document_id
+
+
+# --- Sprint 9: closing real, measured coverage gaps in the parsers'
+# failure-mode branches — the document-parsing skill's whole point
+# (distinguish "parsed but sparse" from "failed to parse") had no direct
+# test for the "cannot even open the file" case in either format. ---
+
+
+def test_parse_pdf_handles_malformed_content() -> None:
+    parsed = document_parsers.parse_document("broken.pdf", b"not a real pdf at all")
+    assert parsed.parse_status == ParseStatus.FAILED
+    assert parsed.parse_warnings
+
+
+def test_parse_pdf_handles_zero_pages() -> None:
+    buffer = io.BytesIO()
+    PdfWriter().write(buffer)  # a syntactically valid PDF with no pages at all
+    parsed = document_parsers.parse_document("empty.pdf", buffer.getvalue())
+    assert parsed.parse_status == ParseStatus.EMPTY
+
+
+def test_parse_docx_handles_malformed_content() -> None:
+    parsed = document_parsers.parse_document("broken.docx", b"not a real docx at all")
+    assert parsed.parse_status == ParseStatus.FAILED
+    assert parsed.parse_warnings
+
+
+def test_parse_docx_with_only_whitespace_paragraphs_is_empty() -> None:
+    doc = DocxDocument()
+    doc.add_paragraph("   ")
+    doc.add_paragraph("")
+    buffer = io.BytesIO()
+    doc.save(buffer)
+    parsed = document_parsers.parse_document("blank.docx", buffer.getvalue())
+    assert parsed.parse_status == ParseStatus.EMPTY

@@ -9,6 +9,7 @@ from __future__ import annotations
 from fastapi import FastAPI
 
 from compliance_platform.api import assessments, frameworks, health, ingestion
+from compliance_platform.api.error_handlers import register_exception_handlers
 
 app = FastAPI(
     title="AI-Augmented Compliance Assessment Platform",
@@ -19,6 +20,8 @@ app = FastAPI(
     ),
     version="0.3.0",
 )
+
+register_exception_handlers(app)
 
 app.include_router(health.router)
 app.include_router(ingestion.router)

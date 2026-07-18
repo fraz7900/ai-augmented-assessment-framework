@@ -23,8 +23,11 @@ from compliance_platform.main import app
 def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
     test_settings = Settings(vector_store_dir=tmp_path / "lancedb")
 
+    # get_cached_embedder is deliberately NOT cleared per-test (Sprint
+    # 9, R-13) — see the matching comment in
+    # tests/test_assessment_api_integration.py for why reusing it across
+    # the whole test session is both safe and measurably faster.
     dependencies.get_cached_settings.cache_clear()
-    dependencies.get_cached_embedder.cache_clear()
     dependencies.get_cached_vector_repository.cache_clear()
     monkeypatch.setattr(dependencies, "get_settings", lambda: test_settings)
 
@@ -32,7 +35,6 @@ def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClie
         yield test_client
 
     dependencies.get_cached_settings.cache_clear()
-    dependencies.get_cached_embedder.cache_clear()
     dependencies.get_cached_vector_repository.cache_clear()
 
 

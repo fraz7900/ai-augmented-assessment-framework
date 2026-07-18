@@ -17,9 +17,17 @@ from compliance_platform.api import dependencies
 from compliance_platform.core.config import Settings
 from compliance_platform.main import app
 
+# get_cached_embedder is deliberately NOT cleared per-test (Sprint 9,
+# R-13): its config (backend, dimensions, model_name,
+# embedding_model_cache_dir) never varies between tests — only
+# vector_store_dir/assessments_db_path do, via test_settings below — so
+# clearing it forced every single test to pay a real, measured ~0.4s
+# ONNX-session reload cost for no correctness benefit. Reusing one
+# embedder instance across the whole test session is safe (embeddings
+# are a pure function of input text, no per-test state) and is exactly
+# the fix R-13 already named but never implemented.
 _CACHED_DEPENDENCIES = (
     dependencies.get_cached_settings,
-    dependencies.get_cached_embedder,
     dependencies.get_cached_vector_repository,
     dependencies.get_cached_assessment_repository,
     dependencies.get_cached_framework_registry,
@@ -627,3 +635,179 @@ def test_chat_returns_404_for_unknown_assessment(client: TestClient) -> None:
         "/assessments/does-not-exist/chat", json={"question": "Anything?"}
     )
     assert response.status_code == 404
+
+
+# --- Sprint 9: closing real, measured error-path coverage gaps. Every
+# endpoint below had at least one exception-handling branch (a real,
+# reachable HTTP error response) with zero test coverage — found via
+# `pytest --cov-report=term-missing`, not guessed. See
+# docs/adr/ADR-0015-sprint-9-testing-refactoring-pass.md. ---
+
+
+def test_unknown_assessment_returns_404_across_remaining_endpoints(client: TestClient) -> None:
+    """Every endpoint below already returns 404 correctly in production
+    (they share AssessmentService.get_assessment's exception), but none
+    of them had a direct test confirming it — see the coverage note
+    above.
+    """
+    assessment_id = "does-not-exist"
+    status_response = client.post(
+        f"/assessments/{assessment_id}/status", json={"status": "in_review"}
+    )
+    assert status_response.status_code == 404
+    assert client.get(f"/assessments/{assessment_id}/status-history").status_code == 404
+    assert (
+        client.post(
+            f"/assessments/{assessment_id}/evidence",
+            json={"document_id": "doc-1", "practice_reference": "ACCESS-1a"},
+        ).status_code
+        == 404
+    )
+    assert client.get(f"/assessments/{assessment_id}/evidence").status_code == 404
+    assert client.get(f"/assessments/{assessment_id}/score").status_code == 404
+    assert client.get(f"/assessments/{assessment_id}/dashboard").status_code == 404
+    assert (
+        client.post(
+            f"/assessments/{assessment_id}/evidence/some-link-id/review",
+            json={"decision": "accepted"},
+        ).status_code
+        == 404
+    )
+
+
+def test_dashboard_and_export_endpoints_return_422_for_framework_with_no_schema(
+    client: TestClient,
+) -> None:
+    """Same bogus-framework setup as
+    test_score_endpoint_returns_422_for_framework_with_no_schema,
+    extended to the three other endpoints that share
+    FrameworkScoringUnavailableError but had no direct test of their
+    own: the dashboard and both export formats are built from
+    build_dashboard, which raises the identical error compute_scores
+    does.
+    """
+    create_response = client.post(
+        "/assessments", json={"name": "Test", "framework_name": "ISO 27001"}
+    )
+    assessment_id = create_response.json()["id"]
+    assert client.get(f"/assessments/{assessment_id}/dashboard").status_code == 422
+    assert client.get(f"/assessments/{assessment_id}/report/pdf").status_code == 422
+    assert client.get(f"/assessments/{assessment_id}/report/xlsx").status_code == 422
+    assert (
+        client.post(f"/assessments/{assessment_id}/propose-mappings").status_code == 422
+    )
+
+
+def test_review_evidence_rejects_unknown_evidence_link(client: TestClient) -> None:
+    create_response = client.post("/assessments", json={"name": "Test", "framework_name": "C2M2"})
+    assessment_id = create_response.json()["id"]
+    response = client.post(
+        f"/assessments/{assessment_id}/evidence/does-not-exist/review",
+        json={"decision": "accepted"},
+    )
+    assert response.status_code == 404
+
+
+def test_review_evidence_blocked_on_finalized_assessment(client: TestClient) -> None:
+    document_id = _ingest_sample_document(client)
+    create_response = client.post("/assessments", json={"name": "Test", "framework_name": "C2M2"})
+    assessment_id = create_response.json()["id"]
+    link_response = client.post(
+        f"/assessments/{assessment_id}/evidence",
+        json={
+            "document_id": document_id,
+            "practice_reference": "ACCESS-1a",
+            "source": "ai_proposed",
+        },
+    )
+    link_id = link_response.json()["id"]
+    client.post(f"/assessments/{assessment_id}/status", json={"status": "in_review"})
+    client.post(f"/assessments/{assessment_id}/status", json={"status": "finalized"})
+
+    response = client.post(
+        f"/assessments/{assessment_id}/evidence/{link_id}/review",
+        json={"decision": "accepted"},
+    )
+    assert response.status_code == 409
+
+
+def test_review_evidence_rejects_invalid_decision(client: TestClient) -> None:
+    """EvidenceReviewStatus includes PENDING as a valid enum member (so
+    Pydantic accepts it as a well-formed request body), but PENDING is
+    not a valid *decision* — only accepted/edited/rejected are.
+    """
+    document_id = _ingest_sample_document(client)
+    create_response = client.post("/assessments", json={"name": "Test", "framework_name": "C2M2"})
+    assessment_id = create_response.json()["id"]
+    link_response = client.post(
+        f"/assessments/{assessment_id}/evidence",
+        json={
+            "document_id": document_id,
+            "practice_reference": "ACCESS-1a",
+            "source": "ai_proposed",
+        },
+    )
+    link_id = link_response.json()["id"]
+
+    response = client.post(
+        f"/assessments/{assessment_id}/evidence/{link_id}/review",
+        json={"decision": "pending"},
+    )
+    assert response.status_code == 400
+
+
+def test_review_evidence_edit_rejects_invalid_practice_reference(client: TestClient) -> None:
+    document_id = _ingest_sample_document(client)
+    create_response = client.post("/assessments", json={"name": "Test", "framework_name": "C2M2"})
+    assessment_id = create_response.json()["id"]
+    link_response = client.post(
+        f"/assessments/{assessment_id}/evidence",
+        json={
+            "document_id": document_id,
+            "practice_reference": "ACCESS-1a",
+            "source": "ai_proposed",
+        },
+    )
+    link_id = link_response.json()["id"]
+
+    response = client.post(
+        f"/assessments/{assessment_id}/evidence/{link_id}/review",
+        json={"decision": "edited", "corrected_practice_reference": "NOT-A-REAL-PRACTICE"},
+    )
+    assert response.status_code == 422
+
+
+def test_review_evidence_edit_requires_corrected_practice_reference(client: TestClient) -> None:
+    document_id = _ingest_sample_document(client)
+    create_response = client.post("/assessments", json={"name": "Test", "framework_name": "C2M2"})
+    assessment_id = create_response.json()["id"]
+    link_response = client.post(
+        f"/assessments/{assessment_id}/evidence",
+        json={
+            "document_id": document_id,
+            "practice_reference": "ACCESS-1a",
+            "source": "ai_proposed",
+        },
+    )
+    link_id = link_response.json()["id"]
+
+    response = client.post(
+        f"/assessments/{assessment_id}/evidence/{link_id}/review",
+        json={"decision": "edited"},
+    )
+    assert response.status_code == 400
+
+
+def test_propose_mappings_blocked_on_finalized_assessment(client: TestClient) -> None:
+    document_id = _ingest_sample_document(client)
+    create_response = client.post("/assessments", json={"name": "Test", "framework_name": "C2M2"})
+    assessment_id = create_response.json()["id"]
+    client.post(
+        f"/assessments/{assessment_id}/evidence",
+        json={"document_id": document_id, "practice_reference": "ACCESS-1a"},
+    )
+    client.post(f"/assessments/{assessment_id}/status", json={"status": "in_review"})
+    client.post(f"/assessments/{assessment_id}/status", json={"status": "finalized"})
+
+    response = client.post(f"/assessments/{assessment_id}/propose-mappings")
+    assert response.status_code == 409

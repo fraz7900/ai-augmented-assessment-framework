@@ -1,7 +1,16 @@
 """Assessment endpoints. Thin HTTP boundary only, per api/README.md:
-parse the request, call the service, translate service exceptions into
-HTTP status codes. No state-machine or evidence-linking logic belongs
-in this file — see services/assessment_service.py.
+parse the request, call the service, return the response. No
+state-machine or evidence-linking logic belongs in this file — see
+services/assessment_service.py.
+
+Exception-to-HTTP-status mapping is centralized in
+api/error_handlers.py (Sprint 9 refactor, ADR-0015): every custom
+domain exception listed there maps to the same status code everywhere
+it's raised, so endpoints below simply let it propagate rather than
+catching it themselves. The one exception is bare ValueError
+(review_evidence's missing corrected_practice_reference case), which is
+deliberately NOT handled globally — it's too generic a type to
+intercept app-wide — so it's still caught locally, right there.
 """
 
 from __future__ import annotations
@@ -22,20 +31,7 @@ from compliance_platform.models.assessment import (
 )
 from compliance_platform.models.chat import ChatResponse
 from compliance_platform.models.report import DashboardReport
-from compliance_platform.services.assessment_service import (
-    AssessmentFinalizedError,
-    AssessmentNotFoundError,
-    AssessmentService,
-    ChatEngineUnavailableError,
-    EvidenceAlreadyReviewedError,
-    EvidenceDocumentNotIngestedError,
-    EvidenceLinkNotFoundError,
-    FrameworkScoringUnavailableError,
-    InvalidPracticeReferenceError,
-    InvalidReviewDecisionError,
-    InvalidStatusTransitionError,
-    MappingEngineUnavailableError,
-)
+from compliance_platform.services.assessment_service import AssessmentService
 
 router = APIRouter(prefix="/assessments", tags=["assessments"])
 
@@ -88,10 +84,7 @@ def get_assessment(
     assessment_id: str,
     service: AssessmentService = Depends(get_assessment_service),
 ) -> Assessment:
-    try:
-        return service.get_assessment(assessment_id)
-    except AssessmentNotFoundError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return service.get_assessment(assessment_id)
 
 
 @router.post("/{assessment_id}/status", response_model=Assessment)
@@ -100,12 +93,7 @@ def transition_status(
     request: StatusTransitionRequest,
     service: AssessmentService = Depends(get_assessment_service),
 ) -> Assessment:
-    try:
-        return service.transition_status(assessment_id, request.status, note=request.note)
-    except AssessmentNotFoundError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-    except InvalidStatusTransitionError as exc:
-        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    return service.transition_status(assessment_id, request.status, note=request.note)
 
 
 @router.get("/{assessment_id}/status-history", response_model=list[AssessmentStatusChange])
@@ -113,10 +101,7 @@ def get_status_history(
     assessment_id: str,
     service: AssessmentService = Depends(get_assessment_service),
 ) -> list[AssessmentStatusChange]:
-    try:
-        return service.status_history(assessment_id)
-    except AssessmentNotFoundError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return service.status_history(assessment_id)
 
 
 @router.post("/{assessment_id}/evidence", response_model=EvidenceLink)
@@ -125,23 +110,14 @@ def link_evidence(
     request: LinkEvidenceRequest,
     service: AssessmentService = Depends(get_assessment_service),
 ) -> EvidenceLink:
-    try:
-        return service.link_evidence(
-            assessment_id=assessment_id,
-            document_id=request.document_id,
-            practice_reference=request.practice_reference,
-            chunk_id=request.chunk_id,
-            note=request.note,
-            source=request.source,
-        )
-    except AssessmentNotFoundError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-    except AssessmentFinalizedError as exc:
-        raise HTTPException(status_code=409, detail=str(exc)) from exc
-    except EvidenceDocumentNotIngestedError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
-    except InvalidPracticeReferenceError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return service.link_evidence(
+        assessment_id=assessment_id,
+        document_id=request.document_id,
+        practice_reference=request.practice_reference,
+        chunk_id=request.chunk_id,
+        note=request.note,
+        source=request.source,
+    )
 
 
 @router.get("/{assessment_id}/evidence", response_model=list[EvidenceLink])
@@ -149,10 +125,7 @@ def list_evidence(
     assessment_id: str,
     service: AssessmentService = Depends(get_assessment_service),
 ) -> list[EvidenceLink]:
-    try:
-        return service.evidence_for_assessment(assessment_id)
-    except AssessmentNotFoundError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return service.evidence_for_assessment(assessment_id)
 
 
 @router.get("/{assessment_id}/score", response_model=dict[str, float])
@@ -168,12 +141,7 @@ def get_scores(
     transcribed into framework_mapping/ always reports 0/0.0, not an
     error — see Domain.practices_populated.
     """
-    try:
-        return service.compute_scores(assessment_id)
-    except AssessmentNotFoundError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-    except FrameworkScoringUnavailableError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return service.compute_scores(assessment_id)
 
 
 @router.get("/{assessment_id}/dashboard", response_model=DashboardReport)
@@ -187,12 +155,7 @@ def get_dashboard(
     directly from real evidence links and the framework's structured
     schema.
     """
-    try:
-        return service.build_dashboard(assessment_id)
-    except AssessmentNotFoundError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-    except FrameworkScoringUnavailableError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return service.build_dashboard(assessment_id)
 
 
 _SLUG_INVALID_CHARS = re.compile(r"[^A-Za-z0-9._-]+")
@@ -213,13 +176,8 @@ def get_dashboard_pdf(
     error mapping as the dashboard endpoint, since both are built from
     the same DashboardReport.
     """
-    try:
-        assessment = service.get_assessment(assessment_id)
-        pdf_bytes = service.generate_dashboard_pdf(assessment_id)
-    except AssessmentNotFoundError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-    except FrameworkScoringUnavailableError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    assessment = service.get_assessment(assessment_id)
+    pdf_bytes = service.generate_dashboard_pdf(assessment_id)
     filename = f"{_slugify_filename(assessment.name)}_dashboard.pdf"
     return Response(
         content=pdf_bytes,
@@ -236,13 +194,8 @@ def get_dashboard_xlsx(
     """XLSX rendering of the same dashboard GET /dashboard returns
     (Sprint 7) — see services/export_service.py and ADR-0013.
     """
-    try:
-        assessment = service.get_assessment(assessment_id)
-        xlsx_bytes = service.generate_dashboard_xlsx(assessment_id)
-    except AssessmentNotFoundError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-    except FrameworkScoringUnavailableError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    assessment = service.get_assessment(assessment_id)
+    xlsx_bytes = service.generate_dashboard_xlsx(assessment_id)
     filename = f"{_slugify_filename(assessment.name)}_dashboard.xlsx"
     return Response(
         content=xlsx_bytes,
@@ -260,7 +213,10 @@ def review_evidence(
 ) -> EvidenceLink:
     """Applies a human accept/edit/reject decision to a pending evidence
     link — see services/assessment_service.py.review_evidence and the
-    assessment-generation skill's human-in-the-loop invariant.
+    assessment-generation skill's human-in-the-loop invariant. Only
+    ValueError (a missing corrected_practice_reference on an "edited"
+    decision) is caught here — every other exception this can raise is
+    handled globally, see api/error_handlers.py.
     """
     try:
         return service.review_evidence(
@@ -270,18 +226,6 @@ def review_evidence(
             corrected_practice_reference=request.corrected_practice_reference,
             note=request.note,
         )
-    except AssessmentNotFoundError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-    except EvidenceLinkNotFoundError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-    except AssessmentFinalizedError as exc:
-        raise HTTPException(status_code=409, detail=str(exc)) from exc
-    except EvidenceAlreadyReviewedError as exc:
-        raise HTTPException(status_code=409, detail=str(exc)) from exc
-    except InvalidReviewDecisionError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-    except InvalidPracticeReferenceError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -296,16 +240,7 @@ def propose_mappings(
     pending-review evidence links — always over documents already
     associated with this assessment, never the whole vector store.
     """
-    try:
-        return service.propose_mappings(assessment_id)
-    except AssessmentNotFoundError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-    except AssessmentFinalizedError as exc:
-        raise HTTPException(status_code=409, detail=str(exc)) from exc
-    except FrameworkScoringUnavailableError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
-    except MappingEngineUnavailableError as exc:
-        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    return service.propose_mappings(assessment_id)
 
 
 @router.post("/{assessment_id}/chat", response_model=ChatResponse)
@@ -320,9 +255,4 @@ def chat_with_assessment(
     an empty result list (no reviewed evidence, or nothing above the
     similarity threshold) is a valid 200 response, not an error.
     """
-    try:
-        return service.answer_question(assessment_id, request.question)
-    except AssessmentNotFoundError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-    except ChatEngineUnavailableError as exc:
-        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    return service.answer_question(assessment_id, request.question)

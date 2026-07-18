@@ -8,8 +8,10 @@ loader bug in the actual file this project ships.
 
 from __future__ import annotations
 
+import pytest
+
 from compliance_platform.core.config import get_settings
-from compliance_platform.services.framework_loader import FrameworkRegistry
+from compliance_platform.services.framework_loader import FrameworkNotFoundError, FrameworkRegistry
 
 
 def _registry() -> FrameworkRegistry:
@@ -145,3 +147,27 @@ def test_nist_registry_and_c2m2_registry_coexist() -> None:
     nist = registry.require("NIST CSF 2.0")
     assert c2m2.scoring_model == "cumulative_mil"
     assert nist.scoring_model == "coverage"
+
+
+# --- Sprint 9: closing real, measured coverage gaps — require()'s own
+# failure path, and get()'s "known name but the YAML file is actually
+# missing on disk" branch, had no test despite require() being used
+# throughout this file's happy-path tests above. ---
+
+
+def test_get_returns_none_for_unrecognized_framework_name() -> None:
+    assert _registry().get("Not A Real Framework") is None
+
+
+def test_require_raises_for_unrecognized_framework_name() -> None:
+    with pytest.raises(FrameworkNotFoundError):
+        _registry().require("Not A Real Framework")
+
+
+def test_get_returns_none_when_known_filename_is_missing_on_disk(tmp_path) -> None:
+    """A name in _KNOWN_FRAMEWORKS (e.g. "C2M2") but pointed at a
+    directory where the actual YAML file doesn't exist — the get()
+    branch distinct from an unrecognized name entirely.
+    """
+    registry = FrameworkRegistry(tmp_path)
+    assert registry.get("C2M2") is None
