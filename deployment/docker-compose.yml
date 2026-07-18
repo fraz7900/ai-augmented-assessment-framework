@@ -1,0 +1,53 @@
+# Run from this directory: `docker compose up` (backend + frontend only).
+# Ollama is intentionally NOT part of the default stack - see the `ollama`
+# service below and ADR-0017.
+services:
+  backend:
+    build:
+      context: ..
+      dockerfile: deployment/backend.Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - compliance-data:/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      start_period: 40s
+      retries: 5
+
+  frontend:
+    build:
+      context: ..
+      dockerfile: deployment/frontend.Dockerfile
+      args:
+        # Browser-reachable URL (see frontend.Dockerfile) - matches the
+        # backend's *published* host port above, not a Compose service name.
+        VITE_API_BASE_URL: http://localhost:8000
+    ports:
+      # nginx listens on 80 internally; published on 5173 specifically so
+      # the browser-visible origin matches the backend's existing CORS
+      # allowlist (main.py) exactly, with zero backend changes required.
+      - "5173:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  # Not started by a plain `docker compose up`. Run explicitly with
+  # `docker compose --profile ollama up` if you want to experiment with the
+  # generative extraction path ADR-0011/ADR-0014 evaluated and deliberately
+  # did not take by default - nothing in the running application calls this
+  # service automatically; it exists as an available option, not a
+  # dependency.
+  ollama:
+    image: ollama/ollama
+    profiles: ["ollama"]
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-models:/root/.ollama
+
+volumes:
+  compliance-data:
+  ollama-models:

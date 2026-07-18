@@ -420,9 +420,14 @@ def test_dashboard_endpoint_computes_real_gap_analysis_for_access_domain(
     """End-to-end proof of Sprint 6's dashboard against real C2M2 data:
     link evidence for all but one MIL1 ACCESS practice, and confirm the
     dashboard's complication section correctly names the one remaining
-    gap, the resolution section prioritizes it, and the unpopulated
-    RISK domain is excluded from complication but honestly listed in
-    situation.unpopulated_domains rather than silently omitted.
+    gap and the resolution section prioritizes it. Since Sprint 10's
+    full C2M2 transcription (US-3.1a), every domain is populated, so
+    situation.unpopulated_domains is asserted empty here rather than
+    containing a domain like the pre-Sprint-10 RISK example this test
+    used to check — the "unpopulated domain excluded from complication"
+    mechanic itself is still covered by services/tests/test_report_service.py's
+    synthetic-fixture tests, which can construct an unpopulated domain
+    on demand regardless of C2M2's real transcription state.
     """
     document_id = _ingest_sample_document(client)
     create_response = client.post(
@@ -453,15 +458,15 @@ def test_dashboard_endpoint_computes_real_gap_analysis_for_access_domain(
     body = dashboard.json()
 
     assert body["situation"]["accepted_count"] == len(mil1_practice_ids) - 1
-    assert "RISK" in body["situation"]["unpopulated_domains"]
+    # Sprint 10 (US-3.1a): all 10 C2M2 domains are now transcribed and
+    # populated, so this is correctly empty rather than naming a
+    # not-yet-transcribed domain the way it would have before this sprint.
+    assert body["situation"]["unpopulated_domains"] == []
 
     access_group = next(g for g in body["complication"] if g["domain_short_code"] == "ACCESS")
     gap_ids = {g["practice_id"] for g in access_group["gaps"]}
     assert held_back in gap_ids
     assert access_group["so_what"]  # non-empty, business-consequence sentence
-
-    complication_codes = {g["domain_short_code"] for g in body["complication"]}
-    assert "RISK" not in complication_codes  # unpopulated domains never appear here
 
     assert body["overall"]["scoring_model"] == "cumulative_mil"
     assert body["overall"]["domains_at_mil1_or_above"] == 0  # ACCESS not yet fully at MIL1

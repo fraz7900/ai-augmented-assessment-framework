@@ -7,6 +7,7 @@ Run locally with: uvicorn compliance_platform.main:app --reload
 from __future__ import annotations
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from compliance_platform.api import assessments, frameworks, health, ingestion
 from compliance_platform.api.error_handlers import register_exception_handlers
@@ -22,6 +23,21 @@ app = FastAPI(
 )
 
 register_exception_handlers(app)
+
+# Sprint 10: the frontend's Vite dev server runs on a different origin
+# (localhost:5173) than this API (127.0.0.1:8000). Restricted to known local
+# dev origins rather than "*" — this is a single-user local MVP with no
+# multi-tenant/cloud deployment (charter Section 12), so there is no
+# legitimate cross-origin caller to allow beyond the frontend itself.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 app.include_router(health.router)
 app.include_router(ingestion.router)

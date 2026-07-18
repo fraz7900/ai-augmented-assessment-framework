@@ -50,13 +50,19 @@ def test_access_and_asset_domains_are_fully_populated() -> None:
     assert len(asset.practice_ids()) == 36
 
 
-def test_unpopulated_domains_have_no_practices_but_do_have_a_purpose() -> None:
+def test_all_c2m2_domains_are_fully_populated() -> None:
+    """Sprint 10 follow-up (US-3.1a): the remaining 8 domains (THREAT,
+    RISK, SITUATION, RESPONSE, THIRD-PARTIES, WORKFORCE, ARCHITECTURE,
+    PROGRAM) were transcribed from the same source PDF (see
+    backend/scripts/generate_c2m2_yaml.py's module docstring) — C2M2 is
+    no longer partially populated. 356 is the source document's own
+    stated total (total_practices_in_source), asserted at generation
+    time by the script and again here at load time, mirroring
+    test_nist_csf_subcategory_count_matches_the_official_total below.
+    """
     framework = _registry().require("C2M2")
-    risk = framework.domain("RISK")
-    assert risk is not None
-    assert risk.practices_populated is False
-    assert risk.objectives == []
-    assert risk.purpose  # still has real, verified purpose text
+    assert all(d.practices_populated for d in framework.domains)
+    assert len(framework.all_practice_ids()) == 356
 
 
 def test_domain_for_practice_id_resolves_correctly() -> None:

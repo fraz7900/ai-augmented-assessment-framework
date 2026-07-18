@@ -63,7 +63,7 @@ ai-compliance-platform/
 ## What Sprint 0 deliberately does not resolve
 
 - **Vector store choice (ChromaDB vs. LanceDB):** deferred to Sprint 1, when there is an actual ingestion workload to benchmark against instead of a hypothetical one.
-- **Frontend build tooling:** deferred to Sprint 6, when there is a backend API contract to build against.
+- **Frontend build tooling:** deferred through Sprint 9; decided in Sprint 10 once the backend API contract was fully stable (Vite + React + TypeScript, see ADR-0016).
 - **Database choice for relational data (SQLite vs. PostgreSQL):** deferred to Sprint 2 (Assessment Engine); SQLite is the likely MVP default given the single-user constraint in the charter, but this is not yet locked in.
 
 Naming these explicitly is itself a project management decision: it is easy to accidentally treat "I haven't decided yet" as "I forgot," and this section exists so that distinction is visible in the repository itself.
