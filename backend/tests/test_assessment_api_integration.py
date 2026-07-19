@@ -151,7 +151,7 @@ def test_get_c2m2_framework_returns_real_structure(client: TestClient) -> None:
 
 
 def test_get_unknown_framework_returns_404(client: TestClient) -> None:
-    response = client.get("/frameworks/ISO 27001")
+    response = client.get("/frameworks/CIS Controls")
     assert response.status_code == 404
 
 
@@ -207,7 +207,7 @@ def test_score_endpoint_computes_real_mil1_for_access_domain(client: TestClient)
 
 def test_score_endpoint_returns_422_for_framework_with_no_schema(client: TestClient) -> None:
     create_response = client.post(
-        "/assessments", json={"name": "Test", "framework_name": "ISO 27001"}
+        "/assessments", json={"name": "Test", "framework_name": "CIS Controls"}
     )
     assessment_id = create_response.json()["id"]
     response = client.get(f"/assessments/{assessment_id}/score")
@@ -692,7 +692,7 @@ def test_dashboard_and_export_endpoints_return_422_for_framework_with_no_schema(
     does.
     """
     create_response = client.post(
-        "/assessments", json={"name": "Test", "framework_name": "ISO 27001"}
+        "/assessments", json={"name": "Test", "framework_name": "CIS Controls"}
     )
     assessment_id = create_response.json()["id"]
     assert client.get(f"/assessments/{assessment_id}/dashboard").status_code == 422

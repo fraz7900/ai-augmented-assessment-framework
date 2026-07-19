@@ -55,6 +55,27 @@ direct search). `EquivalentPractice.tsx` needed no frontend changes — it was a
 framework-agnostic. NERC CIP↔NIST CSF 2.0 equivalence remains real, disclosed, unstarted backlog.
 195 backend tests passing (3 new/updated). See `docs/adr/ADR-0023-nerc-cip-cross-framework-equivalence.md`.
 
+**Also Sprint 11: ISO 27001 added — titles-only, a real and disclosed limitation.**
+Before writing any code, checked directly whether ISO/IEC 27001:2022's source text is freely
+available like every other framework here. **It is not** — it is a paid, copyrighted publication
+(~CHF 546 / ~$600), with only a limited front-matter preview public. Reconstructing the full
+requirement text from training-data memory was rejected outright (it would violate this project's
+verified-over-fabricated discipline and risks misreproducing copyrighted content); instead, the
+project owner was asked directly how to proceed (mirroring the Ollama decision, ADR-0014) and chose:
+build ISO 27001 with real, freely-available Annex A control **titles** only (all 4 themes, 93 of 93
+controls), no full requirement text, disclosed clearly via `scoring_note` and a new
+`.claude/skills/iso-27001-expert/SKILL.md`. A genuine verification failure was caught mid-research:
+an AI-summarization tool reported a "complete" 93-control list from a page that, when rendered
+directly with a headless browser and read from its actual DOM text, never contained more than 4
+summary sentences — the list had been filled in from the summarizer's own training knowledge, not
+scraped. Corrected by sourcing the real list only from a page confirmed to literally render all 93
+controls. NERC CIP↔ISO 27001 cross-framework equivalence was then built too (95 of 141 NERC CIP
+practices, a higher hit rate than the C2M2 pairing), explicitly disclosed as a weaker, title-level
+judgment than every other pairing in `cross_framework_equivalence.yaml` — its own header states this
+directly. `EquivalentPractice.tsx` needed no changes. 199 backend tests passing (7 new, 3 fixed for a
+stale "ISO 27001 = unknown framework" naming collision in older tests). See
+`docs/adr/ADR-0024-iso-27001-titles-only-and-equivalence.md`.
+
 **Sprint 10: the platform gained a real frontend, not just an API.**
 A real FastAPI app (`backend/src/compliance_platform`) ingests documents, embeds them locally (ONNX, no PyTorch, no network calls), tracks assessments through a draft → in-review → finalized lifecycle, scores both C2M2 maturity and NIST CSF 2.0 coverage, proposes evidence-to-practice mappings via retrieval-based semantic matching with mandatory human review, produces a structured dashboard (`GET /assessments/{id}/dashboard`, see ADR-0012) exportable as PDF/XLSX (`.../report/pdf` / `.../report/xlsx`, see ADR-0013), and answers natural-language questions grounded only in an assessment's own reviewed evidence (`POST /assessments/{id}/chat`, retrieval-only, no LLM — see ADR-0014). Through Sprint 9 every one of those capabilities was reachable only via Swagger/curl; `frontend/` (Vite + React + TypeScript, ADR-0016) now covers every persona's primary flow end to end — upload, assessment create/status/history, evidence link + AI-propose + accept/edit/reject, the dashboard with PDF/XLSX download, and chat — and closes NFR-4's UI-level requirement (AI-proposed evidence must be visibly distinguishable from human-confirmed, not just at the data-model/API layers). Verified live against the real running backend via a Playwright-driven walkthrough, not just built: zero console errors on the final pass, and two real bugs (a React key collision, a stale-dev-server symptom traced to this repo's OneDrive/WSL2 filesystem — R-11) were found and fixed during that same verification. Run it yourself:
 
@@ -79,7 +100,7 @@ then open `http://localhost:5173`: upload a document (a sample is in `data/sampl
 - [`docs/product/`](./docs/product/) — PRD, personas, epics/user stories, requirements, assumptions log, decision log, risk register, prioritized backlog
 - [`docs/architecture/00-repository-architecture.md`](./docs/architecture/00-repository-architecture.md) — repository layout and rationale
 - [`docs/architecture/01-claude-code-workspace.md`](./docs/architecture/01-claude-code-workspace.md) — hooks, skills, and MCP design for this project's `.claude/` workspace
-- [`docs/adr/`](./docs/adr/) — Architecture Decision Records (23 as of Sprint 11)
+- [`docs/adr/`](./docs/adr/) — Architecture Decision Records (24 as of Sprint 11)
 - [`docs/consulting/`](./docs/consulting/) — per-sprint executive summaries, business value/risk/ROI assessments, and MBA/interview narrative
 - [`docs/current_sprint.md`](./docs/current_sprint.md) — single-source-of-truth sprint tracker
 
@@ -93,4 +114,4 @@ Python (FastAPI, backend live as of Sprint 1), React (frontend, Vite + TypeScrip
 
 ## Roadmap
 
-Primary frameworks: C2M2, NIST CSF 2.0. NERC CIP fully transcribed (Sprint 11): all 13 currently-mandatory standards, 141 of 141 practices. NERC CIP cross-framework equivalence remains open backlog. Future extensibility: ISO 27001, CIS Controls, SOC 2, PCI DSS. Full sprint sequence in `PROJECT_CHARTER.md` Section 13.
+Primary frameworks: C2M2, NIST CSF 2.0. NERC CIP fully transcribed (Sprint 11): all 13 currently-mandatory standards, 141 of 141 practices. ISO 27001 added titles-only (Sprint 11): all 4 Annex A themes, 93 of 93 control titles — the full standard is a paid, copyrighted publication with no free access, a real and disclosed limitation. NERC CIP↔NIST CSF 2.0 cross-framework equivalence remains open backlog. Future extensibility: CIS Controls (freely published, lowest-friction next addition), SOC 2, PCI DSS. Full sprint sequence in `PROJECT_CHARTER.md` Section 13.

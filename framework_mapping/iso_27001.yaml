@@ -1,0 +1,257 @@
+# GENERATED FILE. Do not hand-edit — regenerate via
+# backend/scripts/generate_iso_27001_yaml.py, which is the source of truth
+# for this file's content and carries the source citation and its limitations.
+name: ISO 27001
+full_name: ISO/IEC 27001:2022 Information security, cybersecurity and privacy protection — Information
+  security management systems — Requirements, Annex A (control titles only — see scoring_note)
+version: '2022'
+source_title: ISO/IEC 27001:2022, Annex A (reference control titles)
+source_publisher: International Organization for Standardization (ISO) / International Electrotechnical
+  Commission (IEC)
+source_date: '2022-10-25'
+source_url: https://www.iso.org/standard/27001
+retrieved_date: '2026-07-19'
+total_practices_in_source: 93
+scoring_model: coverage
+mil_levels: []
+scoring_note: 'ISO/IEC 27001:2022 is a paid, copyrighted standard (~CHF 546) with no free full-text access,
+  unlike every other framework in this project. Practice.text below is the real, verified official control
+  TITLE ONLY (e.g. ''Use of cryptography'') — NOT the full descriptive ''shall'' requirement text the
+  standard itself contains, which is not freely available and has not been transcribed here (see ADR-0024,
+  the iso-27001-expert skill, and this project''s standing verified-over-fabricated discipline). This
+  has two real consequences every consumer of this data must respect: (1) coverage scoring here is necessarily
+  coarser than for C2M2/NIST CSF 2.0/NERC CIP, since a reviewer can only judge evidence against a short
+  title, not a specific documented obligation; (2) cross-framework equivalence entries involving ISO 27001
+  are topical/title-based judgments, not the full text-based semantic comparison used for every other
+  framework pairing in cross_framework_equivalence.yaml, and are explicitly labeled as such.'
+domains:
+- short_code: A.5
+  full_name: Organizational controls
+  purpose: The Organizational controls theme of ISO/IEC 27001:2022 Annex A (37 controls).
+  practices_populated: true
+  objectives:
+  - number: 1
+    title: Organizational controls
+    purpose: ''
+    practices:
+    - id: A.5.1
+      text: Policies for information security
+    - id: A.5.2
+      text: Information security roles and responsibilities
+    - id: A.5.3
+      text: Segregation of duties
+    - id: A.5.4
+      text: Management responsibilities
+    - id: A.5.5
+      text: Contact with authorities
+    - id: A.5.6
+      text: Contact with special interest groups
+    - id: A.5.7
+      text: Threat intelligence
+    - id: A.5.8
+      text: Information security in project management
+    - id: A.5.9
+      text: Inventory of information and other associated assets
+    - id: A.5.10
+      text: Acceptable use of information and other associated assets
+    - id: A.5.11
+      text: Return of assets
+    - id: A.5.12
+      text: Classification of information
+    - id: A.5.13
+      text: Labelling of information
+    - id: A.5.14
+      text: Information transfer
+    - id: A.5.15
+      text: Access control
+    - id: A.5.16
+      text: Identity management
+    - id: A.5.17
+      text: Authentication information
+    - id: A.5.18
+      text: Access rights
+    - id: A.5.19
+      text: Information security in supplier relationships
+    - id: A.5.20
+      text: Addressing information security within supplier agreements
+    - id: A.5.21
+      text: Managing information security in the ICT supply chain
+    - id: A.5.22
+      text: Monitoring, review and change management of supplier services
+    - id: A.5.23
+      text: Information security for use of cloud services
+    - id: A.5.24
+      text: Information security incident management planning and preparation
+    - id: A.5.25
+      text: Assessment and decision on information security events
+    - id: A.5.26
+      text: Response to information security incidents
+    - id: A.5.27
+      text: Learning from information security incidents
+    - id: A.5.28
+      text: Collection of evidence
+    - id: A.5.29
+      text: Information security during disruption
+    - id: A.5.30
+      text: ICT readiness for business continuity
+    - id: A.5.31
+      text: Legal, statutory, regulatory and contractual requirements
+    - id: A.5.32
+      text: Intellectual property rights
+    - id: A.5.33
+      text: Protection of records
+    - id: A.5.34
+      text: Privacy and protection of PII
+    - id: A.5.35
+      text: Independent review of information security
+    - id: A.5.36
+      text: Compliance with policies, rules and standards for information security
+    - id: A.5.37
+      text: Documented operating procedures
+  source_version: ''
+  source_url: ''
+- short_code: A.6
+  full_name: People controls
+  purpose: The People controls theme of ISO/IEC 27001:2022 Annex A (8 controls).
+  practices_populated: true
+  objectives:
+  - number: 1
+    title: People controls
+    purpose: ''
+    practices:
+    - id: A.6.1
+      text: Screening
+    - id: A.6.2
+      text: Terms and conditions of employment
+    - id: A.6.3
+      text: Information security awareness, education and training
+    - id: A.6.4
+      text: Disciplinary process
+    - id: A.6.5
+      text: Responsibilities after termination or change of employment
+    - id: A.6.6
+      text: Confidentiality or non-disclosure agreements
+    - id: A.6.7
+      text: Remote working
+    - id: A.6.8
+      text: Information security event reporting
+  source_version: ''
+  source_url: ''
+- short_code: A.7
+  full_name: Physical controls
+  purpose: The Physical controls theme of ISO/IEC 27001:2022 Annex A (14 controls).
+  practices_populated: true
+  objectives:
+  - number: 1
+    title: Physical controls
+    purpose: ''
+    practices:
+    - id: A.7.1
+      text: Physical security perimeters
+    - id: A.7.2
+      text: Physical entry
+    - id: A.7.3
+      text: Securing offices, rooms and facilities
+    - id: A.7.4
+      text: Physical security monitoring
+    - id: A.7.5
+      text: Protecting against physical and environmental threats
+    - id: A.7.6
+      text: Working in secure areas
+    - id: A.7.7
+      text: Clear desk and clear screen
+    - id: A.7.8
+      text: Equipment siting and protection
+    - id: A.7.9
+      text: Security of assets off-premises
+    - id: A.7.10
+      text: Storage media
+    - id: A.7.11
+      text: Supporting utilities
+    - id: A.7.12
+      text: Cabling security
+    - id: A.7.13
+      text: Equipment maintenance
+    - id: A.7.14
+      text: Secure disposal or re-use of equipment
+  source_version: ''
+  source_url: ''
+- short_code: A.8
+  full_name: Technological controls
+  purpose: The Technological controls theme of ISO/IEC 27001:2022 Annex A (34 controls).
+  practices_populated: true
+  objectives:
+  - number: 1
+    title: Technological controls
+    purpose: ''
+    practices:
+    - id: A.8.1
+      text: User endpoint devices
+    - id: A.8.2
+      text: Privileged access rights
+    - id: A.8.3
+      text: Information access restriction
+    - id: A.8.4
+      text: Access to source code
+    - id: A.8.5
+      text: Secure authentication
+    - id: A.8.6
+      text: Capacity management
+    - id: A.8.7
+      text: Protection against malware
+    - id: A.8.8
+      text: Management of technical vulnerabilities
+    - id: A.8.9
+      text: Configuration management
+    - id: A.8.10
+      text: Information deletion
+    - id: A.8.11
+      text: Data masking
+    - id: A.8.12
+      text: Data leakage prevention
+    - id: A.8.13
+      text: Information backup
+    - id: A.8.14
+      text: Redundancy of information processing facilities
+    - id: A.8.15
+      text: Logging
+    - id: A.8.16
+      text: Monitoring activities
+    - id: A.8.17
+      text: Clock synchronization
+    - id: A.8.18
+      text: Use of privileged utility programs
+    - id: A.8.19
+      text: Installation of software on operational systems
+    - id: A.8.20
+      text: Networks security
+    - id: A.8.21
+      text: Security of network services
+    - id: A.8.22
+      text: Segregation of networks
+    - id: A.8.23
+      text: Web filtering
+    - id: A.8.24
+      text: Use of cryptography
+    - id: A.8.25
+      text: Secure development life cycle
+    - id: A.8.26
+      text: Application security requirements
+    - id: A.8.27
+      text: Secure system architecture and engineering principles
+    - id: A.8.28
+      text: Secure coding
+    - id: A.8.29
+      text: Security testing in development and acceptance
+    - id: A.8.30
+      text: Outsourced development
+    - id: A.8.31
+      text: Separation of development, test and production environments
+    - id: A.8.32
+      text: Change management
+    - id: A.8.33
+      text: Test information
+    - id: A.8.34
+      text: Protection of information systems during audit testing
+  source_version: ''
+  source_url: ''

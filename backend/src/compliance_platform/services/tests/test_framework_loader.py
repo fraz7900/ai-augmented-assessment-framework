@@ -140,7 +140,7 @@ def test_management_activities_objective_has_no_mil1_practices() -> None:
 
 
 def test_get_returns_none_for_unknown_framework() -> None:
-    assert _registry().get("ISO 27001") is None
+    assert _registry().get("CIS Controls") is None
 
 
 def test_registry_caches_loaded_framework() -> None:
@@ -336,24 +336,29 @@ def test_nerc_cip_domain_for_practice_id_resolves_correctly() -> None:
 # --- NERC CIP <-> C2M2 cross-framework equivalence (ADR-0023) ---
 
 
-def test_nerc_cip_practice_with_curated_equivalent_points_to_c2m2() -> None:
-    """CIP-007-5.3 has a real, reviewed entry in
-    framework_mapping/cross_framework_equivalence.yaml pointing at
-    C2M2's ACCESS-1a — this is the same generic two-sided schema
-    (framework_a/practice_a_id/framework_b/practice_b_id, ADR-0023)
-    the C2M2<->NIST entries above already use, not a special case.
+def test_nerc_cip_practice_with_curated_equivalents_points_to_c2m2_and_iso() -> None:
+    """CIP-007-5.3 has two real, reviewed entries in
+    framework_mapping/cross_framework_equivalence.yaml — one to C2M2's
+    ACCESS-1a (ADR-0023), one to ISO 27001's A.8.2 (ADR-0024) — merged
+    correctly into one list by the same generic two-sided schema
+    (framework_a/practice_a_id/framework_b/practice_b_id) every pairing
+    in this file uses, not a special case per framework pair.
     """
     framework = _registry().require("NERC CIP")
     practice = _find_practice(framework, "CIP-007-5.3")
     assert practice is not None
-    assert len(practice.equivalents) == 1
-    equivalent = practice.equivalents[0]
-    assert equivalent.framework_name == "C2M2"
-    assert equivalent.practice_id == "ACCESS-1a"
-    assert equivalent.rationale  # real text, not blank
+    assert len(practice.equivalents) == 2
+    by_framework = {e.framework_name: e for e in practice.equivalents}
+    assert by_framework["C2M2"].practice_id == "ACCESS-1a"
+    assert by_framework["ISO 27001"].practice_id == "A.8.2"
+    assert all(e.rationale for e in practice.equivalents)  # real text, not blank
 
 
 def test_nerc_cip_practice_without_curated_equivalence_entry_has_empty_list() -> None:
+    """CIP-002-1.1 (BES Cyber System impact categorization) has no
+    equivalent in either C2M2 (ADR-0023) or ISO 27001 (ADR-0024) — a
+    real, confirmed standards gap in both reviews, not an oversight.
+    """
     framework = _registry().require("NERC CIP")
     practice = _find_practice(framework, "CIP-002-1.1")
     assert practice is not None
@@ -361,19 +366,76 @@ def test_nerc_cip_practice_without_curated_equivalence_entry_has_empty_list() ->
 
 
 def test_nerc_cip_equivalence_review_is_partial_and_disclosed() -> None:
-    """ADR-0023: 73 of 141 NERC CIP practices have at least one reviewed
-    C2M2 equivalent (74 equivalence entries total — CIP-004-4.1 has two,
-    since its source text explicitly names electronic and physical
-    access as distinct authorization scopes, each matching a different
-    C2M2 practice), reviewed against C2M2 only — NERC CIP <-> NIST CSF
-    2.0 is separate, unstarted future work. Asserted against the real
-    committed file so a future edit that silently changes this count
-    is caught, mirroring how the C2M2/NIST coverage counts are pinned
-    elsewhere in this project's own documentation.
+    """ADR-0023 (C2M2) + ADR-0024 (ISO 27001): 100 of 141 NERC CIP
+    practices have at least one reviewed equivalent (169 entries total
+    across both pairings — 68 practices have both a C2M2 and an ISO
+    27001 equivalent). NERC CIP <-> NIST CSF 2.0 remains separate,
+    unstarted future work. Asserted against the real committed file so
+    a future edit that silently changes this count is caught, mirroring
+    how the C2M2/NIST coverage counts are pinned elsewhere in this
+    project's own documentation.
     """
     framework = _registry().require("NERC CIP")
     covered = [p for d in framework.domains for p in d.all_practices() if p.equivalents]
-    assert len(covered) == 73
+    assert len(covered) == 100
     total_entries = sum(len(p.equivalents) for p in covered)
-    assert total_entries == 74
-    assert all(e.framework_name == "C2M2" for p in covered for e in p.equivalents)
+    assert total_entries == 169
+    both = [p for p in covered if len(p.equivalents) > 1]
+    assert len(both) == 68
+    seen_frameworks = {e.framework_name for p in covered for e in p.equivalents}
+    assert seen_frameworks == {"C2M2", "ISO 27001"}
+
+
+# --- NERC CIP <-> ISO 27001 cross-framework equivalence (ADR-0024) ---
+
+
+def test_nerc_cip_practice_with_curated_iso_equivalent_points_back() -> None:
+    """The ISO 27001 side of the same pairing resolves correctly too —
+    A.8.2's equivalents list includes CIP-007-5.3, confirming the merge
+    works symmetrically regardless of which framework is loaded first.
+    """
+    framework = _registry().require("ISO 27001")
+    practice = _find_practice(framework, "A.8.2")
+    assert practice is not None
+    equivalent = next(e for e in practice.equivalents if e.framework_name == "NERC CIP")
+    assert equivalent.practice_id == "CIP-007-5.3"
+
+
+# --- ISO 27001 (ADR-0024 — titles-only, since the full standard is a paid,
+# copyrighted publication with no free full-text access) ---
+
+
+def test_iso_27001_loads_with_all_four_annex_a_themes() -> None:
+    framework = _registry().require("ISO 27001")
+    assert framework.scoring_model == "coverage"
+    assert len(framework.domains) == 4
+    assert {d.short_code for d in framework.domains} == {"A.5", "A.6", "A.7", "A.8"}
+
+
+def test_iso_27001_annex_a_control_count_matches_the_official_total() -> None:
+    """93 is ISO's own stated Annex A total (37 Organizational + 8 People +
+    14 Physical + 34 Technological); the generator script asserts this at
+    write time, and this test asserts it again at load time, mirroring
+    test_nist_csf_subcategory_count_matches_the_official_total and
+    test_all_c2m2_domains_are_fully_populated above.
+    """
+    framework = _registry().require("ISO 27001")
+    assert len(framework.all_practice_ids()) == 93
+    assert all(d.practices_populated for d in framework.domains)
+
+
+def test_iso_27001_practice_text_is_a_title_not_a_full_requirement() -> None:
+    """Confirms the deliberate scope decision: Practice.text holds the real,
+    verified official control TITLE only (short), never the full
+    descriptive "shall" requirement text the paid standard contains.
+    Practice.mil is always None (ISO 27001 has no MIL concept, like NIST
+    CSF 2.0 and NERC CIP) and applicability is always empty (ISO 27001
+    Annex A has no per-control applicability-scope column).
+    """
+    framework = _registry().require("ISO 27001")
+    practice = _find_practice(framework, "A.8.24")
+    assert practice is not None
+    assert practice.text == "Use of cryptography"
+    assert len(practice.text) < 100  # a title, not a multi-sentence requirement
+    assert practice.mil is None
+    assert practice.applicability == ""

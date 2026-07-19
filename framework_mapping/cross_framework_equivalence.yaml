@@ -3,7 +3,8 @@
 # if source text changes) — but every entry's presence in this file, and
 # its rationale, is a deliberate human judgment, not an automatic
 # similarity-threshold cutoff. See docs/adr/ADR-0019-cross-framework-equivalence.md,
-# docs/adr/ADR-0023-nerc-cip-cross-framework-equivalence.md, and
+# docs/adr/ADR-0023-nerc-cip-cross-framework-equivalence.md,
+# docs/adr/ADR-0024-iso-27001-titles-only-and-equivalence.md, and
 # .claude/skills/framework-mapping/SKILL.md point 3: "Cross-framework
 # equivalence is additive, not automatic... not inferred by embedding
 # similarity alone... embedding similarity can seed a candidate mapping
@@ -40,7 +41,7 @@
 # to add, per the framework-mapping skill.
 #
 # --- NERC CIP <-> C2M2 (ADR-0023, Sprint 11) ---
-# Coverage is deliberately partial and one-directional: 74 of 141 NERC
+# Coverage is deliberately partial and one-directional: 73 of 141 NERC
 # CIP practices have a reviewed C2M2 equivalent below, reviewed against
 # C2M2 only (NERC CIP <-> NIST CSF 2.0 is separate, unstarted future
 # work, not automatic just because both are now fully transcribed).
@@ -79,6 +80,40 @@
 # distinct, separately-numbered regulatory parts (e.g. "process exists"
 # vs. "process is tested" vs. "test uses representative sample") where
 # C2M2 has a single practice covering the same overall concept.
+#
+# --- NERC CIP <-> ISO 27001 (ADR-0024, Sprint 11) ---
+# METHODOLOGICALLY WEAKER than every pairing above: ISO 27001's side of
+# every entry below is a short official control TITLE only (e.g. "Use
+# of cryptography"), not the full descriptive requirement text — ISO/IEC
+# 27001:2022 is a paid, copyrighted standard with no free full-text
+# access (see generate_iso_27001_yaml.py's module docstring and
+# ADR-0024). These entries are therefore topical/title-level judgments
+# — "does this NERC CIP part's real obligation fall within the scope
+# this ISO control title names?" — not the full-text-vs-full-text
+# semantic comparison every other pairing in this file uses. Treat
+# these entries with correspondingly more caution; the rationale for
+# each states the specific conceptual link, not a vocabulary-overlap
+# score alone.
+#
+# 95 of 141 NERC CIP practices have a reviewed ISO 27001 equivalent
+# below — a higher hit rate than the C2M2 pairing, because ISO 27001
+# Annex A's four themes (Organizational, People, Physical,
+# Technological) explicitly cover much of the same universal-control
+# ground NERC CIP does (access control, physical security, incident
+# response, backup, supply chain, cryptography, secure development)
+# even at the title level alone. The remaining 46 were reviewed and
+# NOT included: NERC-specific regulatory mechanics with no ISO title
+# analogue (CIP Senior Manager naming/delegation, specific external
+# regulatory-notification timelines to E-ISAC/NCCIC, BES Cyber System
+# impact-tier categorization, physical Transmission-station risk-
+# assessment criteria) and procedural/scheduling details one level more
+# specific than any single ISO title names (e.g. "complete within 90
+# calendar days" review-cadence steps). Several entries were found by
+# searching for the specific real ISO title a concept requires (e.g.
+# CIP-004's screening/vetting parts matched A.6.1 "Screening" directly,
+# not the weaker embedding-ranked candidates); a few accepted entries
+# score as low as 0.505 for the same "recognized as correct by a
+# reviewer, not by the embedding ranking" reason established above.
 
 - framework_a: C2M2
   practice_a_id: RISK-1g
@@ -1089,3 +1124,653 @@
   similarity: 0.632
   rationale: Same governing-policy concept as CIP-003-1.1, applied here to the low-impact-system policy
     scope.
+- framework_a: NERC CIP
+  practice_a_id: CIP-004-1.1
+  framework_b: ISO 27001
+  practice_b_id: A.6.3
+  similarity: 0.684
+  rationale: Both address recurring cybersecurity awareness, education, and training activities for personnel.
+- framework_a: NERC CIP
+  practice_a_id: CIP-004-2.1
+  framework_b: ISO 27001
+  practice_b_id: A.6.3
+  similarity: 0.72
+  rationale: The training content list is a curriculum-level elaboration of the same training/education/awareness
+    concept ISO's title covers, though ISO's title alone does not specify NERC's exact topic list.
+- framework_a: NERC CIP
+  practice_a_id: CIP-004-3.1
+  framework_b: ISO 27001
+  practice_b_id: A.5.16
+  similarity: 0.801
+  rationale: Confirming identity is a core activity of identity management.
+- framework_a: NERC CIP
+  practice_a_id: CIP-004-3.2
+  framework_b: ISO 27001
+  practice_b_id: A.6.1
+  similarity: 0.537
+  rationale: The seven-year criminal history records check is a background-verification activity within
+    the general personnel screening control ISO's title names.
+- framework_a: NERC CIP
+  practice_a_id: CIP-004-3.3
+  framework_b: ISO 27001
+  practice_b_id: A.6.1
+  similarity: 0.59
+  rationale: Evaluating criminal history record results as authorization criteria is part of the same
+    personnel screening process.
+- framework_a: NERC CIP
+  practice_a_id: CIP-004-3.4
+  framework_b: ISO 27001
+  practice_b_id: A.5.22
+  similarity: 0.604
+  rationale: Verifying that contractor/vendor risk assessments were performed correctly is a supplier-service
+    oversight activity.
+- framework_a: NERC CIP
+  practice_a_id: CIP-004-3.5
+  framework_b: ISO 27001
+  practice_b_id: A.6.1
+  similarity: 0.512
+  rationale: Periodic re-vetting is the recurring form of the same personnel screening control.
+- framework_a: NERC CIP
+  practice_a_id: CIP-004-4.1
+  framework_b: ISO 27001
+  practice_b_id: A.5.15
+  similarity: 0.583
+  rationale: Authorizing electronic and physical access based on need is precisely what ISO's general
+    access control title names, though ISO's title alone does not specify the physical/electronic split
+    NERC's text does.
+- framework_a: NERC CIP
+  practice_a_id: CIP-004-4.3
+  framework_b: ISO 27001
+  practice_b_id: A.5.18
+  similarity: 0.602
+  rationale: Periodically verifying that account privileges remain correct and necessary is the recurring
+    form of managing access rights.
+- framework_a: NERC CIP
+  practice_a_id: CIP-004-5.1
+  framework_b: ISO 27001
+  practice_b_id: A.6.5
+  similarity: 0.612
+  rationale: Initiating access removal upon termination is precisely what ISO's post-termination responsibilities
+    control names.
+- framework_a: NERC CIP
+  practice_a_id: CIP-004-5.2
+  framework_b: ISO 27001
+  practice_b_id: A.6.5
+  similarity: 0.58
+  rationale: Revoking access upon reassignment/transfer is the change-of-employment half of the same ISO
+    control.
+- framework_a: NERC CIP
+  practice_a_id: CIP-004-5.3
+  framework_b: ISO 27001
+  practice_b_id: A.6.5
+  similarity: 0.609
+  rationale: Revoking non-shared accounts upon termination is the same post-termination access-removal
+    concept.
+- framework_a: NERC CIP
+  practice_a_id: CIP-004-5.4
+  framework_b: ISO 27001
+  practice_b_id: A.6.5
+  similarity: 0.661
+  rationale: Changing shared-account passwords upon termination is a specific mechanism for the same post-termination
+    access-removal concept.
+- framework_a: NERC CIP
+  practice_a_id: CIP-005-1.1
+  framework_b: ISO 27001
+  practice_b_id: A.8.20
+  similarity: 0.621
+  rationale: Requiring cyber assets on a routable protocol to reside within a defined perimeter is a network-security-boundary
+    concept.
+- framework_a: NERC CIP
+  practice_a_id: CIP-005-1.3
+  framework_b: ISO 27001
+  practice_b_id: A.5.18
+  similarity: 0.74
+  rationale: Default-deny access permissions with a documented reason is a core access-rights management
+    activity.
+- framework_a: NERC CIP
+  practice_a_id: CIP-005-1.4
+  framework_b: ISO 27001
+  practice_b_id: A.8.5
+  similarity: 0.702
+  rationale: Requiring authentication for dial-up connectivity is a secure-authentication mechanism.
+- framework_a: NERC CIP
+  practice_a_id: CIP-005-1.5
+  framework_b: ISO 27001
+  practice_b_id: A.8.16
+  similarity: 0.651
+  rationale: Detecting malicious inbound/outbound communications is a monitoring activity - a general
+    match, since ISO 27001 has no title naming electronic-access-point traffic detection specifically.
+- framework_a: NERC CIP
+  practice_a_id: CIP-005-2.2
+  framework_b: ISO 27001
+  practice_b_id: A.8.24
+  similarity: 0.55
+  rationale: Encryption terminating at an Intermediate System is a cryptographic control.
+- framework_a: NERC CIP
+  practice_a_id: CIP-005-2.3
+  framework_b: ISO 27001
+  practice_b_id: A.8.5
+  similarity: 0.734
+  rationale: Requiring multi-factor authentication for remote access sessions is the same secure-authentication
+    control CIP-005-1.4 also matches.
+- framework_a: NERC CIP
+  practice_a_id: CIP-005-2.4
+  framework_b: ISO 27001
+  practice_b_id: A.8.16
+  similarity: 0.626
+  rationale: Determining active remote sessions is a monitoring activity - a general match, since ISO
+    has no title naming vendor remote-access-session detection specifically.
+- framework_a: NERC CIP
+  practice_a_id: CIP-005-2.5
+  framework_b: ISO 27001
+  practice_b_id: A.5.15
+  similarity: 0.641
+  rationale: Disabling active remote access is a general access-control action - a looser match, since
+    ISO has no title naming vendor remote-access session termination specifically.
+- framework_a: NERC CIP
+  practice_a_id: CIP-005-3.1
+  framework_b: ISO 27001
+  practice_b_id: A.8.21
+  similarity: 0.677
+  rationale: Determining authenticated vendor-initiated remote connections is a network-services-security
+    concept.
+- framework_a: NERC CIP
+  practice_a_id: CIP-005-3.2
+  framework_b: ISO 27001
+  practice_b_id: A.6.7
+  similarity: 0.638
+  rationale: Terminating vendor remote connections relates to the same remote-working security control
+    that governs how remote access is secured and controlled.
+- framework_a: NERC CIP
+  practice_a_id: CIP-006-1.1
+  framework_b: ISO 27001
+  practice_b_id: A.5.15
+  similarity: 0.754
+  rationale: Defining controls to restrict physical access is the physical-security instance of ISO's
+    general access control title.
+- framework_a: NERC CIP
+  practice_a_id: CIP-006-1.2
+  framework_b: ISO 27001
+  practice_b_id: A.7.1
+  similarity: 0.752
+  rationale: Physical access controls for a defined perimeter is precisely what ISO's physical security
+    perimeters title names.
+- framework_a: NERC CIP
+  practice_a_id: CIP-006-1.3
+  framework_b: ISO 27001
+  practice_b_id: A.7.1
+  similarity: 0.749
+  rationale: Layered/redundant physical access controls for a perimeter is the same physical security
+    perimeters concept, applied here to a defense-in-depth requirement ISO's title alone does not distinguish.
+- framework_a: NERC CIP
+  practice_a_id: CIP-006-1.4
+  framework_b: ISO 27001
+  practice_b_id: A.7.4
+  similarity: 0.825
+  rationale: Monitoring for unauthorized physical access is precisely what ISO's physical security monitoring
+    title names.
+- framework_a: NERC CIP
+  practice_a_id: CIP-006-1.5
+  framework_b: ISO 27001
+  practice_b_id: A.7.4
+  similarity: 0.703
+  rationale: Alarming on detected unauthorized access is part of the same physical security monitoring
+    control.
+- framework_a: NERC CIP
+  practice_a_id: CIP-006-1.6
+  framework_b: ISO 27001
+  practice_b_id: A.7.4
+  similarity: 0.793
+  rationale: Monitoring the Physical Access Control System itself for unauthorized access is the same
+    monitoring concept, applied to a specific asset.
+- framework_a: NERC CIP
+  practice_a_id: CIP-006-1.7
+  framework_b: ISO 27001
+  practice_b_id: A.7.4
+  similarity: 0.696
+  rationale: Alarming on unauthorized PACS access is the same monitoring/alerting concept applied to the
+    PACS.
+- framework_a: NERC CIP
+  practice_a_id: CIP-006-1.8
+  framework_b: ISO 27001
+  practice_b_id: A.7.2
+  similarity: 0.693
+  rationale: Logging individual physical entry is precisely what ISO's physical entry title covers.
+- framework_a: NERC CIP
+  practice_a_id: CIP-006-1.10
+  framework_b: ISO 27001
+  practice_b_id: A.7.12
+  similarity: 0.782
+  rationale: Restricting physical access to cabling is precisely what ISO's cabling security title names.
+- framework_a: NERC CIP
+  practice_a_id: CIP-006-3.1
+  framework_b: ISO 27001
+  practice_b_id: A.7.13
+  similarity: 0.667
+  rationale: Maintenance and testing of physical access control equipment is precisely what ISO's equipment
+    maintenance title names.
+- framework_a: NERC CIP
+  practice_a_id: CIP-007-1.1
+  framework_b: ISO 27001
+  practice_b_id: A.8.9
+  similarity: 0.565
+  rationale: Enabling only needed logical ports is a system hardening/baseline-configuration activity
+    - a general match, since ISO has no title naming port-level least-functionality specifically.
+- framework_a: NERC CIP
+  practice_a_id: CIP-007-1.2
+  framework_b: ISO 27001
+  practice_b_id: A.7.8
+  similarity: 0.729
+  rationale: Protecting unnecessary physical input/output ports is an equipment-siting/physical-protection
+    concept.
+- framework_a: NERC CIP
+  practice_a_id: CIP-007-2.1
+  framework_b: ISO 27001
+  practice_b_id: A.8.8
+  similarity: 0.658
+  rationale: A patch management process for tracking and evaluating patches is the core mechanism of managing
+    technical vulnerabilities.
+- framework_a: NERC CIP
+  practice_a_id: CIP-007-2.2
+  framework_b: ISO 27001
+  practice_b_id: A.8.8
+  similarity: 0.581
+  rationale: Evaluating patches on a recurring cadence is the same technical-vulnerability-management
+    activity.
+- framework_a: NERC CIP
+  practice_a_id: CIP-007-2.3
+  framework_b: ISO 27001
+  practice_b_id: A.8.8
+  similarity: 0.624
+  rationale: Applying patches or creating a mitigation plan is the remediation action of the same technical-vulnerability-management
+    control.
+- framework_a: NERC CIP
+  practice_a_id: CIP-007-3.1
+  framework_b: ISO 27001
+  practice_b_id: A.8.7
+  similarity: 0.678
+  rationale: Deploying methods to deter/detect/prevent malicious code is precisely what ISO's protection-against-malware
+    title names.
+- framework_a: NERC CIP
+  practice_a_id: CIP-007-3.2
+  framework_b: ISO 27001
+  practice_b_id: A.8.7
+  similarity: 0.811
+  rationale: Mitigating detected malicious code is the response half of the same anti-malware control.
+- framework_a: NERC CIP
+  practice_a_id: CIP-007-3.3
+  framework_b: ISO 27001
+  practice_b_id: A.8.7
+  similarity: 0.542
+  rationale: Updating malware signatures/patterns is the maintenance activity of the same anti-malware
+    control.
+- framework_a: NERC CIP
+  practice_a_id: CIP-007-4.1
+  framework_b: ISO 27001
+  practice_b_id: A.8.15
+  similarity: 0.616
+  rationale: Logging security-relevant events (logins, failed access, malicious code) is precisely what
+    ISO's logging title names.
+- framework_a: NERC CIP
+  practice_a_id: CIP-007-4.2
+  framework_b: ISO 27001
+  practice_b_id: A.8.16
+  similarity: 0.666
+  rationale: Generating alerts for security events is a monitoring activity distinct from the raw logging
+    CIP-007-4.1 also matches.
+- framework_a: NERC CIP
+  practice_a_id: CIP-007-4.3
+  framework_b: ISO 27001
+  practice_b_id: A.8.15
+  similarity: 0.572
+  rationale: Retaining event logs for a defined period is the retention aspect of the same logging control.
+- framework_a: NERC CIP
+  practice_a_id: CIP-007-4.4
+  framework_b: ISO 27001
+  practice_b_id: A.8.16
+  similarity: 0.683
+  rationale: Reviewing summarized logged events on a recurring basis is the same monitoring-activities
+    control CIP-007-4.2 also matches.
+- framework_a: NERC CIP
+  practice_a_id: CIP-007-5.1
+  framework_b: ISO 27001
+  practice_b_id: A.8.5
+  similarity: 0.746
+  rationale: Enforcing authentication of interactive user access is precisely what ISO's secure authentication
+    title names.
+- framework_a: NERC CIP
+  practice_a_id: CIP-007-5.2
+  framework_b: ISO 27001
+  practice_b_id: A.5.9
+  similarity: 0.649
+  rationale: Identifying and inventorying default/generic accounts is an asset-inventory activity applied
+    to accounts.
+- framework_a: NERC CIP
+  practice_a_id: CIP-007-5.3
+  framework_b: ISO 27001
+  practice_b_id: A.8.2
+  similarity: 0.741
+  rationale: Identifying individuals with access to shared accounts is a privileged/shared-account access-rights
+    concept.
+- framework_a: NERC CIP
+  practice_a_id: CIP-007-5.4
+  framework_b: ISO 27001
+  practice_b_id: A.8.5
+  similarity: 0.686
+  rationale: Changing default passwords is a secure-authentication hardening action.
+- framework_a: NERC CIP
+  practice_a_id: CIP-007-5.5
+  framework_b: ISO 27001
+  practice_b_id: A.8.5
+  similarity: 0.687
+  rationale: Enforcing password length/complexity parameters is the same secure-authentication control.
+- framework_a: NERC CIP
+  practice_a_id: CIP-007-5.6
+  framework_b: ISO 27001
+  practice_b_id: A.8.5
+  similarity: 0.611
+  rationale: Enforcing periodic password changes is the same secure-authentication control's recurring-maintenance
+    aspect.
+- framework_a: NERC CIP
+  practice_a_id: CIP-008-1.1
+  framework_b: ISO 27001
+  practice_b_id: A.5.26
+  similarity: 0.814
+  rationale: Processes to identify, classify, and respond to incidents is precisely what ISO's response-to-incidents
+    title names.
+- framework_a: NERC CIP
+  practice_a_id: CIP-008-1.2
+  framework_b: ISO 27001
+  practice_b_id: A.5.25
+  similarity: 0.708
+  rationale: Criteria to determine whether an incident is reportable is precisely what ISO's assessment-and-decision
+    title names.
+- framework_a: NERC CIP
+  practice_a_id: CIP-008-1.3
+  framework_b: ISO 27001
+  practice_b_id: A.5.2
+  similarity: 0.817
+  rationale: Defining roles and responsibilities of incident response groups is precisely what ISO's information
+    security roles and responsibilities title names.
+- framework_a: NERC CIP
+  practice_a_id: CIP-008-1.4
+  framework_b: ISO 27001
+  practice_b_id: A.5.24
+  similarity: 0.854
+  rationale: Incident handling procedures is precisely what ISO's incident management planning and preparation
+    title names.
+- framework_a: NERC CIP
+  practice_a_id: CIP-008-2.1
+  framework_b: ISO 27001
+  practice_b_id: A.5.26
+  similarity: 0.71
+  rationale: Testing the incident response plan is an implementation activity of the same response-to-incidents
+    control.
+- framework_a: NERC CIP
+  practice_a_id: CIP-008-2.2
+  framework_b: ISO 27001
+  practice_b_id: A.5.26
+  similarity: 0.756
+  rationale: Using the incident response plan when responding to an incident is the same response-to-incidents
+    control.
+- framework_a: NERC CIP
+  practice_a_id: CIP-008-2.3
+  framework_b: ISO 27001
+  practice_b_id: A.5.28
+  similarity: 0.587
+  rationale: Retaining records related to incidents is precisely what ISO's collection-of-evidence title
+    names.
+- framework_a: NERC CIP
+  practice_a_id: CIP-008-3.1
+  framework_b: ISO 27001
+  practice_b_id: A.5.27
+  similarity: 0.653
+  rationale: Documenting lessons learned and updating the plan is precisely what ISO's learning-from-incidents
+    title names.
+- framework_a: NERC CIP
+  practice_a_id: CIP-009-1.1
+  framework_b: ISO 27001
+  practice_b_id: A.5.30
+  similarity: 0.601
+  rationale: Conditions for activating the recovery plan is a business-continuity-readiness concept.
+- framework_a: NERC CIP
+  practice_a_id: CIP-009-1.2
+  framework_b: ISO 27001
+  practice_b_id: A.5.2
+  similarity: 0.718
+  rationale: Roles and responsibilities of recovery responders is the same information-security-roles-and-responsibilities
+    control CIP-008-1.3 also matches.
+- framework_a: NERC CIP
+  practice_a_id: CIP-009-1.3
+  framework_b: ISO 27001
+  practice_b_id: A.8.13
+  similarity: 0.753
+  rationale: A process for backup and storage of recovery information is precisely what ISO's information
+    backup title names.
+- framework_a: NERC CIP
+  practice_a_id: CIP-009-1.4
+  framework_b: ISO 27001
+  practice_b_id: A.8.13
+  similarity: 0.657
+  rationale: Verifying successful backup completion is the verification aspect of the same information-backup
+    control.
+- framework_a: NERC CIP
+  practice_a_id: CIP-009-1.5
+  framework_b: ISO 27001
+  practice_b_id: A.5.28
+  similarity: 0.593
+  rationale: Preserving data for determining an incident's cause is precisely what ISO's collection-of-evidence
+    title names.
+- framework_a: NERC CIP
+  practice_a_id: CIP-009-2.1
+  framework_b: ISO 27001
+  practice_b_id: A.5.30
+  similarity: 0.532
+  rationale: Testing recovery plans on a recurring cadence is the same business-continuity-readiness control
+    CIP-009-1.1 also matches.
+- framework_a: NERC CIP
+  practice_a_id: CIP-009-2.2
+  framework_b: ISO 27001
+  practice_b_id: A.8.13
+  similarity: 0.65
+  rationale: Testing backup information usability is the same information-backup control.
+- framework_a: NERC CIP
+  practice_a_id: CIP-009-2.3
+  framework_b: ISO 27001
+  practice_b_id: A.5.30
+  similarity: 0.53
+  rationale: A full operational recovery exercise is the same business-continuity-readiness control.
+- framework_a: NERC CIP
+  practice_a_id: CIP-009-3.1
+  framework_b: ISO 27001
+  practice_b_id: A.5.27
+  similarity: 0.505
+  rationale: Documenting lessons learned after a recovery test is the same learning-from-incidents control
+    CIP-008-3.1 also matches.
+- framework_a: NERC CIP
+  practice_a_id: CIP-010-1.1
+  framework_b: ISO 27001
+  practice_b_id: A.8.9
+  similarity: 0.691
+  rationale: Developing a baseline configuration is precisely what ISO's configuration management title
+    names.
+- framework_a: NERC CIP
+  practice_a_id: CIP-010-1.2
+  framework_b: ISO 27001
+  practice_b_id: A.8.32
+  similarity: 0.652
+  rationale: Authorizing and documenting changes that deviate from baseline is precisely what ISO's change
+    management title names.
+- framework_a: NERC CIP
+  practice_a_id: CIP-010-1.3
+  framework_b: ISO 27001
+  practice_b_id: A.8.32
+  similarity: 0.624
+  rationale: Updating the baseline configuration following a change is the same change management control.
+- framework_a: NERC CIP
+  practice_a_id: CIP-010-1.4
+  framework_b: ISO 27001
+  practice_b_id: A.8.32
+  similarity: 0.652
+  rationale: Verifying security-control impact before/after a change is the impact-assessment step of
+    the same change management control.
+- framework_a: NERC CIP
+  practice_a_id: CIP-010-1.5
+  framework_b: ISO 27001
+  practice_b_id: A.8.31
+  similarity: 0.703
+  rationale: Testing changes in a test environment before production deployment is precisely what ISO's
+    separation-of-environments title names.
+- framework_a: NERC CIP
+  practice_a_id: CIP-010-1.6
+  framework_b: ISO 27001
+  practice_b_id: A.5.21
+  similarity: 0.553
+  rationale: Verifying software source identity and integrity is a supply-chain software-integrity concept.
+- framework_a: NERC CIP
+  practice_a_id: CIP-010-2.1
+  framework_b: ISO 27001
+  practice_b_id: A.8.16
+  similarity: 0.662
+  rationale: Monitoring for unauthorized configuration changes is precisely what ISO's monitoring-activities
+    title names.
+- framework_a: NERC CIP
+  practice_a_id: CIP-010-3.1
+  framework_b: ISO 27001
+  practice_b_id: A.8.8
+  similarity: 0.589
+  rationale: Conducting a vulnerability assessment on a recurring cadence is precisely what ISO's management-of-technical-vulnerabilities
+    title names.
+- framework_a: NERC CIP
+  practice_a_id: CIP-010-3.2
+  framework_b: ISO 27001
+  practice_b_id: A.8.8
+  similarity: 0.636
+  rationale: A test-environment vulnerability assessment is the same technical-vulnerability-management
+    control.
+- framework_a: NERC CIP
+  practice_a_id: CIP-010-3.3
+  framework_b: ISO 27001
+  practice_b_id: A.8.8
+  similarity: 0.628
+  rationale: Assessing a new asset before production deployment is the same technical-vulnerability-management
+    control's pre-deployment application.
+- framework_a: NERC CIP
+  practice_a_id: CIP-010-4
+  framework_b: ISO 27001
+  practice_b_id: A.7.10
+  similarity: 0.534
+  rationale: A plan for Transient Cyber Assets and Removable Media covers the same storage-media control
+    ISO names, though ISO's title alone does not name transient/portable computing devices specifically.
+- framework_a: NERC CIP
+  practice_a_id: CIP-011-1.1
+  framework_b: ISO 27001
+  practice_b_id: A.5.12
+  similarity: 0.633
+  rationale: Identifying BES Cyber System Information is the same activity ISO's classification-of-information
+    title names.
+- framework_a: NERC CIP
+  practice_a_id: CIP-011-1.2
+  framework_b: ISO 27001
+  practice_b_id: A.5.1
+  similarity: 0.705
+  rationale: Protecting information to maintain confidentiality is governed by the organization's information
+    security policy - a general match, since ISO's Annex A has no single title naming confidentiality-preservation
+    techniques as precisely as this NERC part does.
+- framework_a: NERC CIP
+  practice_a_id: CIP-011-2.1
+  framework_b: ISO 27001
+  practice_b_id: A.7.14
+  similarity: 0.648
+  rationale: Preventing unauthorized retrieval prior to reuse is precisely what ISO's secure-disposal-or-re-use
+    title names.
+- framework_a: NERC CIP
+  practice_a_id: CIP-011-2.2
+  framework_b: ISO 27001
+  practice_b_id: A.7.14
+  similarity: 0.653
+  rationale: Preventing unauthorized retrieval or destroying media prior to disposal is the same secure-disposal-or-re-use
+    control.
+- framework_a: NERC CIP
+  practice_a_id: CIP-012-1.1
+  framework_b: ISO 27001
+  practice_b_id: A.5.14
+  similarity: 0.607
+  rationale: Mitigating disclosure/modification risk to data in transit is precisely what ISO's information-transfer
+    title names.
+- framework_a: NERC CIP
+  practice_a_id: CIP-012-1.3
+  framework_b: ISO 27001
+  practice_b_id: A.5.30
+  similarity: 0.616
+  rationale: Recovering communication links is a business-continuity-readiness concept.
+- framework_a: NERC CIP
+  practice_a_id: CIP-013-1.1
+  framework_b: ISO 27001
+  practice_b_id: A.5.21
+  similarity: 0.676
+  rationale: Identifying and assessing vendor cyber security risk in procurement is precisely what ISO's
+    ICT-supply-chain title names.
+- framework_a: NERC CIP
+  practice_a_id: CIP-013-1.2
+  framework_b: ISO 27001
+  practice_b_id: A.5.20
+  similarity: 0.677
+  rationale: Formalizing vendor notification, incident coordination, and software integrity requirements
+    is precisely what ISO's supplier-agreements title names.
+- framework_a: NERC CIP
+  practice_a_id: CIP-013-2
+  framework_b: ISO 27001
+  practice_b_id: A.5.21
+  similarity: 0.661
+  rationale: Implementing the supply chain risk management plan is the same ICT-supply-chain control CIP-013-1.1
+    also matches.
+- framework_a: NERC CIP
+  practice_a_id: CIP-014-2.1
+  framework_b: ISO 27001
+  practice_b_id: A.5.35
+  similarity: 0.531
+  rationale: Selecting an unaffiliated verifying entity is precisely what ISO's independent-review title
+    names.
+- framework_a: NERC CIP
+  practice_a_id: CIP-014-2.4
+  framework_b: ISO 27001
+  practice_b_id: A.6.6
+  similarity: 0.723
+  rationale: Using non-disclosure agreements to protect sensitive information shared with a verifier is
+    precisely what ISO's confidentiality/non-disclosure-agreements title names.
+- framework_a: NERC CIP
+  practice_a_id: CIP-014-4.3
+  framework_b: ISO 27001
+  practice_b_id: A.5.7
+  similarity: 0.652
+  rationale: Receiving intelligence and threat warnings from external sources is precisely what ISO's
+    threat-intelligence title names.
+- framework_a: NERC CIP
+  practice_a_id: CIP-014-5.2
+  framework_b: ISO 27001
+  practice_b_id: A.5.5
+  similarity: 0.797
+  rationale: Law enforcement contact and coordination information is precisely what ISO's contact-with-authorities
+    title names.
+- framework_a: NERC CIP
+  practice_a_id: CIP-014-5.4
+  framework_b: ISO 27001
+  practice_b_id: A.7.5
+  similarity: 0.708
+  rationale: Evaluating evolving physical threats is precisely what ISO's protecting-against-physical-and-environmental-threats
+    title names.
+- framework_a: NERC CIP
+  practice_a_id: CIP-014-6.1
+  framework_b: ISO 27001
+  practice_b_id: A.5.35
+  similarity: 0.623
+  rationale: Selecting an unaffiliated third-party reviewer is the same independent-review control CIP-014-2.1
+    also matches.
+- framework_a: NERC CIP
+  practice_a_id: CIP-014-6.4
+  framework_b: ISO 27001
+  practice_b_id: A.6.6
+  similarity: 0.733
+  rationale: Using non-disclosure agreements to protect sensitive information shared with a reviewer is
+    the same confidentiality/non-disclosure-agreements control CIP-014-2.4 also matches.

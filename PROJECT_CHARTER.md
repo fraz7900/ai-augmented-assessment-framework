@@ -144,8 +144,8 @@ Framed as hypotheses to validate during the sprints, not pre-claimed results:
 
 ## 13. Future Roadmap
 
-- **Near-term extension:** NERC CIP mapping, given its direct regulatory relevance to the same bulk electric system entities that use C2M2. **Delivered, Sprint 11** — all 13 currently-mandatory standards fully transcribed, 141 of 141 practices; see `docs/adr/ADR-0021-nerc-cip-roadmap-extension-start.md` and `docs/adr/ADR-0022-nerc-cip-full-transcription.md`. Cross-framework equivalence involving NERC CIP remains open backlog.
-- **Framework breadth:** ISO 27001, CIS Controls, SOC 2, PCI DSS, reusing the same versioned-schema mapping engine.
+- **Near-term extension:** NERC CIP mapping, given its direct regulatory relevance to the same bulk electric system entities that use C2M2. **Delivered, Sprint 11** — all 13 currently-mandatory standards fully transcribed, 141 of 141 practices; see `docs/adr/ADR-0021-nerc-cip-roadmap-extension-start.md` and `docs/adr/ADR-0022-nerc-cip-full-transcription.md`. Cross-framework equivalence against C2M2 (ADR-0023) and ISO 27001 (ADR-0024) delivered; NERC CIP↔NIST CSF 2.0 remains open backlog.
+- **Framework breadth:** ISO 27001 **delivered, titles-only, Sprint 11** — the full standard is a paid, copyrighted publication with no free access (confirmed directly, not assumed), so this is real Annex A structure/control titles only, not full requirement text; see `docs/adr/ADR-0024-iso-27001-titles-only-and-equivalence.md`. CIS Controls, SOC 2, PCI DSS remain future roadmap, reusing the same versioned-schema mapping engine; CIS Controls is freely published with no copyright blocker, the lowest-friction next addition.
 - **"Chat with your assessment"** conversational interface over completed assessments (Sprint 8 in the sprint sequence).
 - **Continuous monitoring:** ingestion of recurring evidence (e.g., quarterly access reviews) to shift from point-in-time assessment to continuous maturity tracking.
 - **Multi-tenant / deployable version:** authentication, role-based access, and cloud deployment options, if the project extends beyond a portfolio artifact.
