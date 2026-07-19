@@ -8,12 +8,13 @@ FrameworkDefinition objects, never the YAML directly.
 
 Sprint 10 (US-5.2/FR-14, ADR-0019): also loads framework_mapping/
 cross_framework_equivalence.yaml and merges reviewed cross-framework
-equivalents into each Practice.equivalents. That file's two column
-names (c2m2_practice_id/nist_subcategory_id) hardcode exactly the two
-frameworks this project has today — a real, disclosed limitation, not
-an oversight (see ADR-0019's Consequences): adding a third framework
-with its own equivalence data would need this loader generalized, not
-just another column.
+equivalents into each Practice.equivalents. Sprint 11 (ADR-0023)
+generalized that file's schema from two framework-specific columns
+(c2m2_practice_id/nist_subcategory_id) to a generic two-sided
+framework_a/practice_a_id/framework_b/practice_b_id shape, once a
+third framework (NERC CIP) had its own equivalence data to represent —
+exactly the evolution ADR-0019's Consequences section predicted would
+be needed "when it actually happens."
 """
 
 from __future__ import annotations
@@ -106,10 +107,10 @@ class FrameworkRegistry:
                 for practice in objective.practices:
                     for entry in entries:
                         other_id = None
-                        if entry["c2m2_practice_id"] == practice.id:
-                            other_id = entry["nist_subcategory_id"]
-                        elif entry["nist_subcategory_id"] == practice.id:
-                            other_id = entry["c2m2_practice_id"]
+                        if entry["practice_a_id"] == practice.id:
+                            other_id = entry["practice_b_id"]
+                        elif entry["practice_b_id"] == practice.id:
+                            other_id = entry["practice_a_id"]
                         if other_id is None:
                             continue
                         other = text_index.get(other_id)

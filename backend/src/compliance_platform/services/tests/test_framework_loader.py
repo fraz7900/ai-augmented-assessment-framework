@@ -79,15 +79,21 @@ def test_c2m2_practice_with_curated_equivalent_is_populated() -> None:
     entry in framework_mapping/cross_framework_equivalence.yaml pointing
     at NIST CSF 2.0's PR.AA-01. Asserted against the real committed file,
     same discipline as the rest of this test module.
+
+    Sprint 11 (ADR-0023) added a second, independent entry pairing
+    ACCESS-1a with NERC CIP's CIP-007-5.3 — a real test of the
+    generalized N-framework schema: ACCESS-1a now genuinely has
+    equivalents in two different frameworks, both correctly merged into
+    one list, not overwriting each other.
     """
     framework = _registry().require("C2M2")
     practice = _find_practice(framework, "ACCESS-1a")
     assert practice is not None
-    assert len(practice.equivalents) == 1
-    equivalent = practice.equivalents[0]
-    assert equivalent.framework_name == "NIST CSF 2.0"
-    assert equivalent.practice_id == "PR.AA-01"
-    assert equivalent.rationale  # real text, not blank
+    assert len(practice.equivalents) == 2
+    by_framework = {e.framework_name: e for e in practice.equivalents}
+    assert by_framework["NIST CSF 2.0"].practice_id == "PR.AA-01"
+    assert by_framework["NERC CIP"].practice_id == "CIP-007-5.3"
+    assert all(e.rationale for e in practice.equivalents)  # real text, not blank
 
 
 def test_nist_practice_with_curated_equivalent_points_back_to_c2m2() -> None:
@@ -325,3 +331,49 @@ def test_nerc_cip_domain_for_practice_id_resolves_correctly() -> None:
     domain = framework.domain_for_practice_id("CIP-004-3.2")
     assert domain is not None
     assert domain.short_code == "CIP-004"
+
+
+# --- NERC CIP <-> C2M2 cross-framework equivalence (ADR-0023) ---
+
+
+def test_nerc_cip_practice_with_curated_equivalent_points_to_c2m2() -> None:
+    """CIP-007-5.3 has a real, reviewed entry in
+    framework_mapping/cross_framework_equivalence.yaml pointing at
+    C2M2's ACCESS-1a — this is the same generic two-sided schema
+    (framework_a/practice_a_id/framework_b/practice_b_id, ADR-0023)
+    the C2M2<->NIST entries above already use, not a special case.
+    """
+    framework = _registry().require("NERC CIP")
+    practice = _find_practice(framework, "CIP-007-5.3")
+    assert practice is not None
+    assert len(practice.equivalents) == 1
+    equivalent = practice.equivalents[0]
+    assert equivalent.framework_name == "C2M2"
+    assert equivalent.practice_id == "ACCESS-1a"
+    assert equivalent.rationale  # real text, not blank
+
+
+def test_nerc_cip_practice_without_curated_equivalence_entry_has_empty_list() -> None:
+    framework = _registry().require("NERC CIP")
+    practice = _find_practice(framework, "CIP-002-1.1")
+    assert practice is not None
+    assert practice.equivalents == []
+
+
+def test_nerc_cip_equivalence_review_is_partial_and_disclosed() -> None:
+    """ADR-0023: 73 of 141 NERC CIP practices have at least one reviewed
+    C2M2 equivalent (74 equivalence entries total — CIP-004-4.1 has two,
+    since its source text explicitly names electronic and physical
+    access as distinct authorization scopes, each matching a different
+    C2M2 practice), reviewed against C2M2 only — NERC CIP <-> NIST CSF
+    2.0 is separate, unstarted future work. Asserted against the real
+    committed file so a future edit that silently changes this count
+    is caught, mirroring how the C2M2/NIST coverage counts are pinned
+    elsewhere in this project's own documentation.
+    """
+    framework = _registry().require("NERC CIP")
+    covered = [p for d in framework.domains for p in d.all_practices() if p.equivalents]
+    assert len(covered) == 73
+    total_entries = sum(len(p.equivalents) for p in covered)
+    assert total_entries == 74
+    assert all(e.framework_name == "C2M2" for p in covered for e in p.equivalents)

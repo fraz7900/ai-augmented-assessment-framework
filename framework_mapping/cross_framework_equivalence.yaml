@@ -2,12 +2,21 @@
 # similarity scores (recompute via backend/scripts/generate_cross_framework_equivalence.py
 # if source text changes) — but every entry's presence in this file, and
 # its rationale, is a deliberate human judgment, not an automatic
-# similarity-threshold cutoff. See docs/adr/ADR-0019-cross-framework-equivalence.md
-# and .claude/skills/framework-mapping/SKILL.md point 3: "Cross-framework
+# similarity-threshold cutoff. See docs/adr/ADR-0019-cross-framework-equivalence.md,
+# docs/adr/ADR-0023-nerc-cip-cross-framework-equivalence.md, and
+# .claude/skills/framework-mapping/SKILL.md point 3: "Cross-framework
 # equivalence is additive, not automatic... not inferred by embedding
 # similarity alone... embedding similarity can seed a candidate mapping
 # for human review; it should not silently become an accepted mapping."
 #
+# Generic two-sided schema (framework_a/practice_a_id/framework_b/
+# practice_b_id) since ADR-0023 — generalized from the original
+# c2m2_practice_id/nist_subcategory_id columns once a third framework
+# (NERC CIP) had its own equivalence data to represent, exactly the
+# evolution ADR-0019's Consequences section predicted would be needed
+# "when it actually happens," not built ahead of that need.
+#
+# --- C2M2 <-> NIST CSF 2.0 (ADR-0019, Sprint 10) ---
 # Coverage is deliberately partial: 79 of 106 NIST CSF 2.0 subcategories
 # have a reviewed C2M2 equivalent below. The remaining 27 were reviewed
 # and NOT included, either because C2M2 has no practice covering that
@@ -29,320 +38,1054 @@
 # actual knowledge of both frameworks' full text recognized as the
 # correct match anyway. This is the exact value human review is required
 # to add, per the framework-mapping skill.
+#
+# --- NERC CIP <-> C2M2 (ADR-0023, Sprint 11) ---
+# Coverage is deliberately partial and one-directional: 74 of 141 NERC
+# CIP practices have a reviewed C2M2 equivalent below, reviewed against
+# C2M2 only (NERC CIP <-> NIST CSF 2.0 is separate, unstarted future
+# work, not automatic just because both are now fully transcribed).
+# The remaining 67 were reviewed and NOT included, each for a real,
+# disclosed reason - see ADR-0023 for the full breakdown by standard.
+# Common patterns: CIP-002's impact-categorization concept and CIP-003's
+# CIP-Senior-Manager/delegation-of-authority concepts have no C2M2
+# analogue at all (confirmed by direct search of the source text, not
+# assumed); CIP-005's vendor-remote-access-session parts and CIP-006's
+# visitor-control-program parts are similarly absent from C2M2; CIP-007's
+# malicious-code-prevention and account-lockout parts have no C2M2
+# analogue either (C2M2 has no anti-malware or authentication-lockout
+# concept, confirmed by direct search); CIP-014 (physical Transmission
+# station risk assessment) overlaps least with C2M2's cyber-focused
+# capability model, since it is scoped to physical infrastructure and
+# Transmission Owner/Operator risk criteria, not BES Cyber Systems.
+#
+# Several entries below were found by searching C2M2's actual source
+# text for a concept the embedding's top-3 candidates missed entirely
+# (e.g. CIP-004's Personnel Risk Assessment parts matched to C2M2's
+# WORKFORCE-1 vetting/separation practices, which never appeared in the
+# embedding's own top-3 for those parts) - the same "human review adds
+# value beyond the ranking" pattern ADR-0019 established, applied here
+# more often because NERC CIP's practice text uses more distinctive,
+# less-generic vocabulary than NIST CSF 2.0's did. Several accepted
+# entries score notably lower than the C2M2<->NIST entries above (as
+# low as 0.522) for the same reason: recognized as correct by a
+# reviewer who transcribed both frameworks' real text, not by the
+# embedding ranking.
+#
+# A number of NERC CIP parts share the same C2M2 equivalent as another
+# part of the same standard (e.g. CIP-009's backup-testing parts 1.3/
+# 1.4/2.2 all point to RESPONSE-4b) - this is not duplication error, it
+# reflects C2M2 being genuinely coarser-grained than NERC CIP in these
+# areas: NERC splits one underlying control concept into several
+# distinct, separately-numbered regulatory parts (e.g. "process exists"
+# vs. "process is tested" vs. "test uses representative sample") where
+# C2M2 has a single practice covering the same overall concept.
 
-- c2m2_practice_id: RISK-1g
-  nist_subcategory_id: GV.OC-01
+- framework_a: C2M2
+  practice_a_id: RISK-1g
+  framework_b: NIST CSF 2.0
+  practice_b_id: GV.OC-01
   similarity: 0.895
-  rationale: Both align the risk/cybersecurity program with the organization's overarching mission and objectives.
-- c2m2_practice_id: RISK-1g
-  nist_subcategory_id: GV.RM-01
+  rationale: Both align the risk/cybersecurity program with the organization's overarching mission and
+    objectives.
+- framework_a: C2M2
+  practice_a_id: RISK-1g
+  framework_b: NIST CSF 2.0
+  practice_b_id: GV.RM-01
   similarity: 0.794
-  rationale: Establishing risk objectives and aligning the risk program with organizational objectives describe the same governance activity.
-- c2m2_practice_id: RISK-4b
-  nist_subcategory_id: GV.RM-04
+  rationale: Establishing risk objectives and aligning the risk program with organizational objectives
+    describe the same governance activity.
+- framework_a: C2M2
+  practice_a_id: RISK-4b
+  framework_b: NIST CSF 2.0
+  practice_b_id: GV.RM-04
   similarity: 0.802
   rationale: Both describe a defined, documented approach for selecting and directing risk response actions.
-- c2m2_practice_id: RISK-2b
-  nist_subcategory_id: GV.RM-06
+- framework_a: C2M2
+  practice_a_id: RISK-2b
+  framework_b: NIST CSF 2.0
+  practice_b_id: GV.RM-06
   similarity: 0.872
-  rationale: Both call for a defined, repeatable method for identifying and characterizing cyber risk, though C2M2 splits identification from prioritization across separate practices.
-- c2m2_practice_id: WORKFORCE-3d
-  nist_subcategory_id: GV.RR-02
+  rationale: Both call for a defined, repeatable method for identifying and characterizing cyber risk,
+    though C2M2 splits identification from prioritization across separate practices.
+- framework_a: C2M2
+  practice_a_id: WORKFORCE-3d
+  framework_b: NIST CSF 2.0
+  practice_b_id: GV.RR-02
   similarity: 0.847
-  rationale: Both require cybersecurity roles and responsibilities to be explicitly documented and assigned, not left informal.
-- c2m2_practice_id: WORKFORCE-4c
-  nist_subcategory_id: GV.RR-04
+  rationale: Both require cybersecurity roles and responsibilities to be explicitly documented and assigned,
+    not left informal.
+- framework_a: C2M2
+  practice_a_id: WORKFORCE-4c
+  framework_b: NIST CSF 2.0
+  practice_b_id: GV.RR-04
   similarity: 0.805
-  rationale: Both connect cybersecurity needs to HR-style activities - training, recruiting, and retention efforts to close skill gaps.
-- c2m2_practice_id: PROGRAM-1b
-  nist_subcategory_id: GV.PO-01
+  rationale: Both connect cybersecurity needs to HR-style activities - training, recruiting, and retention
+    efforts to close skill gaps.
+- framework_a: C2M2
+  practice_a_id: PROGRAM-1b
+  framework_b: NIST CSF 2.0
+  practice_b_id: GV.PO-01
   similarity: 0.831
-  rationale: NIST's "policy" and C2M2's "program strategy" both establish the goals and objectives that direct an organization's cybersecurity activities.
-- c2m2_practice_id: PROGRAM-1h
-  nist_subcategory_id: GV.PO-02
-  similarity: 0.750
-  rationale: Both require the governing document (policy / program strategy) to be kept current against changing threats, technology, and business conditions.
-- c2m2_practice_id: RISK-4d
-  nist_subcategory_id: GV.OV-01
+  rationale: NIST's "policy" and C2M2's "program strategy" both establish the goals and objectives that
+    direct an organization's cybersecurity activities.
+- framework_a: C2M2
+  practice_a_id: PROGRAM-1h
+  framework_b: NIST CSF 2.0
+  practice_b_id: GV.PO-02
+  similarity: 0.75
+  rationale: Both require the governing document (policy / program strategy) to be kept current against
+    changing threats, technology, and business conditions.
+- framework_a: C2M2
+  practice_a_id: RISK-4d
+  framework_b: NIST CSF 2.0
+  practice_b_id: GV.OV-01
   similarity: 0.823
   rationale: Both describe leadership reviewing risk-mitigation outcomes to inform strategy adjustments.
-- c2m2_practice_id: RISK-1b
-  nist_subcategory_id: GV.OV-02
+- framework_a: C2M2
+  practice_a_id: RISK-1b
+  framework_b: NIST CSF 2.0
+  practice_b_id: GV.OV-02
   similarity: 0.844
-  rationale: Both describe keeping the risk management strategy aligned and current against organizational requirements.
-- c2m2_practice_id: RISK-4c
-  nist_subcategory_id: GV.OV-03
+  rationale: Both describe keeping the risk management strategy aligned and current against organizational
+    requirements.
+- framework_a: C2M2
+  practice_a_id: RISK-4c
+  framework_b: NIST CSF 2.0
+  practice_b_id: GV.OV-03
   similarity: 0.825
-  rationale: Both describe evaluating whether cybersecurity controls and risk-management performance are working as intended.
-- c2m2_practice_id: WORKFORCE-3c
-  nist_subcategory_id: GV.SC-02
+  rationale: Both describe evaluating whether cybersecurity controls and risk-management performance are
+    working as intended.
+- framework_a: C2M2
+  practice_a_id: WORKFORCE-3c
+  framework_b: NIST CSF 2.0
+  practice_b_id: GV.SC-02
   similarity: 0.879
-  rationale: C2M2 explicitly extends role assignment to "external service providers," the same supplier/partner scope GV.SC-02 covers.
-- c2m2_practice_id: THIRD-PARTIES-2c
-  nist_subcategory_id: GV.SC-03
+  rationale: C2M2 explicitly extends role assignment to "external service providers," the same supplier/partner
+    scope GV.SC-02 covers.
+- framework_a: C2M2
+  practice_a_id: THIRD-PARTIES-2c
+  framework_b: NIST CSF 2.0
+  practice_b_id: GV.SC-03
   similarity: 0.794
-  rationale: Both describe implementing controls or methods that fold supplier-arising risk into the broader risk management process.
-- c2m2_practice_id: THIRD-PARTIES-1e
-  nist_subcategory_id: GV.SC-04
+  rationale: Both describe implementing controls or methods that fold supplier-arising risk into the broader
+    risk management process.
+- framework_a: C2M2
+  practice_a_id: THIRD-PARTIES-1e
+  framework_b: NIST CSF 2.0
+  practice_b_id: GV.SC-04
   similarity: 0.755
   rationale: Both describe prioritizing suppliers by the criticality or consequence of their compromise.
-- c2m2_practice_id: THIRD-PARTIES-2f
-  nist_subcategory_id: GV.SC-05
+- framework_a: C2M2
+  practice_a_id: THIRD-PARTIES-2f
+  framework_b: NIST CSF 2.0
+  practice_b_id: GV.SC-05
   similarity: 0.872
-  rationale: Both describe formalizing cybersecurity requirements directly into supplier contracts and agreements.
-- c2m2_practice_id: THIRD-PARTIES-2d
-  nist_subcategory_id: GV.SC-06
+  rationale: Both describe formalizing cybersecurity requirements directly into supplier contracts and
+    agreements.
+- framework_a: C2M2
+  practice_a_id: THIRD-PARTIES-2d
+  framework_b: NIST CSF 2.0
+  practice_b_id: GV.SC-06
   similarity: 0.743
-  rationale: Both describe a defined evaluation and selection process performed before or during entering a supplier relationship.
-- c2m2_practice_id: THIRD-PARTIES-1c
-  nist_subcategory_id: GV.SC-07
-  similarity: 0.780
-  rationale: Both describe identifying and tracking the risk a specific supplier relationship poses over its lifetime.
-- c2m2_practice_id: RESPONSE-3j
-  nist_subcategory_id: GV.SC-08
+  rationale: Both describe a defined evaluation and selection process performed before or during entering
+    a supplier relationship.
+- framework_a: C2M2
+  practice_a_id: THIRD-PARTIES-1c
+  framework_b: NIST CSF 2.0
+  practice_b_id: GV.SC-07
+  similarity: 0.78
+  rationale: Both describe identifying and tracking the risk a specific supplier relationship poses over
+    its lifetime.
+- framework_a: C2M2
+  practice_a_id: RESPONSE-3j
+  framework_b: NIST CSF 2.0
+  practice_b_id: GV.SC-08
   similarity: 0.777
-  rationale: Both explicitly describe coordinating incident response activities with vendors and other external parties.
-- c2m2_practice_id: ASSET-1a
-  nist_subcategory_id: ID.AM-01
+  rationale: Both explicitly describe coordinating incident response activities with vendors and other
+    external parties.
+- framework_a: C2M2
+  practice_a_id: ASSET-1a
+  framework_b: NIST CSF 2.0
+  practice_b_id: ID.AM-01
   similarity: 0.733
   rationale: Both describe inventorying hardware (IT/OT) assets important to the organization.
-- c2m2_practice_id: ASSET-1f
-  nist_subcategory_id: ID.AM-02
+- framework_a: C2M2
+  practice_a_id: ASSET-1f
+  framework_b: NIST CSF 2.0
+  practice_b_id: ID.AM-02
   similarity: 0.722
-  rationale: Both describe maintaining a complete asset inventory, which C2M2 frames as IT/OT assets including software and systems.
-- c2m2_practice_id: ASSET-1c
-  nist_subcategory_id: ID.AM-05
-  similarity: 0.760
+  rationale: Both describe maintaining a complete asset inventory, which C2M2 frames as IT/OT assets including
+    software and systems.
+- framework_a: C2M2
+  practice_a_id: ASSET-1c
+  framework_b: NIST CSF 2.0
+  practice_b_id: ID.AM-05
+  similarity: 0.76
   rationale: Both describe prioritizing assets using defined criteria tied to importance and impact.
-- c2m2_practice_id: ASSET-2a
-  nist_subcategory_id: ID.AM-07
+- framework_a: C2M2
+  practice_a_id: ASSET-2a
+  framework_b: NIST CSF 2.0
+  practice_b_id: ID.AM-07
   similarity: 0.684
   rationale: Both describe inventorying information/data assets specifically, distinct from hardware.
-- c2m2_practice_id: ARCHITECTURE-3l
-  nist_subcategory_id: ID.AM-08
-  similarity: 0.780
+- framework_a: C2M2
+  practice_a_id: ARCHITECTURE-3l
+  framework_b: NIST CSF 2.0
+  practice_b_id: ID.AM-08
+  similarity: 0.78
   rationale: Both describe managing configuration and changes to assets across their full lifecycle.
-- c2m2_practice_id: THREAT-1b
-  nist_subcategory_id: ID.RA-01
+- framework_a: C2M2
+  practice_a_id: THREAT-1b
+  framework_b: NIST CSF 2.0
+  practice_b_id: ID.RA-01
   similarity: 0.736
-  rationale: Both describe gathering and interpreting vulnerability information to identify and record it.
-- c2m2_practice_id: THREAT-2a
-  nist_subcategory_id: ID.RA-02
+  rationale: Both describe gathering and interpreting vulnerability information to identify and record
+    it.
+- framework_a: C2M2
+  practice_a_id: THREAT-2a
+  framework_b: NIST CSF 2.0
+  practice_b_id: ID.RA-02
   similarity: 0.789
   rationale: Both describe identifying information sources that feed threat intelligence into the organization.
-- c2m2_practice_id: THREAT-2c
-  nist_subcategory_id: ID.RA-03
+- framework_a: C2M2
+  practice_a_id: THREAT-2c
+  framework_b: NIST CSF 2.0
+  practice_b_id: ID.RA-03
   similarity: 0.747
   rationale: Both describe identifying the specific threats (objectives and actors) relevant to the organization.
-- c2m2_practice_id: THREAT-1g
-  nist_subcategory_id: ID.RA-04
+- framework_a: C2M2
+  practice_a_id: THREAT-1g
+  framework_b: NIST CSF 2.0
+  practice_b_id: ID.RA-04
   similarity: 0.829
   rationale: Both describe analyzing and prioritizing identified vulnerabilities by their potential impact.
-- c2m2_practice_id: RISK-4b
-  nist_subcategory_id: ID.RA-05
+- framework_a: C2M2
+  practice_a_id: RISK-4b
+  framework_b: NIST CSF 2.0
+  practice_b_id: ID.RA-05
   similarity: 0.826
   rationale: Both describe using threat, vulnerability, and impact information to choose a risk response.
-- c2m2_practice_id: RISK-4a
-  nist_subcategory_id: ID.RA-06
+- framework_a: C2M2
+  practice_a_id: RISK-4a
+  framework_b: NIST CSF 2.0
+  practice_b_id: ID.RA-06
   similarity: 0.769
   rationale: Both describe selecting, implementing, and tracking risk responses.
-- c2m2_practice_id: THREAT-1m
-  nist_subcategory_id: ID.RA-08
-  similarity: 0.780
-  rationale: Nearly identical intent - both describe an established mechanism to receive and respond to external/public vulnerability disclosure reports.
-- c2m2_practice_id: ARCHITECTURE-4g
-  nist_subcategory_id: ID.RA-09
+- framework_a: C2M2
+  practice_a_id: THREAT-1m
+  framework_b: NIST CSF 2.0
+  practice_b_id: ID.RA-08
+  similarity: 0.78
+  rationale: Nearly identical intent - both describe an established mechanism to receive and respond to
+    external/public vulnerability disclosure reports.
+- framework_a: C2M2
+  practice_a_id: ARCHITECTURE-4g
+  framework_b: NIST CSF 2.0
+  practice_b_id: ID.RA-09
   similarity: 0.856
-  rationale: Both describe validating the authenticity of hardware/software/firmware before it is deployed or used.
-- c2m2_practice_id: THIRD-PARTIES-2d
-  nist_subcategory_id: ID.RA-10
+  rationale: Both describe validating the authenticity of hardware/software/firmware before it is deployed
+    or used.
+- framework_a: C2M2
+  practice_a_id: THIRD-PARTIES-2d
+  framework_b: NIST CSF 2.0
+  practice_b_id: ID.RA-10
   similarity: 0.726
   rationale: Both describe assessing/evaluating a supplier before entering into or continuing a relationship.
-- c2m2_practice_id: RESPONSE-3d
-  nist_subcategory_id: ID.IM-04
+- framework_a: C2M2
+  practice_a_id: RESPONSE-3d
+  framework_b: NIST CSF 2.0
+  practice_b_id: ID.IM-04
   similarity: 0.881
-  rationale: Both describe establishing, maintaining, and improving incident response plans that address the full incident lifecycle.
-- c2m2_practice_id: ACCESS-1a
-  nist_subcategory_id: PR.AA-01
+  rationale: Both describe establishing, maintaining, and improving incident response plans that address
+    the full incident lifecycle.
+- framework_a: C2M2
+  practice_a_id: ACCESS-1a
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.AA-01
   similarity: 0.761
   rationale: Both describe provisioning/managing identities and credentials for authorized users and entities.
-- c2m2_practice_id: ACCESS-1i
-  nist_subcategory_id: PR.AA-03
+- framework_a: C2M2
+  practice_a_id: ACCESS-1i
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.AA-03
   similarity: 0.743
-  rationale: Both describe authenticating users/entities before granting access, with C2M2's MFA practice as the concrete authentication mechanism.
-- c2m2_practice_id: ACCESS-2d
-  nist_subcategory_id: PR.AA-05
-  similarity: 0.720
+  rationale: Both describe authenticating users/entities before granting access, with C2M2's MFA practice
+    as the concrete authentication mechanism.
+- framework_a: C2M2
+  practice_a_id: ACCESS-2d
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.AA-05
+  similarity: 0.72
   rationale: Both describe access permissions incorporating the principle of least privilege.
-- c2m2_practice_id: ACCESS-3a
-  nist_subcategory_id: PR.AA-06
+- framework_a: C2M2
+  practice_a_id: ACCESS-3a
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.AA-06
   similarity: 0.703
   rationale: Both describe implementing and managing physical access controls.
-- c2m2_practice_id: WORKFORCE-2a
-  nist_subcategory_id: PR.AT-01
+- framework_a: C2M2
+  practice_a_id: WORKFORCE-2a
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.AT-01
   similarity: 0.782
   rationale: Both describe general cybersecurity awareness activities for the workforce.
-- c2m2_practice_id: WORKFORCE-2e
-  nist_subcategory_id: PR.AT-02
+- framework_a: C2M2
+  practice_a_id: WORKFORCE-2e
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.AT-02
   similarity: 0.875
   rationale: Both describe training tailored to specialized/higher-responsibility roles, not general awareness.
-- c2m2_practice_id: ARCHITECTURE-5a
-  nist_subcategory_id: PR.DS-01
+- framework_a: C2M2
+  practice_a_id: ARCHITECTURE-5a
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.DS-01
   similarity: 0.894
   rationale: Both describe protecting the confidentiality/integrity of data at rest.
-- c2m2_practice_id: ARCHITECTURE-5c
-  nist_subcategory_id: PR.DS-02
+- framework_a: C2M2
+  practice_a_id: ARCHITECTURE-5c
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.DS-02
   similarity: 0.808
   rationale: Both describe protecting data specifically while it is in transit.
-- c2m2_practice_id: RESPONSE-4b
-  nist_subcategory_id: PR.DS-11
+- framework_a: C2M2
+  practice_a_id: RESPONSE-4b
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.DS-11
   similarity: 0.907
   rationale: Both describe backups being created, available, and tested.
-- c2m2_practice_id: ASSET-3a
-  nist_subcategory_id: PR.PS-01
+- framework_a: C2M2
+  practice_a_id: ASSET-3a
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.PS-01
   similarity: 0.816
   rationale: Both describe establishing configuration baselines/management practices.
-- c2m2_practice_id: ASSET-4e
-  nist_subcategory_id: PR.PS-02
+- framework_a: C2M2
+  practice_a_id: ASSET-4e
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.PS-02
   similarity: 0.748
   rationale: Both describe changes to software assets being implemented/managed securely.
-- c2m2_practice_id: ASSET-4f
-  nist_subcategory_id: PR.PS-03
+- framework_a: C2M2
+  practice_a_id: ASSET-4f
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.PS-03
   similarity: 0.742
-  rationale: Both describe controlled change management for hardware assets over their lifecycle, though this is a looser match than most entries in this file.
-- c2m2_practice_id: SITUATION-1a
-  nist_subcategory_id: PR.PS-04
+  rationale: Both describe controlled change management for hardware assets over their lifecycle, though
+    this is a looser match than most entries in this file.
+- framework_a: C2M2
+  practice_a_id: SITUATION-1a
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.PS-04
   similarity: 0.754
   rationale: Both describe generating logs for assets to support monitoring.
-- c2m2_practice_id: ARCHITECTURE-3m
-  nist_subcategory_id: PR.PS-05
+- framework_a: C2M2
+  practice_a_id: ARCHITECTURE-3m
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.PS-05
   similarity: 0.783
   rationale: Both describe controls specifically preventing execution of unauthorized code/software.
-- c2m2_practice_id: ARCHITECTURE-4a
-  nist_subcategory_id: PR.PS-06
+- framework_a: C2M2
+  practice_a_id: ARCHITECTURE-4a
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.PS-06
   similarity: 0.849
-  rationale: Both describe secure software development practices being applied and monitored through the development lifecycle.
-- c2m2_practice_id: ARCHITECTURE-2a
-  nist_subcategory_id: PR.IR-01
+  rationale: Both describe secure software development practices being applied and monitored through the
+    development lifecycle.
+- framework_a: C2M2
+  practice_a_id: ARCHITECTURE-2a
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.IR-01
   similarity: 0.841
   rationale: Both describe implementing protections against unauthorized network access.
-- c2m2_practice_id: ARCHITECTURE-3j
-  nist_subcategory_id: PR.IR-02
+- framework_a: C2M2
+  practice_a_id: ARCHITECTURE-3j
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.IR-02
   similarity: 0.746
   rationale: Both describe controlling the physical operating environment to protect assets.
-- c2m2_practice_id: RESPONSE-4d
-  nist_subcategory_id: PR.IR-03
+- framework_a: C2M2
+  practice_a_id: RESPONSE-4d
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.IR-03
   similarity: 0.708
   rationale: Both describe continuity/resilience mechanisms addressing potential incident impacts on operations.
-- c2m2_practice_id: RESPONSE-4g
-  nist_subcategory_id: PR.IR-04
+- framework_a: C2M2
+  practice_a_id: RESPONSE-4g
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.IR-04
   similarity: 0.671
-  rationale: Both describe recovery time/point objectives (capacity planning for availability), a lower-scoring but precise match the raw similarity ranking under-ranked relative to a generic "adequate resources" false positive.
-- c2m2_practice_id: SITUATION-2a
-  nist_subcategory_id: DE.CM-01
+  rationale: Both describe recovery time/point objectives (capacity planning for availability), a lower-scoring
+    but precise match the raw similarity ranking under-ranked relative to a generic "adequate resources"
+    false positive.
+- framework_a: C2M2
+  practice_a_id: SITUATION-2a
+  framework_b: NIST CSF 2.0
+  practice_b_id: DE.CM-01
   similarity: 0.709
   rationale: Both describe periodic review/monitoring of network and log data.
-- c2m2_practice_id: ACCESS-3j
-  nist_subcategory_id: DE.CM-02
+- framework_a: C2M2
+  practice_a_id: ACCESS-3j
+  framework_b: NIST CSF 2.0
+  practice_b_id: DE.CM-02
   similarity: 0.768
   rationale: Both describe monitoring the physical environment to identify adverse cybersecurity events.
-- c2m2_practice_id: SITUATION-2d
-  nist_subcategory_id: DE.CM-03
+- framework_a: C2M2
+  practice_a_id: SITUATION-2d
+  framework_b: NIST CSF 2.0
+  practice_b_id: DE.CM-03
   similarity: 0.742
-  rationale: Both describe monitoring for anomalous activity across the IT/OT environment, though NIST's personnel-activity framing is broader than C2M2's asset/system framing here.
-- c2m2_practice_id: SITUATION-2d
-  nist_subcategory_id: DE.CM-09
+  rationale: Both describe monitoring for anomalous activity across the IT/OT environment, though NIST's
+    personnel-activity framing is broader than C2M2's asset/system framing here.
+- framework_a: C2M2
+  practice_a_id: SITUATION-2d
+  framework_b: NIST CSF 2.0
+  practice_b_id: DE.CM-09
   similarity: 0.751
   rationale: Both describe monitoring computing hardware/software/data for indicators of anomalous activity.
-- c2m2_practice_id: RESPONSE-1d
-  nist_subcategory_id: DE.AE-02
+- framework_a: C2M2
+  practice_a_id: RESPONSE-1d
+  framework_b: NIST CSF 2.0
+  practice_b_id: DE.AE-02
   similarity: 0.793
   rationale: Both describe analyzing/correlating event information to understand associated activity.
-- c2m2_practice_id: RESPONSE-1d
-  nist_subcategory_id: DE.AE-03
+- framework_a: C2M2
+  practice_a_id: RESPONSE-1d
+  framework_b: NIST CSF 2.0
+  practice_b_id: DE.AE-03
   similarity: 0.743
   rationale: Both are explicitly about correlating information from multiple sources.
-- c2m2_practice_id: RISK-3c
-  nist_subcategory_id: DE.AE-04
+- framework_a: C2M2
+  practice_a_id: RISK-3c
+  framework_b: NIST CSF 2.0
+  practice_b_id: DE.AE-04
   similarity: 0.768
   rationale: Both describe estimating the impact of an identified event/risk using a defined method.
-- c2m2_practice_id: RESPONSE-1a
-  nist_subcategory_id: DE.AE-06
+- framework_a: C2M2
+  practice_a_id: RESPONSE-1a
+  framework_b: NIST CSF 2.0
+  practice_b_id: DE.AE-06
   similarity: 0.684
   rationale: Both describe detected events being reported/provided to a specified person or role.
-- c2m2_practice_id: RISK-2j
-  nist_subcategory_id: DE.AE-07
+- framework_a: C2M2
+  practice_a_id: RISK-2j
+  framework_b: NIST CSF 2.0
+  practice_b_id: DE.AE-07
   similarity: 0.814
   rationale: Both describe threat intelligence being used to update/inform risk or event analysis.
-- c2m2_practice_id: RESPONSE-2d
-  nist_subcategory_id: DE.AE-08
+- framework_a: C2M2
+  practice_a_id: RESPONSE-2d
+  framework_b: NIST CSF 2.0
+  practice_b_id: DE.AE-08
   similarity: 0.837
   rationale: Both describe declaring an incident once established criteria for adverse events are met.
-- c2m2_practice_id: RESPONSE-3e
-  nist_subcategory_id: RS.MA-01
+- framework_a: C2M2
+  practice_a_id: RESPONSE-3e
+  framework_b: NIST CSF 2.0
+  practice_b_id: RS.MA-01
   similarity: 0.798
   rationale: Both describe executing the incident response plan according to defined procedures.
-- c2m2_practice_id: RESPONSE-2b
-  nist_subcategory_id: RS.MA-02
+- framework_a: C2M2
+  practice_a_id: RESPONSE-2b
+  framework_b: NIST CSF 2.0
+  practice_b_id: RS.MA-02
   similarity: 0.689
-  rationale: Both describe analyzing cybersecurity events to determine/validate whether they should be treated as incidents.
-- c2m2_practice_id: RESPONSE-2c
-  nist_subcategory_id: RS.MA-03
+  rationale: Both describe analyzing cybersecurity events to determine/validate whether they should be
+    treated as incidents.
+- framework_a: C2M2
+  practice_a_id: RESPONSE-2c
+  framework_b: NIST CSF 2.0
+  practice_b_id: RS.MA-03
   similarity: 0.717
-  rationale: Both describe using established criteria based on potential impact to categorize/prioritize incidents.
-- c2m2_practice_id: RESPONSE-2g
-  nist_subcategory_id: RS.MA-04
+  rationale: Both describe using established criteria based on potential impact to categorize/prioritize
+    incidents.
+- framework_a: C2M2
+  practice_a_id: RESPONSE-2g
+  framework_b: NIST CSF 2.0
+  practice_b_id: RS.MA-04
   similarity: 0.679
-  rationale: Both describe notifying/escalating to identified stakeholders once an incident occurs, a lower-scoring match the raw ranking missed.
-- c2m2_practice_id: RESPONSE-4h
-  nist_subcategory_id: RS.MA-05
+  rationale: Both describe notifying/escalating to identified stakeholders once an incident occurs, a
+    lower-scoring match the raw ranking missed.
+- framework_a: C2M2
+  practice_a_id: RESPONSE-4h
+  framework_b: NIST CSF 2.0
+  practice_b_id: RS.MA-05
   similarity: 0.757
   rationale: Both describe defined criteria that trigger recovery/continuity execution.
-- c2m2_practice_id: RESPONSE-3i
-  nist_subcategory_id: RS.AN-03
+- framework_a: C2M2
+  practice_a_id: RESPONSE-3i
+  framework_b: NIST CSF 2.0
+  practice_b_id: RS.AN-03
   similarity: 0.772
   rationale: Both explicitly describe root-cause analysis of what took place during an incident.
-- c2m2_practice_id: RESPONSE-3j
-  nist_subcategory_id: RS.AN-06
+- framework_a: C2M2
+  practice_a_id: RESPONSE-3j
+  framework_b: NIST CSF 2.0
+  practice_b_id: RS.AN-06
   similarity: 0.633
-  rationale: C2M2's practice explicitly names "evidence collection and preservation" during external coordination - the specific phrase NIST's subcategory is about, even though the two texts otherwise emphasize different things (vendor coordination vs. record integrity), which is why the raw similarity score is lower than most entries here.
-- c2m2_practice_id: RESPONSE-2f
-  nist_subcategory_id: RS.AN-07
+  rationale: C2M2's practice explicitly names "evidence collection and preservation" during external coordination
+    - the specific phrase NIST's subcategory is about, even though the two texts otherwise emphasize different
+    things (vendor coordination vs. record integrity), which is why the raw similarity score is lower
+    than most entries here.
+- framework_a: C2M2
+  practice_a_id: RESPONSE-2f
+  framework_b: NIST CSF 2.0
+  practice_b_id: RS.AN-07
   similarity: 0.741
   rationale: Both describe a repository where incident data is documented and its record maintained.
-- c2m2_practice_id: RESPONSE-2c
-  nist_subcategory_id: RS.AN-08
+- framework_a: C2M2
+  practice_a_id: RESPONSE-2c
+  framework_b: NIST CSF 2.0
+  practice_b_id: RS.AN-08
   similarity: 0.697
   rationale: Both describe using impact-based criteria to estimate/validate an incident's magnitude.
-- c2m2_practice_id: RESPONSE-2g
-  nist_subcategory_id: RS.CO-02
+- framework_a: C2M2
+  practice_a_id: RESPONSE-2g
+  framework_b: NIST CSF 2.0
+  practice_b_id: RS.CO-02
   similarity: 0.868
   rationale: Both explicitly describe notifying internal and external stakeholders of an incident.
-- c2m2_practice_id: RESPONSE-3f
-  nist_subcategory_id: RS.CO-03
+- framework_a: C2M2
+  practice_a_id: RESPONSE-3f
+  framework_b: NIST CSF 2.0
+  practice_b_id: RS.CO-03
   similarity: 0.712
   rationale: Both describe a communications plan for sharing incident information with designated stakeholders.
-- c2m2_practice_id: RESPONSE-3b
-  nist_subcategory_id: RS.MI-01
+- framework_a: C2M2
+  practice_a_id: RESPONSE-3b
+  framework_b: NIST CSF 2.0
+  practice_b_id: RS.MI-01
   similarity: 0.691
   rationale: Both describe executing a response that limits/contains the impact of an incident.
-- c2m2_practice_id: RESPONSE-3b
-  nist_subcategory_id: RS.MI-02
+- framework_a: C2M2
+  practice_a_id: RESPONSE-3b
+  framework_b: NIST CSF 2.0
+  practice_b_id: RS.MI-02
   similarity: 0.686
-  rationale: C2M2 does not separate "containment" from "eradication" as distinctly as NIST does; this is the closest practice covering both, restoring normal operations.
-- c2m2_practice_id: RESPONSE-3e
-  nist_subcategory_id: RC.RP-01
+  rationale: C2M2 does not separate "containment" from "eradication" as distinctly as NIST does; this
+    is the closest practice covering both, restoring normal operations.
+- framework_a: C2M2
+  practice_a_id: RESPONSE-3e
+  framework_b: NIST CSF 2.0
+  practice_b_id: RC.RP-01
   similarity: 0.778
-  rationale: Both describe executing the (incident/recovery) plan according to defined procedures once triggered.
-- c2m2_practice_id: RESPONSE-4a
-  nist_subcategory_id: RC.RP-02
+  rationale: Both describe executing the (incident/recovery) plan according to defined procedures once
+    triggered.
+- framework_a: C2M2
+  practice_a_id: RESPONSE-4a
+  framework_b: NIST CSF 2.0
+  practice_b_id: RC.RP-02
   similarity: 0.678
   rationale: Both describe developing and performing actions to sustain/restore operation of the function.
-- c2m2_practice_id: RESPONSE-2f
-  nist_subcategory_id: RC.RP-06
+- framework_a: C2M2
+  practice_a_id: RESPONSE-2f
+  framework_b: NIST CSF 2.0
+  practice_b_id: RC.RP-06
   similarity: 0.693
   rationale: Both describe an incident being tracked through to documented closure.
-- c2m2_practice_id: RESPONSE-3f
-  nist_subcategory_id: RC.CO-03
+- framework_a: C2M2
+  practice_a_id: RESPONSE-3f
+  framework_b: NIST CSF 2.0
+  practice_b_id: RC.CO-03
   similarity: 0.726
-  rationale: C2M2 does not distinguish recovery-phase communications from general incident communications as separately as NIST does; the same communications-plan practice covers both.
+  rationale: C2M2 does not distinguish recovery-phase communications from general incident communications
+    as separately as NIST does; the same communications-plan practice covers both.
+- framework_a: NERC CIP
+  practice_a_id: CIP-004-1.1
+  framework_b: C2M2
+  practice_b_id: WORKFORCE-2d
+  similarity: 0.803
+  rationale: Both describe cybersecurity awareness activities being reinforced/conducted on a recurring
+    basis.
+- framework_a: NERC CIP
+  practice_a_id: CIP-004-2.2
+  framework_b: C2M2
+  practice_b_id: WORKFORCE-4d
+  similarity: 0.774
+  rationale: Both require completed cybersecurity training as a precondition before access to assets/systems
+    is granted.
+- framework_a: NERC CIP
+  practice_a_id: CIP-004-3.1
+  framework_b: C2M2
+  practice_b_id: WORKFORCE-1a
+  similarity: 0.592
+  rationale: Confirming identity is part of the personnel vetting (background checks) C2M2 requires at
+    hire.
+- framework_a: NERC CIP
+  practice_a_id: CIP-004-3.2
+  framework_b: C2M2
+  practice_b_id: WORKFORCE-1a
+  similarity: 0.555
+  rationale: The seven-year criminal history records check is the specific background-check activity WORKFORCE-1a
+    requires generally at hire.
+- framework_a: NERC CIP
+  practice_a_id: CIP-004-3.4
+  framework_b: C2M2
+  practice_b_id: WORKFORCE-1f
+  similarity: 0.636
+  rationale: Both explicitly extend personnel vetting/risk-assessment requirements to contractors and
+    vendors, not just employees.
+- framework_a: NERC CIP
+  practice_a_id: CIP-004-3.5
+  framework_b: C2M2
+  practice_b_id: WORKFORCE-1c
+  similarity: 0.666
+  rationale: Both require vetting/risk assessment to recur periodically for personnel with ongoing access,
+    not just once at hire.
+- framework_a: NERC CIP
+  practice_a_id: CIP-004-4.1
+  framework_b: C2M2
+  practice_b_id: ACCESS-2c
+  similarity: 0.702
+  rationale: Both require documented rules for who is authorized electronic access and under what conditions.
+- framework_a: NERC CIP
+  practice_a_id: CIP-004-4.1
+  framework_b: C2M2
+  practice_b_id: ACCESS-3d
+  similarity: 0.749
+  rationale: Both require documented rules for who is authorized unescorted physical access and under
+    what conditions - CIP-004-4.1 names electronic and physical access as two distinct authorization scopes,
+    matching both ACCESS-2c and ACCESS-3d.
+- framework_a: NERC CIP
+  practice_a_id: CIP-004-4.3
+  framework_b: C2M2
+  practice_b_id: ACCESS-2h
+  similarity: 0.697
+  rationale: Both require periodic review that electronic access privileges remain correct and necessary,
+    triggered by organizational change.
+- framework_a: NERC CIP
+  practice_a_id: CIP-004-5.1
+  framework_b: C2M2
+  practice_b_id: ACCESS-1f
+  similarity: 0.54
+  rationale: Both require deprovisioning identity/access within a defined time threshold after it is no
+    longer needed (24 hours vs. an organization-defined threshold).
+- framework_a: NERC CIP
+  practice_a_id: CIP-004-5.2
+  framework_b: C2M2
+  practice_b_id: WORKFORCE-1d
+  similarity: 0.58
+  rationale: Both explicitly address reassignment/transfer (not just termination) as a trigger for revoking
+    access no longer needed.
+- framework_a: NERC CIP
+  practice_a_id: CIP-004-5.3
+  framework_b: C2M2
+  practice_b_id: ACCESS-2b
+  similarity: 0.647
+  rationale: Both require revoking logical/electronic access accounts once no longer needed following
+    a termination.
+- framework_a: NERC CIP
+  practice_a_id: CIP-006-1.1
+  framework_b: C2M2
+  practice_b_id: ACCESS-3a
+  similarity: 0.741
+  rationale: Both require implemented physical access controls (locks, fences, procedural barriers) restricting
+    physical access.
+- framework_a: NERC CIP
+  practice_a_id: CIP-006-1.2
+  framework_b: C2M2
+  practice_b_id: ACCESS-3d
+  similarity: 0.748
+  rationale: Both require established rules for who is granted unescorted/authorized physical access and
+    how.
+- framework_a: NERC CIP
+  practice_a_id: CIP-006-1.4
+  framework_b: C2M2
+  practice_b_id: ACCESS-3j
+  similarity: 0.831
+  rationale: Both require monitoring physical access points to identify unauthorized/anomalous physical
+    access.
+- framework_a: NERC CIP
+  practice_a_id: CIP-006-1.5
+  framework_b: C2M2
+  practice_b_id: SITUATION-2e
+  similarity: 0.704
+  rationale: Both require configured alarms/alerts that fire in response to a detected security event.
+- framework_a: NERC CIP
+  practice_a_id: CIP-006-1.6
+  framework_b: C2M2
+  practice_b_id: ACCESS-3j
+  similarity: 0.816
+  rationale: Both require monitoring physical access, applied here specifically to the Physical Access
+    Control System itself as the monitored asset.
+- framework_a: NERC CIP
+  practice_a_id: CIP-006-1.7
+  framework_b: C2M2
+  practice_b_id: SITUATION-2e
+  similarity: 0.702
+  rationale: Both require configured alarms/alerts, applied here to unauthorized access to the Physical
+    Access Control System itself.
+- framework_a: NERC CIP
+  practice_a_id: CIP-006-1.8
+  framework_b: C2M2
+  practice_b_id: ACCESS-3c
+  similarity: 0.693
+  rationale: Both require physical access logs identifying who entered and when.
+- framework_a: NERC CIP
+  practice_a_id: CIP-006-1.9
+  framework_b: C2M2
+  practice_b_id: ACCESS-3c
+  similarity: 0.726
+  rationale: Both concern maintaining physical access logs; C2M2 does not separately distinguish a specific
+    retention period from the general logging practice.
+- framework_a: NERC CIP
+  practice_a_id: CIP-007-1.1
+  framework_b: C2M2
+  practice_b_id: ARCHITECTURE-3d
+  similarity: 0.624
+  rationale: Both describe the same least-functionality control (disabling/restricting unneeded logical
+    ports) by name.
+- framework_a: NERC CIP
+  practice_a_id: CIP-007-1.2
+  framework_b: C2M2
+  practice_b_id: ARCHITECTURE-3g
+  similarity: 0.717
+  rationale: Both describe controlling the use of removable media as a defined protective measure; CIP-007-1.2
+    also covers physical port locks, which C2M2 does not separately track.
+- framework_a: NERC CIP
+  practice_a_id: CIP-007-2.1
+  framework_b: C2M2
+  practice_b_id: THREAT-1e
+  similarity: 0.727
+  rationale: Both require tracking and monitoring sources of vulnerability/patch information relevant
+    to the organization's assets.
+- framework_a: NERC CIP
+  practice_a_id: CIP-007-2.3
+  framework_b: C2M2
+  practice_b_id: THREAT-1h
+  similarity: 0.721
+  rationale: Both describe evaluating operational impact and taking action (deploying or mitigating) in
+    response to identified patches.
+- framework_a: NERC CIP
+  practice_a_id: CIP-007-4.1
+  framework_b: C2M2
+  practice_b_id: SITUATION-1a
+  similarity: 0.677
+  rationale: Both require logging occurring for the organization's important assets to support later investigation.
+- framework_a: NERC CIP
+  practice_a_id: CIP-007-4.2
+  framework_b: C2M2
+  practice_b_id: SITUATION-2e
+  similarity: 0.76
+  rationale: Both require configured alerts that fire on defined security event types.
+- framework_a: NERC CIP
+  practice_a_id: CIP-007-4.4
+  framework_b: C2M2
+  practice_b_id: SITUATION-2a
+  similarity: 0.742
+  rationale: Both describe periodic review of collected log/event data to identify undetected security
+    issues.
+- framework_a: NERC CIP
+  practice_a_id: CIP-007-5.1
+  framework_b: C2M2
+  practice_b_id: ACCESS-2a
+  similarity: 0.738
+  rationale: Both require implemented logical access controls that enforce authentication for interactive
+    user access.
+- framework_a: NERC CIP
+  practice_a_id: CIP-007-5.3
+  framework_b: C2M2
+  practice_b_id: ACCESS-1a
+  similarity: 0.728
+  rationale: C2M2 explicitly notes identity provisioning does not preclude shared identities, the same
+    shared-account scenario CIP-007-5.3 requires tracking individual accountability for.
+- framework_a: NERC CIP
+  practice_a_id: CIP-007-5.5
+  framework_b: C2M2
+  practice_b_id: ACCESS-1d
+  similarity: 0.756
+  rationale: Both require defined and enforced password strength requirements.
+- framework_a: NERC CIP
+  practice_a_id: CIP-007-5.6
+  framework_b: C2M2
+  practice_b_id: ACCESS-1d
+  similarity: 0.682
+  rationale: Both concern password policy; C2M2 does not separately distinguish a periodic-change requirement
+    from general strength/reuse restrictions.
+- framework_a: NERC CIP
+  practice_a_id: CIP-008-1.1
+  framework_b: C2M2
+  practice_b_id: RESPONSE-3e
+  similarity: 0.853
+  rationale: Both require incident response being executed according to defined, documented processes.
+- framework_a: NERC CIP
+  practice_a_id: CIP-008-1.2
+  framework_b: C2M2
+  practice_b_id: RESPONSE-2a
+  similarity: 0.787
+  rationale: Both require established criteria for declaring/classifying a cybersecurity incident.
+- framework_a: NERC CIP
+  practice_a_id: CIP-008-1.3
+  framework_b: C2M2
+  practice_b_id: RESPONSE-3a
+  similarity: 0.857
+  rationale: Both require incident response personnel being identified with assigned roles.
+- framework_a: NERC CIP
+  practice_a_id: CIP-008-1.4
+  framework_b: C2M2
+  practice_b_id: RESPONSE-3e
+  similarity: 0.866
+  rationale: Both require documented, defined incident-handling procedures being executed - the same underlying
+    practice CIP-008-1.1 also matches, since C2M2 does not separately distinguish the identify/classify
+    process from handling procedures.
+- framework_a: NERC CIP
+  practice_a_id: CIP-008-2.1
+  framework_b: C2M2
+  practice_b_id: RESPONSE-3g
+  similarity: 0.814
+  rationale: Both require incident response plan exercises/tests to occur periodically.
+- framework_a: NERC CIP
+  practice_a_id: CIP-008-2.3
+  framework_b: C2M2
+  practice_b_id: RESPONSE-2f
+  similarity: 0.701
+  rationale: Both require a repository/record where incident-related information is retained.
+- framework_a: NERC CIP
+  practice_a_id: CIP-008-3.1
+  framework_b: C2M2
+  practice_b_id: RESPONSE-3h
+  similarity: 0.783
+  rationale: Both require lessons-learned activities after an incident/test that update the response plan
+    and notify stakeholders.
+- framework_a: NERC CIP
+  practice_a_id: CIP-009-1.1
+  framework_b: C2M2
+  practice_b_id: RESPONSE-4h
+  similarity: 0.641
+  rationale: Both require established criteria that trigger execution/activation of the continuity or
+    recovery plan.
+- framework_a: NERC CIP
+  practice_a_id: CIP-009-1.2
+  framework_b: C2M2
+  practice_b_id: RESPONSE-5d
+  similarity: 0.842
+  rationale: Both require responsibility and authority for recovery/response activities to be explicitly
+    assigned to personnel.
+- framework_a: NERC CIP
+  practice_a_id: CIP-009-1.3
+  framework_b: C2M2
+  practice_b_id: RESPONSE-4b
+  similarity: 0.735
+  rationale: Both require a defined backup process for the information needed to recover system functionality.
+- framework_a: NERC CIP
+  practice_a_id: CIP-009-1.4
+  framework_b: C2M2
+  practice_b_id: RESPONSE-4b
+  similarity: 0.745
+  rationale: C2M2's practice explicitly requires backups to be tested, the same verification-of-successful-backup
+    concept CIP-009-1.4 requires.
+- framework_a: NERC CIP
+  practice_a_id: CIP-009-1.5
+  framework_b: C2M2
+  practice_b_id: RESPONSE-3j
+  similarity: 0.702
+  rationale: C2M2's practice explicitly names evidence collection and preservation, the same data-preservation-for-cause-determination
+    concept CIP-009-1.5 requires, though the two texts otherwise emphasize different things (vendor coordination
+    vs. recovery-triggered preservation).
+- framework_a: NERC CIP
+  practice_a_id: CIP-009-2.1
+  framework_b: C2M2
+  practice_b_id: RESPONSE-4i
+  similarity: 0.678
+  rationale: Both require recovery/continuity plans to be tested through exercises on a periodic basis.
+- framework_a: NERC CIP
+  practice_a_id: CIP-009-2.2
+  framework_b: C2M2
+  practice_b_id: RESPONSE-4b
+  similarity: 0.647
+  rationale: Both require the actual backup data/information (not just the plan) to be tested for usability.
+- framework_a: NERC CIP
+  practice_a_id: CIP-009-2.3
+  framework_b: C2M2
+  practice_b_id: RESPONSE-4i
+  similarity: 0.664
+  rationale: Both require periodic plan testing through exercises; C2M2 does not separately distinguish
+    the 36-month full-operational-exercise cadence from the general periodic-testing requirement.
+- framework_a: NERC CIP
+  practice_a_id: CIP-009-3.1
+  framework_b: C2M2
+  practice_b_id: RESPONSE-4o
+  similarity: 0.673
+  rationale: Both require comparing test/activation results against objectives and updating the plan accordingly
+    afterward.
+- framework_a: NERC CIP
+  practice_a_id: CIP-010-1.1
+  framework_b: C2M2
+  practice_b_id: ASSET-3a
+  similarity: 0.798
+  rationale: Both require an established configuration baseline for assets.
+- framework_a: NERC CIP
+  practice_a_id: CIP-010-1.2
+  framework_b: C2M2
+  practice_b_id: ASSET-4a
+  similarity: 0.647
+  rationale: Both require changes to be evaluated and authorized/approved before implementation.
+- framework_a: NERC CIP
+  practice_a_id: CIP-010-1.3
+  framework_b: C2M2
+  practice_b_id: ASSET-3d
+  similarity: 0.655
+  rationale: Both require baseline configurations to be updated following a triggering change.
+- framework_a: NERC CIP
+  practice_a_id: CIP-010-1.4
+  framework_b: C2M2
+  practice_b_id: ASSET-4h
+  similarity: 0.759
+  rationale: Both require changes to higher-priority/applicable assets to be tested for cybersecurity
+    impact before deployment.
+- framework_a: NERC CIP
+  practice_a_id: CIP-010-1.5
+  framework_b: C2M2
+  practice_b_id: ASSET-4d
+  similarity: 0.691
+  rationale: Both require changes to be tested prior to being deployed to production.
+- framework_a: NERC CIP
+  practice_a_id: CIP-010-1.6
+  framework_b: C2M2
+  practice_b_id: ARCHITECTURE-4g
+  similarity: 0.718
+  rationale: Both require the authenticity/integrity of software to be validated prior to deployment.
+- framework_a: NERC CIP
+  practice_a_id: CIP-010-2.1
+  framework_b: C2M2
+  practice_b_id: ASSET-3e
+  similarity: 0.669
+  rationale: Both require ongoing monitoring of asset configurations for consistency with the established
+    baseline.
+- framework_a: NERC CIP
+  practice_a_id: CIP-010-3.1
+  framework_b: C2M2
+  practice_b_id: THREAT-1f
+  similarity: 0.692
+  rationale: Both require vulnerability assessments to be performed periodically on a defined cadence.
+- framework_a: NERC CIP
+  practice_a_id: CIP-010-3.2
+  framework_b: C2M2
+  practice_b_id: THREAT-1c
+  similarity: 0.713
+  rationale: Both require vulnerability assessments to be performed; C2M2 does not separately distinguish
+    a test-environment methodology from the general assessment practice.
+- framework_a: NERC CIP
+  practice_a_id: CIP-010-3.3
+  framework_b: C2M2
+  practice_b_id: ASSET-4h
+  similarity: 0.749
+  rationale: Both require testing for cybersecurity impact before a new/changed asset is placed into production
+    - the same practice CIP-010-1.4 also matches, applied here to newly added assets specifically.
+- framework_a: NERC CIP
+  practice_a_id: CIP-010-4
+  framework_b: C2M2
+  practice_b_id: ARCHITECTURE-3g
+  similarity: 0.576
+  rationale: Both require controlling the use of removable media; CIP-010-4 also covers Transient Cyber
+    Assets more broadly, which C2M2 does not separately track.
+- framework_a: NERC CIP
+  practice_a_id: CIP-011-1.1
+  framework_b: C2M2
+  practice_b_id: ASSET-2a
+  similarity: 0.522
+  rationale: Both require information assets important to the organization to be identified/inventoried.
+- framework_a: NERC CIP
+  practice_a_id: CIP-011-1.2
+  framework_b: C2M2
+  practice_b_id: ARCHITECTURE-5a
+  similarity: 0.672
+  rationale: Both require sensitive/protected information to be protected to preserve its confidentiality.
+- framework_a: NERC CIP
+  practice_a_id: CIP-011-2.1
+  framework_b: C2M2
+  practice_b_id: ASSET-2h
+  similarity: 0.678
+  rationale: Both require information assets to be sanitized/destroyed using techniques appropriate to
+    their sensitivity before reuse or end of life.
+- framework_a: NERC CIP
+  practice_a_id: CIP-011-2.2
+  framework_b: C2M2
+  practice_b_id: ASSET-2h
+  similarity: 0.758
+  rationale: Both require information assets to be sanitized or destroyed at end of life/disposal - the
+    same practice CIP-011-2.1 also matches, applied here to disposal specifically rather than reuse.
+- framework_a: NERC CIP
+  practice_a_id: CIP-012-1.1
+  framework_b: C2M2
+  practice_b_id: ARCHITECTURE-5c
+  similarity: 0.571
+  rationale: Both require data in transit to be protected against disclosure and modification.
+- framework_a: NERC CIP
+  practice_a_id: CIP-012-1.3
+  framework_b: C2M2
+  practice_b_id: RESPONSE-4a
+  similarity: 0.651
+  rationale: Both require a defined plan to sustain/restore a critical operational capability if it is
+    disrupted, applied here to communication links specifically.
+- framework_a: NERC CIP
+  practice_a_id: CIP-012-1.5
+  framework_b: C2M2
+  practice_b_id: THIRD-PARTIES-2c
+  similarity: 0.716
+  rationale: Both require defined responsibilities to be established when a shared capability/control
+    spans multiple organizations - a looser match, since CIP-012-1.5 addresses peer utility Control Centers
+    rather than a supplier relationship.
+- framework_a: NERC CIP
+  practice_a_id: CIP-013-1.1
+  framework_b: C2M2
+  practice_b_id: THIRD-PARTIES-1c
+  similarity: 0.754
+  rationale: Both require a defined method to identify cybersecurity risk arising from vendor products/services
+    during procurement.
+- framework_a: NERC CIP
+  practice_a_id: CIP-013-1.2
+  framework_b: C2M2
+  practice_b_id: THIRD-PARTIES-2f
+  similarity: 0.738
+  rationale: C2M2 explicitly names vulnerability notification and incident-related SLA requirements being
+    formalized with suppliers, the same vendor-notification/coordination concept CIP-013-1.2 requires.
+- framework_a: NERC CIP
+  practice_a_id: CIP-013-2
+  framework_b: C2M2
+  practice_b_id: THIRD-PARTIES-2c
+  similarity: 0.763
+  rationale: Both require implementing the defined controls that address supplier/vendor cybersecurity
+    risk, not just identifying it.
+- framework_a: NERC CIP
+  practice_a_id: CIP-014-2.1
+  framework_b: C2M2
+  practice_b_id: THREAT-1k
+  similarity: 0.636
+  rationale: Both require the party performing a review/assessment to be independent of the entity being
+    assessed - a looser match, applied here to transmission risk-assessment verification rather than vulnerability
+    assessment.
+- framework_a: NERC CIP
+  practice_a_id: CIP-014-4.3
+  framework_b: C2M2
+  practice_b_id: THREAT-2h
+  similarity: 0.752
+  rationale: Both require threat/intelligence information to be exchanged with external stakeholders including
+    government, law enforcement, and ISACs - explicitly named in both texts.
+- framework_a: NERC CIP
+  practice_a_id: CIP-014-5.2
+  framework_b: C2M2
+  practice_b_id: THREAT-2h
+  similarity: 0.667
+  rationale: Both require coordination/information exchange with law-enforcement-adjacent external stakeholders
+    - the same practice CIP-014-4.3 also matches.
+- framework_a: NERC CIP
+  practice_a_id: CIP-014-6.1
+  framework_b: C2M2
+  practice_b_id: THREAT-1k
+  similarity: 0.684
+  rationale: Both require an independent, unaffiliated party to perform the review - the same independence
+    pattern CIP-014-2.1 also matches, applied here to the physical security plan review.
+- framework_a: NERC CIP
+  practice_a_id: CIP-003-1.1
+  framework_b: C2M2
+  practice_b_id: PROGRAM-1a
+  similarity: 0.618
+  rationale: Both require the organization to have a documented governing cybersecurity policy/strategy;
+    CIP-003-1.1's specific topic list is more prescriptive than C2M2's general strategy practice.
+- framework_a: NERC CIP
+  practice_a_id: CIP-003-1.2
+  framework_b: C2M2
+  practice_b_id: PROGRAM-1a
+  similarity: 0.632
+  rationale: Same governing-policy concept as CIP-003-1.1, applied here to the low-impact-system policy
+    scope.
