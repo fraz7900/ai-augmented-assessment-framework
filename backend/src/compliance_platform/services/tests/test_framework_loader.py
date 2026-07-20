@@ -140,7 +140,7 @@ def test_management_activities_objective_has_no_mil1_practices() -> None:
 
 
 def test_get_returns_none_for_unknown_framework() -> None:
-    assert _registry().get("PCI DSS") is None
+    assert _registry().get("FedRAMP") is None
 
 
 def test_registry_caches_loaded_framework() -> None:
@@ -337,31 +337,43 @@ def test_nerc_cip_domain_for_practice_id_resolves_correctly() -> None:
 
 
 def test_nerc_cip_practice_with_curated_equivalents_points_to_c2m2_and_iso() -> None:
-    """CIP-007-5.3 has four real, reviewed entries in
+    """CIP-007-5.3 has five real, reviewed entries in
     framework_mapping/cross_framework_equivalence.yaml — one to C2M2's
     ACCESS-1a (ADR-0023), one to ISO 27001's A.8.2 (ADR-0024), one to
-    CIS Controls' 5.1 (ADR-0025), one to SOC 2's CC6.2 (ADR-0026) —
-    merged correctly into one list by the same generic two-sided schema
-    (framework_a/practice_a_id/framework_b/practice_b_id) every pairing
-    in this file uses, not a special case per framework pair.
+    CIS Controls' 5.1 (ADR-0025), one to SOC 2's CC6.2 (ADR-0026), one
+    to PCI DSS's 8.6 (ADR-0027) — merged correctly into one list by the
+    same generic two-sided schema (framework_a/practice_a_id/
+    framework_b/practice_b_id) every pairing in this file uses, not a
+    special case per framework pair.
+
+    This is also the regression test for a real bug found while adding
+    PCI DSS: CIS Controls' Safeguard "5.1" and PCI DSS's Section "5.1"
+    are the identical bare ID string, and the loader's practice-text
+    index used to be keyed by bare practice_id alone — so loading PCI
+    DSS silently overwrote CIS Controls' entry in that index, and this
+    exact practice's CIS Controls equivalent resolved to PCI DSS's name
+    and text instead. Fixed by keying the index by (framework_name,
+    practice_id) and having _merge_equivalents look up the entry's own
+    framework_a/framework_b field, not just the bare other_id.
     """
     framework = _registry().require("NERC CIP")
     practice = _find_practice(framework, "CIP-007-5.3")
     assert practice is not None
-    assert len(practice.equivalents) == 4
+    assert len(practice.equivalents) == 5
     by_framework = {e.framework_name: e for e in practice.equivalents}
     assert by_framework["C2M2"].practice_id == "ACCESS-1a"
     assert by_framework["ISO 27001"].practice_id == "A.8.2"
     assert by_framework["CIS Controls"].practice_id == "5.1"
     assert by_framework["SOC 2"].practice_id == "CC6.2"
+    assert by_framework["PCI DSS"].practice_id == "8.6"
     assert all(e.rationale for e in practice.equivalents)  # real text, not blank
 
 
 def test_nerc_cip_practice_without_curated_equivalence_entry_has_empty_list() -> None:
     """CIP-002-1.1 (BES Cyber System impact categorization) has no
     equivalent in C2M2 (ADR-0023), ISO 27001 (ADR-0024), CIS Controls
-    (ADR-0025), or SOC 2 (ADR-0026) — a real, confirmed standards gap
-    in all four reviews, not an oversight.
+    (ADR-0025), SOC 2 (ADR-0026), or PCI DSS (ADR-0027) — a real,
+    confirmed standards gap in all five reviews, not an oversight.
     """
     framework = _registry().require("NERC CIP")
     practice = _find_practice(framework, "CIP-002-1.1")
@@ -371,23 +383,24 @@ def test_nerc_cip_practice_without_curated_equivalence_entry_has_empty_list() ->
 
 def test_nerc_cip_equivalence_review_is_partial_and_disclosed() -> None:
     """ADR-0023 (C2M2) + ADR-0024 (ISO 27001) + ADR-0025 (CIS Controls)
-    + ADR-0026 (SOC 2): 116 of 141 NERC CIP practices have at least one
-    reviewed equivalent (313 entries total across all four pairings —
-    97 practices have more than one equivalent). NERC CIP <-> NIST CSF
-    2.0 remains separate, unstarted future work. Asserted against the
-    real committed file so a future edit that silently changes this
-    count is caught, mirroring how the C2M2/NIST coverage counts are
-    pinned elsewhere in this project's own documentation.
+    + ADR-0026 (SOC 2) + ADR-0027 (PCI DSS): 118 of 141 NERC CIP
+    practices have at least one reviewed equivalent (393 entries total
+    across all five pairings — 103 practices have more than one
+    equivalent). NERC CIP <-> NIST CSF 2.0 remains separate, unstarted
+    future work. Asserted against the real committed file so a future
+    edit that silently changes this count is caught, mirroring how the
+    C2M2/NIST coverage counts are pinned elsewhere in this project's own
+    documentation.
     """
     framework = _registry().require("NERC CIP")
     covered = [p for d in framework.domains for p in d.all_practices() if p.equivalents]
-    assert len(covered) == 116
+    assert len(covered) == 118
     total_entries = sum(len(p.equivalents) for p in covered)
-    assert total_entries == 313
+    assert total_entries == 393
     both = [p for p in covered if len(p.equivalents) > 1]
-    assert len(both) == 97
+    assert len(both) == 103
     seen_frameworks = {e.framework_name for p in covered for e in p.equivalents}
-    assert seen_frameworks == {"C2M2", "ISO 27001", "CIS Controls", "SOC 2"}
+    assert seen_frameworks == {"C2M2", "ISO 27001", "CIS Controls", "SOC 2", "PCI DSS"}
 
 
 # --- NERC CIP <-> ISO 27001 cross-framework equivalence (ADR-0024) ---
@@ -597,3 +610,73 @@ def test_soc2_practice_equivalent_points_back_to_nerc_cip() -> None:
     assert practice is not None
     nerc_equivalents = {e.practice_id for e in practice.equivalents if e.framework_name == "NERC CIP"}
     assert "CIP-007-5.3" in nerc_equivalents
+
+
+# --- PCI DSS (ADR-0027 — Section-level statement-only, since PCI DSS
+# v4.0.1 is copyrighted, all-rights-reserved content despite being freely
+# downloadable — the same statement-only treatment as ISO 27001/SOC 2,
+# but at PCI DSS's own natural "Section" granularity, not its finer
+# leaf-level "Defined Approach Requirement" granularity, a disclosed
+# scope choice distinct from the copyright question) ---
+
+
+def test_pci_dss_loads_with_all_twelve_requirements() -> None:
+    framework = _registry().require("PCI DSS")
+    assert framework.scoring_model == "coverage"
+    assert len(framework.domains) == 12
+    assert {d.short_code for d in framework.domains} == {f"REQ-{i:02d}" for i in range(1, 13)}
+
+
+def test_pci_dss_section_count_matches_the_official_total() -> None:
+    """63 is PCI DSS v4.0.1's own stated Section total across its 12
+    Requirements (5+3+7+2+4+5+3+6+5+7+6+10); the generator script
+    asserts this at write time, and this test asserts it again at load
+    time, mirroring test_soc2_criteria_count_matches_the_official_total
+    and test_cis_controls_safeguard_count_matches_the_official_total
+    above.
+    """
+    framework = _registry().require("PCI DSS")
+    assert len(framework.all_practice_ids()) == 63
+    assert all(d.practices_populated for d in framework.domains)
+
+
+def test_pci_dss_practice_text_is_a_section_statement_not_leaf_requirement() -> None:
+    """Confirms the deliberate scope decision: Practice.text holds the
+    real, verified SECTION-level statement only (e.g. "9.2 Physical
+    access controls manage entry into facilities and systems containing
+    cardholder data."), never the finer-grained "Defined Approach
+    Requirement" text (e.g. 9.2.1, 9.2.2...) or its accompanying Testing
+    Procedures/Purpose/Good Practice guidance — PCI DSS is uniquely
+    three levels deep (Requirement -> Section -> Defined Approach
+    Requirement), unlike every other framework in this project.
+    Practice.mil is always None (PCI DSS has no MIL concept) and
+    applicability is always empty (no per-Section applicability-scope
+    concept was verified in the source, unlike NERC CIP/CIS Controls/
+    SOC 2).
+    """
+    framework = _registry().require("PCI DSS")
+    practice = _find_practice(framework, "9.2")
+    assert practice is not None
+    assert practice.text == (
+        "Physical access controls manage entry into facilities and systems containing cardholder data."
+    )
+    assert practice.mil is None
+    assert practice.applicability == ""
+
+
+# --- NERC CIP <-> PCI DSS cross-framework equivalence (ADR-0027) ---
+
+
+def test_pci_dss_practice_equivalent_points_back_to_nerc_cip() -> None:
+    """The PCI DSS side of the pairing resolves correctly too — Section
+    9.2 is a coarser statement several NERC CIP physical-security parts
+    map onto, and its equivalents list includes CIP-006-1.1 among them,
+    confirming the merge works symmetrically regardless of which
+    framework is loaded first, the same check already done for the ISO
+    27001, CIS Controls, and SOC 2 pairings.
+    """
+    framework = _registry().require("PCI DSS")
+    practice = _find_practice(framework, "9.2")
+    assert practice is not None
+    nerc_equivalents = {e.practice_id for e in practice.equivalents if e.framework_name == "NERC CIP"}
+    assert "CIP-006-1.1" in nerc_equivalents

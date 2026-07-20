@@ -2929,3 +2929,625 @@
   similarity: 0.55
   rationale: Using non-disclosure agreements to protect sensitive information shared with a reviewer is
     a confidentiality-protection mechanism, the same concept C1.1 describes.
+
+# --- NERC CIP <-> PCI DSS (ADR-0027, Sprint 14) ---
+# METHODOLOGICALLY WEAKER than the C2M2/NIST/CIS pairings above, the same
+# way the ISO 27001 and SOC 2 pairings are: PCI DSS's side of every entry
+# below is the short official SECTION-level statement only (e.g. "9.2
+# Physical access controls manage entry into facilities and systems
+# containing cardholder data."), not the much more detailed leaf-level
+# "Defined Approach Requirement" text or its accompanying Testing
+# Procedures/Purpose/Good Practice guidance - PCI DSS v4.0.1 is
+# copyrighted, all-rights-reserved content with no reproduction rights
+# granted (see generate_pci_dss_yaml.py's module docstring and ADR-0027),
+# even though the document itself is freely downloadable at no cost.
+# These entries are therefore a Section-level topical judgment, not the
+# full-text semantic comparison the C2M2/NIST/CIS pairings use. Treat
+# these entries with correspondingly more caution, the same as the ISO
+# 27001 and SOC 2 pairings.
+#
+# 80 of 141 NERC CIP practices have a reviewed PCI DSS equivalent below -
+# a higher hit rate than either the ISO 27001 pairing (95/141, but scored
+# from full Annex A theme coverage) or the SOC 2 pairing (60/141), and
+# comparable to the CIS Controls pairing (84/141), because PCI DSS's 12
+# Requirements collectively cover a very similar breadth of technical
+# security control ground to CIS Controls (network security, secure
+# configuration, cryptography, malware defense, vulnerability management,
+# access control, physical security, logging, and testing), even at the
+# Section-statement level alone.
+#
+# The remaining 61 were reviewed and NOT included for these reasons:
+# - CIP-002's impact-categorization concept and CIP-003's CIP-Senior-
+#   Manager/delegation concepts have no PCI DSS analogue (the same gap
+#   found in every other pairing).
+# - CIP-009 (Recovery Plans) and most of CIP-012 (Control Center
+#   communication availability) have almost no PCI DSS match - PCI DSS
+#   has no dedicated business-continuity/disaster-recovery Section
+#   analogous to SOC 2's A1.1-A1.3 or CIS Controls' Control 11, since
+#   PCI DSS's scope is protecting cardholder data via security controls,
+#   not business continuity. Only one CIP-009 part (1.5, data
+#   preservation for incident-cause determination) found a real, if
+#   modest, match via PCI's 10.2 forensic-analysis criterion.
+# - Several NERC parts naming specific technical mechanisms that PCI DSS
+#   only names at the finer Defined-Approach-Requirement level (out of
+#   scope here) have no Section-level match: default-account inventory/
+#   password-changing (CIP-007-5.2/5.4 - PCI's equivalent concept lives
+#   inside Section 2.2's leaf-level 2.2.2, not in the 2.2 Section
+#   statement itself) and password-rotation cadence (CIP-007-5.6 - the
+#   same genuine gap already found for CIS Controls/SOC 2, since none of
+#   these frameworks' verified text mandates forced periodic rotation).
+# - CIP-014 (physical Transmission station risk assessment) has ZERO
+#   matches in this pairing - an even sharper gap than either the CIS
+#   Controls or SOC 2 pairings found (both located at least one weak
+#   match), because PCI DSS's Section-level statements name no analogue
+#   for physical/civil-engineering risk assessment, unaffiliated-verifier
+#   selection criteria, or law-enforcement-contact-information concepts
+#   at this level of granularity.
+#
+# As with every other pairing, several NERC CIP parts share the same PCI
+# DSS Section as another part of the same standard (e.g. CIP-006's
+# physical-access-control parts 1.1-1.10 mostly point to Section 9.2 or
+# 9.3, and CIP-013's supply-chain parts all point to Section 12.8) -
+# this reflects PCI DSS being genuinely coarser-grained than NERC CIP at
+# the Section level (by this transcription's own deliberate scope
+# choice, ADR-0027), not a duplication error.
+
+- framework_a: NERC CIP
+  practice_a_id: CIP-004-1.1
+  framework_b: PCI DSS
+  practice_b_id: '12.6'
+  similarity: 0.755
+  rationale: Security awareness that reinforces cyber security practices on a recurring basis is precisely
+    what PCI DSS Section 12.6's ongoing security awareness education activity requires.
+- framework_a: NERC CIP
+  practice_a_id: CIP-004-2.1
+  framework_b: PCI DSS
+  practice_b_id: '12.6'
+  similarity: 0.55
+  rationale: The required training-content topics are the substance a security awareness education activity
+    (Section 12.6) is built to deliver.
+- framework_a: NERC CIP
+  practice_a_id: CIP-004-2.3
+  framework_b: PCI DSS
+  practice_b_id: '12.6'
+  similarity: 0.564
+  rationale: Repeating training on a recurring cadence is the same ongoing-activity requirement Section
+    12.6 describes.
+- framework_a: NERC CIP
+  practice_a_id: CIP-004-3.1
+  framework_b: PCI DSS
+  practice_b_id: '8.1'
+  similarity: 0.693
+  rationale: A process to confirm identity is part of the same identifying-and-authenticating-users process
+    Section 8.1 requires be defined.
+- framework_a: NERC CIP
+  practice_a_id: CIP-004-3.2
+  framework_b: PCI DSS
+  practice_b_id: '12.7'
+  similarity: 0.55
+  rationale: Performing a criminal history records check as part of a personnel risk assessment is precisely
+    what Section 12.7's personnel-screening requirement covers.
+- framework_a: NERC CIP
+  practice_a_id: CIP-004-3.3
+  framework_b: PCI DSS
+  practice_b_id: '12.7'
+  similarity: 0.55
+  rationale: Evaluating criminal history records checks for authorizing access is part of the same personnel-screening
+    activity Section 12.7 requires.
+- framework_a: NERC CIP
+  practice_a_id: CIP-004-3.4
+  framework_b: PCI DSS
+  practice_b_id: '12.7'
+  similarity: 0.55
+  rationale: Verifying that personnel risk assessments were conducted for contractors and vendors is the
+    same personnel-screening concept Section 12.7 requires, extended to third parties.
+- framework_a: NERC CIP
+  practice_a_id: CIP-004-3.5
+  framework_b: PCI DSS
+  practice_b_id: '12.7'
+  similarity: 0.55
+  rationale: Ensuring personnel risk assessments remain current for those with authorized access is the
+    same personnel-screening activity Section 12.7 requires.
+- framework_a: NERC CIP
+  practice_a_id: CIP-004-4.1
+  framework_b: PCI DSS
+  practice_b_id: '7.1'
+  similarity: 0.55
+  rationale: Authorizing electronic and physical access based on need is precisely what Section 7.1's
+    business-need-to-know access-restriction process requires.
+- framework_a: NERC CIP
+  practice_a_id: CIP-004-5.1
+  framework_b: PCI DSS
+  practice_b_id: '8.2'
+  similarity: 0.55
+  rationale: Removing access ability upon termination is part of the same account-lifecycle management
+    Section 8.2 requires.
+- framework_a: NERC CIP
+  practice_a_id: CIP-004-5.2
+  framework_b: PCI DSS
+  practice_b_id: '8.2'
+  similarity: 0.55
+  rationale: Revoking no-longer-needed access after a reassignment is the same account-lifecycle management
+    concept as Section 8.2, applied at a different NERC-specified trigger.
+- framework_a: NERC CIP
+  practice_a_id: CIP-004-5.3
+  framework_b: PCI DSS
+  practice_b_id: '8.2'
+  similarity: 0.559
+  rationale: Revoking non-shared accounts after termination is the same account-lifecycle management Section
+    8.2 requires.
+- framework_a: NERC CIP
+  practice_a_id: CIP-004-5.4
+  framework_b: PCI DSS
+  practice_b_id: '8.6'
+  similarity: 0.55
+  rationale: Rotating a shared account's password after personnel departure is the same shared/generic-account-management
+    discipline Section 8.6 requires.
+- framework_a: NERC CIP
+  practice_a_id: CIP-004-6.1
+  framework_b: PCI DSS
+  practice_b_id: '7.1'
+  similarity: 0.55
+  rationale: Authorizing provisioned BCSI access based on need is the same business-need-to-know access-authorization
+    concept as CIP-004-4.1, matching Section 7.1.
+- framework_a: NERC CIP
+  practice_a_id: CIP-004-6.3
+  framework_b: PCI DSS
+  practice_b_id: '8.2'
+  similarity: 0.55
+  rationale: Removing BCSI access after termination is the same account-lifecycle management Section 8.2
+    requires.
+- framework_a: NERC CIP
+  practice_a_id: CIP-005-1.1
+  framework_b: PCI DSS
+  practice_b_id: '1.3'
+  similarity: 0.55
+  rationale: Requiring Cyber Assets to reside within a defined Electronic Security Perimeter is the same
+    network-access-restriction-to-the-CDE concept Section 1.3 describes.
+- framework_a: NERC CIP
+  practice_a_id: CIP-005-1.2
+  framework_b: PCI DSS
+  practice_b_id: '1.4'
+  similarity: 0.55
+  rationale: Requiring external connectivity through an identified access point is the same trusted/untrusted-network-boundary-control
+    concept Section 1.4 describes.
+- framework_a: NERC CIP
+  practice_a_id: CIP-005-1.3
+  framework_b: PCI DSS
+  practice_b_id: '1.3'
+  similarity: 0.55
+  rationale: Denying all access by default and permitting only authorized traffic is the same network-access-restriction
+    discipline Section 1.3 requires.
+- framework_a: NERC CIP
+  practice_a_id: CIP-005-1.5
+  framework_b: PCI DSS
+  practice_b_id: '11.5'
+  similarity: 0.715
+  rationale: Detecting known or suspected malicious communications is the same network-intrusion-detection
+    activity Section 11.5 requires.
+- framework_a: NERC CIP
+  practice_a_id: CIP-005-2.2
+  framework_b: PCI DSS
+  practice_b_id: '4.2'
+  similarity: 0.631
+  rationale: Encrypting remote access sessions is the same strong-cryptography-in-transit requirement
+    Section 4.2 describes.
+- framework_a: NERC CIP
+  practice_a_id: CIP-005-2.3
+  framework_b: PCI DSS
+  practice_b_id: '8.4'
+  similarity: 0.761
+  rationale: Requiring MFA for all Interactive Remote Access sessions is precisely what Section 8.4's
+    MFA-to-secure-CDE-access requirement covers.
+- framework_a: NERC CIP
+  practice_a_id: CIP-005-3.1
+  framework_b: PCI DSS
+  practice_b_id: '8.1'
+  similarity: 0.693
+  rationale: Determining authenticated vendor-initiated remote connections is part of the same identifying-and-authenticating-users
+    process Section 8.1 requires.
+- framework_a: NERC CIP
+  practice_a_id: CIP-006-1.1
+  framework_b: PCI DSS
+  practice_b_id: '9.2'
+  similarity: 0.778
+  rationale: Defining controls to restrict physical access is precisely what Section 9.2's physical-access-control
+    requirement covers.
+- framework_a: NERC CIP
+  practice_a_id: CIP-006-1.2
+  framework_b: PCI DSS
+  practice_b_id: '9.3'
+  similarity: 0.55
+  rationale: Utilizing a physical access control to allow only authorized individuals is the same physical-access
+    authorization concept Section 9.3 describes.
+- framework_a: NERC CIP
+  practice_a_id: CIP-006-1.3
+  framework_b: PCI DSS
+  practice_b_id: '9.2'
+  similarity: 0.55
+  rationale: Utilizing multiple physical access controls is the same physical-access-control-management
+    concept as CIP-006-1.1, matching Section 9.2.
+- framework_a: NERC CIP
+  practice_a_id: CIP-006-1.4
+  framework_b: PCI DSS
+  practice_b_id: '9.2'
+  similarity: 0.759
+  rationale: Monitoring for unauthorized physical access is part of the same physical-access-control-management
+    activity Section 9.2 requires.
+- framework_a: NERC CIP
+  practice_a_id: CIP-006-1.5
+  framework_b: PCI DSS
+  practice_b_id: '10.7'
+  similarity: 0.647
+  rationale: Issuing an alarm in response to detected unauthorized access is the same prompt-detection-and-response
+    concept Section 10.7 requires for critical security control failures.
+- framework_a: NERC CIP
+  practice_a_id: CIP-006-1.6
+  framework_b: PCI DSS
+  practice_b_id: '9.2'
+  similarity: 0.77
+  rationale: Monitoring the Physical Access Control System itself is the same physical-access-control-management
+    activity Section 9.2 requires.
+- framework_a: NERC CIP
+  practice_a_id: CIP-006-1.7
+  framework_b: PCI DSS
+  practice_b_id: '10.7'
+  similarity: 0.649
+  rationale: Issuing an alarm for unauthorized access to the Physical Access Control System is the same
+    prompt-detection-and-response concept as CIP-006-1.5, matching Section 10.7.
+- framework_a: NERC CIP
+  practice_a_id: CIP-006-1.8
+  framework_b: PCI DSS
+  practice_b_id: '10.1'
+  similarity: 0.689
+  rationale: Logging physical entry with identifying information is the same logging-and-monitoring-of-access
+    concept Section 10.1 requires.
+- framework_a: NERC CIP
+  practice_a_id: CIP-006-1.9
+  framework_b: PCI DSS
+  practice_b_id: '10.5'
+  similarity: 0.7
+  rationale: Retaining physical access logs is the same audit-log-history-retention concept Section 10.5
+    requires.
+- framework_a: NERC CIP
+  practice_a_id: CIP-006-1.10
+  framework_b: PCI DSS
+  practice_b_id: '9.2'
+  similarity: 0.55
+  rationale: Restricting physical access to cabling within facilities is part of the same physical-access-control-management
+    concept Section 9.2 requires.
+- framework_a: NERC CIP
+  practice_a_id: CIP-006-2.1
+  framework_b: PCI DSS
+  practice_b_id: '9.3'
+  similarity: 0.746
+  rationale: Requiring escorted access for visitors without authorized unescorted access is precisely
+    what Section 9.3's visitor-authorization-and-management requirement covers.
+- framework_a: NERC CIP
+  practice_a_id: CIP-006-2.2
+  framework_b: PCI DSS
+  practice_b_id: '9.3'
+  similarity: 0.667
+  rationale: Logging visitor entry and exit is part of the same visitor-authorization-and-management activity
+    Section 9.3 requires.
+- framework_a: NERC CIP
+  practice_a_id: CIP-006-2.3
+  framework_b: PCI DSS
+  practice_b_id: '10.5'
+  similarity: 0.734
+  rationale: Retaining visitor logs is the same audit-log-history-retention concept Section 10.5 requires.
+- framework_a: NERC CIP
+  practice_a_id: CIP-007-1.1
+  framework_b: PCI DSS
+  practice_b_id: '1.3'
+  similarity: 0.665
+  rationale: Enabling only needed logical network ports is the same network-access-restriction concept
+    Section 1.3 describes.
+- framework_a: NERC CIP
+  practice_a_id: CIP-007-1.2
+  framework_b: PCI DSS
+  practice_b_id: '2.2'
+  similarity: 0.722
+  rationale: Protecting against unnecessary physical I/O ports is part of the same secure-system-configuration-and-management
+    activity Section 2.2 requires.
+- framework_a: NERC CIP
+  practice_a_id: CIP-007-2.1
+  framework_b: PCI DSS
+  practice_b_id: '6.3'
+  similarity: 0.65
+  rationale: Maintaining a patch management process is part of the same security-vulnerability-identification-and-remediation
+    activity Section 6.3 requires.
+- framework_a: NERC CIP
+  practice_a_id: CIP-007-2.2
+  framework_b: PCI DSS
+  practice_b_id: '6.3'
+  similarity: 0.602
+  rationale: Evaluating released security patches for applicability on a defined cadence is the same vulnerability-management
+    activity as CIP-007-2.1, matching Section 6.3.
+- framework_a: NERC CIP
+  practice_a_id: CIP-007-2.3
+  framework_b: PCI DSS
+  practice_b_id: '6.3'
+  similarity: 0.632
+  rationale: Applying patches or creating a mitigation plan is the same vulnerability-remediation activity
+    Section 6.3 requires.
+- framework_a: NERC CIP
+  practice_a_id: CIP-007-3.1
+  framework_b: PCI DSS
+  practice_b_id: '5.2'
+  similarity: 0.719
+  rationale: Deploying methods to deter, detect, or prevent malicious code is precisely what Section 5.2's
+    malware-prevention-and-detection requirement covers.
+- framework_a: NERC CIP
+  practice_a_id: CIP-007-3.2
+  framework_b: PCI DSS
+  practice_b_id: '5.2'
+  similarity: 0.828
+  rationale: Mitigating the threat of detected malicious code is the same detect-and-address concept Section
+    5.2 describes.
+- framework_a: NERC CIP
+  practice_a_id: CIP-007-3.3
+  framework_b: PCI DSS
+  practice_b_id: '5.3'
+  similarity: 0.55
+  rationale: Maintaining a process to update malicious-code signatures is part of the same anti-malware-mechanism-maintenance
+    activity Section 5.3 requires.
+- framework_a: NERC CIP
+  practice_a_id: CIP-007-4.1
+  framework_b: PCI DSS
+  practice_b_id: '10.2'
+  similarity: 0.55
+  rationale: Logging specific security-relevant event types is precisely what Section 10.2's anomaly-detection-and-forensic-analysis
+    audit logging requirement covers.
+- framework_a: NERC CIP
+  practice_a_id: CIP-007-4.2
+  framework_b: PCI DSS
+  practice_b_id: '10.4'
+  similarity: 0.55
+  rationale: Generating alerts for determined security events is part of the same audit-log-review activity
+    Section 10.4 requires.
+- framework_a: NERC CIP
+  practice_a_id: CIP-007-4.3
+  framework_b: PCI DSS
+  practice_b_id: '10.5'
+  similarity: 0.686
+  rationale: Retaining event logs for a minimum period is the same audit-log-history-retention concept
+    Section 10.5 requires.
+- framework_a: NERC CIP
+  practice_a_id: CIP-007-4.4
+  framework_b: PCI DSS
+  practice_b_id: '10.4'
+  similarity: 0.739
+  rationale: Reviewing logged events at a defined interval to identify undetected incidents is precisely
+    what Section 10.4's audit-log-review requirement covers.
+- framework_a: NERC CIP
+  practice_a_id: CIP-007-5.1
+  framework_b: PCI DSS
+  practice_b_id: '8.3'
+  similarity: 0.749
+  rationale: Enforcing authentication of interactive user access is precisely what Section 8.3's strong-authentication-establishment-and-management
+    requirement covers.
+- framework_a: NERC CIP
+  practice_a_id: CIP-007-5.3
+  framework_b: PCI DSS
+  practice_b_id: '8.6'
+  similarity: 0.55
+  rationale: Identifying individuals authorized to use shared accounts is the same application-and-system-account
+    management Section 8.6 requires.
+- framework_a: NERC CIP
+  practice_a_id: CIP-007-5.5
+  framework_b: PCI DSS
+  practice_b_id: '8.3'
+  similarity: 0.55
+  rationale: The minimum password length and complexity parameters specified are part of the same strong-authentication-management
+    concept Section 8.3 covers.
+- framework_a: NERC CIP
+  practice_a_id: CIP-007-5.7
+  framework_b: PCI DSS
+  practice_b_id: '8.3'
+  similarity: 0.55
+  rationale: Limiting unsuccessful authentication attempts is part of the same authentication-management
+    discipline Section 8.3 requires.
+- framework_a: NERC CIP
+  practice_a_id: CIP-008-1.1
+  framework_b: PCI DSS
+  practice_b_id: '12.10'
+  similarity: 0.55
+  rationale: Maintaining processes to identify, classify, and respond to Cyber Security Incidents is precisely
+    what Section 12.10's incident-response requirement covers.
+- framework_a: NERC CIP
+  practice_a_id: CIP-008-1.2
+  framework_b: PCI DSS
+  practice_b_id: '12.10'
+  similarity: 0.55
+  rationale: Defining criteria to evaluate and classify compromise attempts is part of the same incident-response
+    activity Section 12.10 requires.
+- framework_a: NERC CIP
+  practice_a_id: CIP-008-1.3
+  framework_b: PCI DSS
+  practice_b_id: '12.10'
+  similarity: 0.55
+  rationale: Defining the roles and responsibilities of incident response groups is part of the same incident-response
+    program Section 12.10 requires.
+- framework_a: NERC CIP
+  practice_a_id: CIP-008-1.4
+  framework_b: PCI DSS
+  practice_b_id: '12.10'
+  similarity: 0.55
+  rationale: Incident handling procedures are the operational substance of the incident-response requirement
+    Section 12.10 describes.
+- framework_a: NERC CIP
+  practice_a_id: CIP-008-2.1
+  framework_b: PCI DSS
+  practice_b_id: '11.1'
+  similarity: 0.55
+  rationale: Testing the incident response plan is part of the same regularly-testing-security activity
+    Section 11.1 requires.
+- framework_a: NERC CIP
+  practice_a_id: CIP-008-2.2
+  framework_b: PCI DSS
+  practice_b_id: '12.10'
+  similarity: 0.55
+  rationale: Using the incident response plan when responding to an actual incident is the operational
+    application of the requirement Section 12.10 describes.
+- framework_a: NERC CIP
+  practice_a_id: CIP-008-2.3
+  framework_b: PCI DSS
+  practice_b_id: '10.5'
+  similarity: 0.55
+  rationale: Retaining records related to security incidents is the same audit-log-history-retention concept
+    Section 10.5 requires.
+- framework_a: NERC CIP
+  practice_a_id: CIP-008-4.2
+  framework_b: PCI DSS
+  practice_b_id: '12.10'
+  similarity: 0.55
+  rationale: Providing initial incident notification within defined timelines is part of the same respond-immediately
+    requirement Section 12.10 describes.
+- framework_a: NERC CIP
+  practice_a_id: CIP-009-1.5
+  framework_b: PCI DSS
+  practice_b_id: '10.2'
+  similarity: 0.55
+  rationale: Preserving data for incident-cause determination is part of the same forensic-analysis-of-events
+    concept Section 10.2 requires.
+- framework_a: NERC CIP
+  practice_a_id: CIP-010-1.1
+  framework_b: PCI DSS
+  practice_b_id: '2.1'
+  similarity: 0.676
+  rationale: Developing a documented baseline configuration is precisely what Section 2.1's secure-configuration
+    process requires.
+- framework_a: NERC CIP
+  practice_a_id: CIP-010-1.2
+  framework_b: PCI DSS
+  practice_b_id: '6.5'
+  similarity: 0.55
+  rationale: Authorizing and documenting deviations from the baseline configuration is precisely what
+    Section 6.5's secure change-management requirement covers.
+- framework_a: NERC CIP
+  practice_a_id: CIP-010-1.3
+  framework_b: PCI DSS
+  practice_b_id: '6.5'
+  similarity: 0.524
+  rationale: Updating the baseline configuration after an authorized change is part of the same change-management
+    process as CIP-010-1.2, matching Section 6.5.
+- framework_a: NERC CIP
+  practice_a_id: CIP-010-1.4
+  framework_b: PCI DSS
+  practice_b_id: '6.5'
+  similarity: 0.55
+  rationale: Verifying that a change does not adversely affect required security controls is part of the
+    same secure change-management discipline Section 6.5 requires.
+- framework_a: NERC CIP
+  practice_a_id: CIP-010-1.5
+  framework_b: PCI DSS
+  practice_b_id: '6.5'
+  similarity: 0.627
+  rationale: Testing changes before implementing them in production is part of the same secure change-management
+    process Section 6.5 requires.
+- framework_a: NERC CIP
+  practice_a_id: CIP-010-1.6
+  framework_b: PCI DSS
+  practice_b_id: '6.2'
+  similarity: 0.636
+  rationale: Verifying the identity and integrity of a software source is part of the same secure-software-development
+    discipline Section 6.2 requires.
+- framework_a: NERC CIP
+  practice_a_id: CIP-010-2.1
+  framework_b: PCI DSS
+  practice_b_id: '10.4'
+  similarity: 0.626
+  rationale: Monitoring for unauthorized baseline changes is the same audit-log-review-for-anomalies activity
+    Section 10.4 requires.
+- framework_a: NERC CIP
+  practice_a_id: CIP-010-3.1
+  framework_b: PCI DSS
+  practice_b_id: '11.3'
+  similarity: 0.606
+  rationale: Conducting a vulnerability assessment is precisely what Section 11.3's regular vulnerability
+    identification requirement covers.
+- framework_a: NERC CIP
+  practice_a_id: CIP-010-3.2
+  framework_b: PCI DSS
+  practice_b_id: '11.3'
+  similarity: 0.55
+  rationale: Performing an active vulnerability assessment in a test or production environment is the
+    same vulnerability-identification activity as CIP-010-3.1, matching Section 11.3.
+- framework_a: NERC CIP
+  practice_a_id: CIP-010-3.3
+  framework_b: PCI DSS
+  practice_b_id: '11.3'
+  similarity: 0.601
+  rationale: Performing a vulnerability assessment before adding a new Cyber Asset to production is the
+    same vulnerability-identification activity Section 11.3 requires, applied at asset-onboarding time.
+- framework_a: NERC CIP
+  practice_a_id: CIP-010-3.4
+  framework_b: PCI DSS
+  practice_b_id: '6.3'
+  similarity: 0.631
+  rationale: Documenting assessment results and a remediation action plan is part of the same security-vulnerability-identification-and-remediation
+    activity Section 6.3 requires.
+- framework_a: NERC CIP
+  practice_a_id: CIP-011-1.1
+  framework_b: PCI DSS
+  practice_b_id: '3.1'
+  similarity: 0.55
+  rationale: Establishing methods to identify BES Cyber System Information is part of the same protecting-stored-account-data
+    process Section 3.1 requires be defined.
+- framework_a: NERC CIP
+  practice_a_id: CIP-011-1.2
+  framework_b: PCI DSS
+  practice_b_id: '3.1'
+  similarity: 0.55
+  rationale: Protecting and securely handling BCSI to mitigate confidentiality risk is the same stored-data-protection
+    concept as CIP-011-1.1, matching Section 3.1.
+- framework_a: NERC CIP
+  practice_a_id: CIP-011-2.1
+  framework_b: PCI DSS
+  practice_b_id: '9.4'
+  similarity: 0.55
+  rationale: Preventing unauthorized retrieval of BCSI before reuse is part of the same secure media storage,
+    access, and destruction concept Section 9.4 requires.
+- framework_a: NERC CIP
+  practice_a_id: CIP-011-2.2
+  framework_b: PCI DSS
+  practice_b_id: '9.4'
+  similarity: 0.655
+  rationale: Preventing unauthorized retrieval of BCSI before disposal, or destroying the media, is precisely
+    what Section 9.4's media-destruction requirement covers.
+- framework_a: NERC CIP
+  practice_a_id: CIP-012-1.1
+  framework_b: PCI DSS
+  practice_b_id: '4.2'
+  similarity: 0.55
+  rationale: Mitigating the risk of unauthorized disclosure or modification of Real-time data in transit
+    is the same strong-cryptography-in-transit requirement Section 4.2 describes.
+- framework_a: NERC CIP
+  practice_a_id: CIP-013-1.1
+  framework_b: PCI DSS
+  practice_b_id: '12.8'
+  similarity: 0.55
+  rationale: Assessing cyber security risk from vendor products, services, and vendor transitions is precisely
+    what Section 12.8's third-party-service-provider risk management requires.
+- framework_a: NERC CIP
+  practice_a_id: CIP-013-1.2
+  framework_b: PCI DSS
+  practice_b_id: '12.9'
+  similarity: 0.55
+  rationale: Requiring vendor incident notification, remote-access controls, and vulnerability disclosure
+    is precisely what Section 12.9's TPSP-compliance-support requirement covers.
+- framework_a: NERC CIP
+  practice_a_id: CIP-013-2
+  framework_b: PCI DSS
+  practice_b_id: '12.8'
+  similarity: 0.637
+  rationale: Implementing the supply chain cyber security risk management plan is the operational application
+    of Section 12.8's TPSP risk-management requirement.
+- framework_a: NERC CIP
+  practice_a_id: CIP-013-3
+  framework_b: PCI DSS
+  practice_b_id: '12.8'
+  similarity: 0.65
+  rationale: Reviewing and approving the supply chain risk management plan on a recurring cadence is the
+    same periodic TPSP-risk-management activity Section 12.8 requires.

@@ -1,0 +1,395 @@
+# GENERATED FILE. Do not hand-edit — regenerate via
+# backend/scripts/generate_pci_dss_yaml.py, which is the source of truth
+# for this file's content and carries the source citation.
+name: PCI DSS
+full_name: Payment Card Industry Data Security Standard
+version: 4.0.1
+source_title: 'Payment Card Industry Data Security Standard: Requirements and Testing Procedures, v4.0.1'
+source_publisher: PCI Security Standards Council, LLC (PCI SSC)
+source_date: 2024-06
+source_url: https://www.pcisecuritystandards.org/document_library/
+retrieved_date: '2026-07-20'
+total_practices_in_source: 63
+scoring_model: coverage
+mil_levels: []
+scoring_note: 'PCI DSS has no native maturity-level concept, like NIST CSF 2.0/NERC CIP/ISO 27001/CIS
+  Controls/SOC 2 — Practice.mil is always None here. Scores are the project-defined coverage measure via
+  services/scoring_service.py''s compute_domain_coverage. Like ISO 27001 (ADR-0024) and SOC 2 (ADR-0026),
+  and UNLIKE CIS Controls (ADR-0025), Practice.text here is real, verified SECTION-level statement text
+  only (e.g. ''3.2 Storage of account data is kept to a minimum.'') — PCI DSS v4.0.1 is copyrighted, all-rights-reserved
+  content (confirmed directly: the source PDF''s own page 1 states this explicitly), despite being freely
+  downloadable, the same distinction ADR-0026 established for SOC 2. Additionally, PCI DSS is uniquely
+  THREE levels deep (Requirement -> Section -> Defined Approach Requirement, ~205 leaf-level items) —
+  no other framework in this project has this depth. This transcription deliberately stops at the Section
+  level (63 total, one per Requirement''s own real ''Sections'' summary), not the finer Defined Approach
+  Requirement level, a disclosed scope decision distinct from the copyright question — see ADR-0027. Practice.applicability
+  is always empty here — no per-Section applicability-scope concept was verified in the source (PCI DSS''s
+  SAQ-type scoping operates at a different level not captured per-Section), unlike NERC CIP''s impact
+  tiers, CIS Controls'' Implementation Groups, or SOC 2''s Common/Additional-category distinction.'
+domains:
+- short_code: REQ-01
+  full_name: Install and Maintain Network Security Controls
+  purpose: Network security controls (NSCs), such as firewalls and other network security technologies,
+    are network policy enforcement points that typically control network traffic between two or more logical
+    or physical network segments (or subnets) based on pre-defined policies or rules.
+  practices_populated: true
+  objectives:
+  - number: 1
+    title: Install and Maintain Network Security Controls
+    purpose: ''
+    practices:
+    - id: '1.1'
+      text: Processes and mechanisms for installing and maintaining network security controls are defined
+        and understood.
+      applicability: ''
+    - id: '1.2'
+      text: Network security controls (NSCs) are configured and maintained.
+      applicability: ''
+    - id: '1.3'
+      text: Network access to and from the cardholder data environment is restricted.
+      applicability: ''
+    - id: '1.4'
+      text: Network connections between trusted and untrusted networks are controlled.
+      applicability: ''
+    - id: '1.5'
+      text: Risks to the CDE from computing devices that are able to connect to both untrusted networks
+        and the CDE are mitigated.
+      applicability: ''
+  source_version: ''
+  source_url: ''
+- short_code: REQ-02
+  full_name: Apply Secure Configurations to All System Components
+  purpose: Malicious individuals, both external and internal to an entity, often use default passwords
+    and other vendor default settings to compromise systems. Applying secure configurations to system
+    components reduces the means available to an attacker to compromise the system.
+  practices_populated: true
+  objectives:
+  - number: 1
+    title: Apply Secure Configurations to All System Components
+    purpose: ''
+    practices:
+    - id: '2.1'
+      text: Processes and mechanisms for applying secure configurations to all system components are defined
+        and understood.
+      applicability: ''
+    - id: '2.2'
+      text: System components are configured and managed securely.
+      applicability: ''
+    - id: '2.3'
+      text: Wireless environments are configured and managed securely.
+      applicability: ''
+  source_version: ''
+  source_url: ''
+- short_code: REQ-03
+  full_name: Protect Stored Account Data
+  purpose: Protection methods such as encryption, truncation, masking, and hashing are critical components
+    of account data protection. If an intruder circumvents other security controls and gains access to
+    encrypted account data, the data is unreadable without the proper cryptographic keys and is unusable
+    to that intruder.
+  practices_populated: true
+  objectives:
+  - number: 1
+    title: Protect Stored Account Data
+    purpose: ''
+    practices:
+    - id: '3.1'
+      text: Processes and mechanisms for protecting stored account data are defined and understood.
+      applicability: ''
+    - id: '3.2'
+      text: Storage of account data is kept to a minimum.
+      applicability: ''
+    - id: '3.3'
+      text: Sensitive authentication data (SAD) is not stored after authorization.
+      applicability: ''
+    - id: '3.4'
+      text: Access to displays of full PAN and ability to copy PAN are restricted.
+      applicability: ''
+    - id: '3.5'
+      text: Primary account number (PAN) is secured wherever it is stored.
+      applicability: ''
+    - id: '3.6'
+      text: Cryptographic keys used to protect stored account data are secured.
+      applicability: ''
+    - id: '3.7'
+      text: Where cryptography is used to protect stored account data, key management processes and procedures
+        covering all aspects of the key lifecycle are defined and implemented.
+      applicability: ''
+  source_version: ''
+  source_url: ''
+- short_code: REQ-04
+  full_name: Protect Cardholder Data with Strong Cryptography During Transmission Over Open, Public Networks
+  purpose: The use of strong cryptography provides greater assurance in preserving data confidentiality,
+    integrity, and non-repudiation. PAN must be encrypted during transmission over networks that are easily
+    accessed by malicious individuals, including untrusted and public networks.
+  practices_populated: true
+  objectives:
+  - number: 1
+    title: Protect Cardholder Data with Strong Cryptography During Transmission Over Open, Public Networks
+    purpose: ''
+    practices:
+    - id: '4.1'
+      text: Processes and mechanisms for protecting cardholder data with strong cryptography during transmission
+        over open, public networks are defined and understood.
+      applicability: ''
+    - id: '4.2'
+      text: PAN is protected with strong cryptography during transmission.
+      applicability: ''
+  source_version: ''
+  source_url: ''
+- short_code: REQ-05
+  full_name: Protect All Systems and Networks from Malicious Software
+  purpose: Malicious software (malware) is software or firmware designed to infiltrate or damage a computer
+    system without the owner's knowledge or consent, with the intent of compromising the confidentiality,
+    integrity, or availability of the owner's data, applications, or operating system.
+  practices_populated: true
+  objectives:
+  - number: 1
+    title: Protect All Systems and Networks from Malicious Software
+    purpose: ''
+    practices:
+    - id: '5.1'
+      text: Processes and mechanisms for protecting all systems and networks from malicious software are
+        defined and understood.
+      applicability: ''
+    - id: '5.2'
+      text: Malicious software (malware) is prevented, or detected and addressed.
+      applicability: ''
+    - id: '5.3'
+      text: Anti-malware mechanisms and processes are active, maintained, and monitored.
+      applicability: ''
+    - id: '5.4'
+      text: Anti-phishing mechanisms protect users against phishing attacks.
+      applicability: ''
+  source_version: ''
+  source_url: ''
+- short_code: REQ-06
+  full_name: Develop and Maintain Secure Systems and Software
+  purpose: Actors with bad intentions can use security vulnerabilities to gain privileged access to systems.
+    All system components must have all appropriate software patches to protect against the exploitation
+    and compromise of account data by malicious individuals and malicious software.
+  practices_populated: true
+  objectives:
+  - number: 1
+    title: Develop and Maintain Secure Systems and Software
+    purpose: ''
+    practices:
+    - id: '6.1'
+      text: Processes and mechanisms for developing and maintaining secure systems and software are defined
+        and understood.
+      applicability: ''
+    - id: '6.2'
+      text: Bespoke and custom software are developed securely.
+      applicability: ''
+    - id: '6.3'
+      text: Security vulnerabilities are identified and addressed.
+      applicability: ''
+    - id: '6.4'
+      text: Public-facing web applications are protected against attacks.
+      applicability: ''
+    - id: '6.5'
+      text: Changes to all system components are managed securely.
+      applicability: ''
+  source_version: ''
+  source_url: ''
+- short_code: REQ-07
+  full_name: Restrict Access to System Components and Cardholder Data by Business Need to Know
+  purpose: Unauthorized individuals may gain access to critical data or systems due to ineffective access
+    control rules and definitions. To ensure critical data can only be accessed by authorized personnel,
+    systems and processes must be in place to limit access based on need to know and according to job
+    responsibilities.
+  practices_populated: true
+  objectives:
+  - number: 1
+    title: Restrict Access to System Components and Cardholder Data by Business Need to Know
+    purpose: ''
+    practices:
+    - id: '7.1'
+      text: Processes and mechanisms for restricting access to system components and cardholder data by
+        business need to know are defined and understood.
+      applicability: ''
+    - id: '7.2'
+      text: Access to system components and data is appropriately defined and assigned.
+      applicability: ''
+    - id: '7.3'
+      text: Access to system components and data is managed via an access control system(s).
+      applicability: ''
+  source_version: ''
+  source_url: ''
+- short_code: REQ-08
+  full_name: Identify Users and Authenticate Access to System Components
+  purpose: Two fundamental principles of identifying and authenticating users are to 1) establish the
+    identity of an individual or process on a computer system, and 2) prove or verify the user associated
+    with the identity is who the user claims to be.
+  practices_populated: true
+  objectives:
+  - number: 1
+    title: Identify Users and Authenticate Access to System Components
+    purpose: ''
+    practices:
+    - id: '8.1'
+      text: Processes and mechanisms for identifying users and authenticating access to system components
+        are defined and understood.
+      applicability: ''
+    - id: '8.2'
+      text: User identification and related accounts for users and administrators are strictly managed
+        throughout an account's lifecycle.
+      applicability: ''
+    - id: '8.3'
+      text: Strong authentication for users and administrators is established and managed.
+      applicability: ''
+    - id: '8.4'
+      text: Multi-factor authentication (MFA) is implemented to secure access into the CDE.
+      applicability: ''
+    - id: '8.5'
+      text: Multi-factor authentication (MFA) systems are configured to prevent misuse.
+      applicability: ''
+    - id: '8.6'
+      text: Use of application and system accounts and associated authentication factors is strictly managed.
+      applicability: ''
+  source_version: ''
+  source_url: ''
+- short_code: REQ-09
+  full_name: Restrict Physical Access to Cardholder Data
+  purpose: Any physical access to cardholder data or systems that store, process, or transmit cardholder
+    data provides the opportunity for individuals to access and/or remove systems or hardcopies containing
+    cardholder data; therefore, physical access should be appropriately restricted.
+  practices_populated: true
+  objectives:
+  - number: 1
+    title: Restrict Physical Access to Cardholder Data
+    purpose: ''
+    practices:
+    - id: '9.1'
+      text: Processes and mechanisms for restricting physical access to cardholder data are defined and
+        understood.
+      applicability: ''
+    - id: '9.2'
+      text: Physical access controls manage entry into facilities and systems containing cardholder data.
+      applicability: ''
+    - id: '9.3'
+      text: Physical access for personnel and visitors is authorized and managed.
+      applicability: ''
+    - id: '9.4'
+      text: Media with cardholder data is securely stored, accessed, distributed, and destroyed.
+      applicability: ''
+    - id: '9.5'
+      text: Point of interaction (POI) devices are protected from tampering and unauthorized substitution.
+      applicability: ''
+  source_version: ''
+  source_url: ''
+- short_code: REQ-10
+  full_name: Log and Monitor All Access to System Components and Cardholder Data
+  purpose: Logging mechanisms and the ability to track user activities are critical in preventing, detecting,
+    or minimizing the impact of a data compromise. The presence of logs on all system components and in
+    the cardholder data environment (CDE) allows thorough tracking, alerting, and analysis when something
+    does go wrong.
+  practices_populated: true
+  objectives:
+  - number: 1
+    title: Log and Monitor All Access to System Components and Cardholder Data
+    purpose: ''
+    practices:
+    - id: '10.1'
+      text: Processes and mechanisms for logging and monitoring all access to system components and cardholder
+        data are defined and understood.
+      applicability: ''
+    - id: '10.2'
+      text: Audit logs are implemented to support the detection of anomalies and suspicious activity,
+        and the forensic analysis of events.
+      applicability: ''
+    - id: '10.3'
+      text: Audit logs are protected from destruction and unauthorized modifications.
+      applicability: ''
+    - id: '10.4'
+      text: Audit logs are reviewed to identify anomalies or suspicious activity.
+      applicability: ''
+    - id: '10.5'
+      text: Audit log history is retained and available for analysis.
+      applicability: ''
+    - id: '10.6'
+      text: Time-synchronization mechanisms support consistent time settings across all systems.
+      applicability: ''
+    - id: '10.7'
+      text: Failures of critical security control systems are detected, reported, and responded to promptly.
+      applicability: ''
+  source_version: ''
+  source_url: ''
+- short_code: REQ-11
+  full_name: Test Security of Systems and Networks Regularly
+  purpose: Vulnerabilities are being discovered continually by malicious individuals and researchers,
+    as well as being introduced by new software. System components, processes, and bespoke and custom
+    software should be tested frequently to ensure security controls continue to reflect a changing environment.
+  practices_populated: true
+  objectives:
+  - number: 1
+    title: Test Security of Systems and Networks Regularly
+    purpose: ''
+    practices:
+    - id: '11.1'
+      text: Processes and mechanisms for regularly testing security of systems and networks are defined
+        and understood.
+      applicability: ''
+    - id: '11.2'
+      text: Wireless access points are identified and monitored, and unauthorized wireless access points
+        are addressed.
+      applicability: ''
+    - id: '11.3'
+      text: External and internal vulnerabilities are regularly identified, prioritized, and addressed.
+      applicability: ''
+    - id: '11.4'
+      text: External and internal penetration testing is regularly performed, and exploitable vulnerabilities
+        and security weaknesses are corrected.
+      applicability: ''
+    - id: '11.5'
+      text: Network intrusions and unexpected file changes are detected and responded to.
+      applicability: ''
+    - id: '11.6'
+      text: Unauthorized changes on payment pages are detected and responded to.
+      applicability: ''
+  source_version: ''
+  source_url: ''
+- short_code: REQ-12
+  full_name: Support Information Security with Organizational Policies and Programs
+  purpose: The organization's overall information security policy sets the tone for the whole entity and
+    informs personnel what is expected of them. All personnel should be aware of the sensitivity of cardholder
+    data and their responsibilities for protecting it.
+  practices_populated: true
+  objectives:
+  - number: 1
+    title: Support Information Security with Organizational Policies and Programs
+    purpose: ''
+    practices:
+    - id: '12.1'
+      text: A comprehensive information security policy that governs and provides direction for protection
+        of the entity's information assets is known and current.
+      applicability: ''
+    - id: '12.2'
+      text: Acceptable use policies for end-user technologies are defined and implemented.
+      applicability: ''
+    - id: '12.3'
+      text: Risks to the cardholder data environment are formally identified, evaluated, and managed.
+      applicability: ''
+    - id: '12.4'
+      text: PCI DSS compliance is managed.
+      applicability: ''
+    - id: '12.5'
+      text: PCI DSS scope is documented and validated.
+      applicability: ''
+    - id: '12.6'
+      text: Security awareness education is an ongoing activity.
+      applicability: ''
+    - id: '12.7'
+      text: Personnel are screened to reduce risks from insider threats.
+      applicability: ''
+    - id: '12.8'
+      text: Risk to information assets associated with third-party service provider (TPSP) relationships
+        is managed.
+      applicability: ''
+    - id: '12.9'
+      text: Third-party service providers (TPSPs) support their customers' PCI DSS compliance.
+      applicability: ''
+    - id: '12.10'
+      text: Suspected and confirmed security incidents that could impact the CDE are responded to immediately.
+      applicability: ''
+  source_version: ''
+  source_url: ''
