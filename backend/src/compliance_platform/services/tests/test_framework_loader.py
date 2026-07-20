@@ -97,13 +97,19 @@ def test_c2m2_practice_with_curated_equivalent_is_populated() -> None:
 
 
 def test_nist_practice_with_curated_equivalent_points_back_to_c2m2() -> None:
+    """PR.AA-01 has grown a lot of equivalents since this test was
+    first written (ADR-0019, C2M2 only) — ADR-0028's NERC CIP <-> NIST
+    CSF 2.0 review later mapped several NERC CIP parts onto this same
+    subcategory too. Check the C2M2 entry is present and correct rather
+    than assuming it's the only one, the same pattern used elsewhere in
+    this file once a practice gained equivalents from more than one
+    pairing.
+    """
     framework = _registry().require("NIST CSF 2.0")
     practice = _find_practice(framework, "PR.AA-01")
     assert practice is not None
-    assert len(practice.equivalents) == 1
-    equivalent = practice.equivalents[0]
-    assert equivalent.framework_name == "C2M2"
-    assert equivalent.practice_id == "ACCESS-1a"
+    by_framework = {e.framework_name: e for e in practice.equivalents}
+    assert by_framework["C2M2"].practice_id == "ACCESS-1a"
 
 
 def test_practice_without_curated_equivalence_entry_has_empty_list() -> None:
@@ -337,14 +343,15 @@ def test_nerc_cip_domain_for_practice_id_resolves_correctly() -> None:
 
 
 def test_nerc_cip_practice_with_curated_equivalents_points_to_c2m2_and_iso() -> None:
-    """CIP-007-5.3 has five real, reviewed entries in
+    """CIP-007-5.3 has six real, reviewed entries in
     framework_mapping/cross_framework_equivalence.yaml — one to C2M2's
     ACCESS-1a (ADR-0023), one to ISO 27001's A.8.2 (ADR-0024), one to
     CIS Controls' 5.1 (ADR-0025), one to SOC 2's CC6.2 (ADR-0026), one
-    to PCI DSS's 8.6 (ADR-0027) — merged correctly into one list by the
-    same generic two-sided schema (framework_a/practice_a_id/
-    framework_b/practice_b_id) every pairing in this file uses, not a
-    special case per framework pair.
+    to PCI DSS's 8.6 (ADR-0027), one to NIST CSF 2.0's PR.AA-01
+    (ADR-0028) — merged correctly into one list by the same generic
+    two-sided schema (framework_a/practice_a_id/framework_b/
+    practice_b_id) every pairing in this file uses, not a special case
+    per framework pair.
 
     This is also the regression test for a real bug found while adding
     PCI DSS: CIS Controls' Safeguard "5.1" and PCI DSS's Section "5.1"
@@ -359,21 +366,23 @@ def test_nerc_cip_practice_with_curated_equivalents_points_to_c2m2_and_iso() -> 
     framework = _registry().require("NERC CIP")
     practice = _find_practice(framework, "CIP-007-5.3")
     assert practice is not None
-    assert len(practice.equivalents) == 5
+    assert len(practice.equivalents) == 6
     by_framework = {e.framework_name: e for e in practice.equivalents}
     assert by_framework["C2M2"].practice_id == "ACCESS-1a"
     assert by_framework["ISO 27001"].practice_id == "A.8.2"
     assert by_framework["CIS Controls"].practice_id == "5.1"
     assert by_framework["SOC 2"].practice_id == "CC6.2"
     assert by_framework["PCI DSS"].practice_id == "8.6"
+    assert by_framework["NIST CSF 2.0"].practice_id == "PR.AA-01"
     assert all(e.rationale for e in practice.equivalents)  # real text, not blank
 
 
 def test_nerc_cip_practice_without_curated_equivalence_entry_has_empty_list() -> None:
     """CIP-002-1.1 (BES Cyber System impact categorization) has no
     equivalent in C2M2 (ADR-0023), ISO 27001 (ADR-0024), CIS Controls
-    (ADR-0025), SOC 2 (ADR-0026), or PCI DSS (ADR-0027) — a real,
-    confirmed standards gap in all five reviews, not an oversight.
+    (ADR-0025), SOC 2 (ADR-0026), PCI DSS (ADR-0027), or NIST CSF 2.0
+    (ADR-0028) — a real, confirmed standards gap in all six reviews,
+    not an oversight.
     """
     framework = _registry().require("NERC CIP")
     practice = _find_practice(framework, "CIP-002-1.1")
@@ -383,24 +392,31 @@ def test_nerc_cip_practice_without_curated_equivalence_entry_has_empty_list() ->
 
 def test_nerc_cip_equivalence_review_is_partial_and_disclosed() -> None:
     """ADR-0023 (C2M2) + ADR-0024 (ISO 27001) + ADR-0025 (CIS Controls)
-    + ADR-0026 (SOC 2) + ADR-0027 (PCI DSS): 118 of 141 NERC CIP
-    practices have at least one reviewed equivalent (393 entries total
-    across all five pairings — 103 practices have more than one
-    equivalent). NERC CIP <-> NIST CSF 2.0 remains separate, unstarted
-    future work. Asserted against the real committed file so a future
-    edit that silently changes this count is caught, mirroring how the
-    C2M2/NIST coverage counts are pinned elsewhere in this project's own
-    documentation.
+    + ADR-0026 (SOC 2) + ADR-0027 (PCI DSS) + ADR-0028 (NIST CSF 2.0):
+    121 of 141 NERC CIP practices have at least one reviewed equivalent
+    (500 entries total across all six pairings — 111 practices have
+    more than one equivalent). This closes out every reviewed-framework
+    pairing named in this project's roadmap. Asserted against the real
+    committed file so a future edit that silently changes this count is
+    caught, mirroring how the C2M2/NIST coverage counts are pinned
+    elsewhere in this project's own documentation.
     """
     framework = _registry().require("NERC CIP")
     covered = [p for d in framework.domains for p in d.all_practices() if p.equivalents]
-    assert len(covered) == 118
+    assert len(covered) == 121
     total_entries = sum(len(p.equivalents) for p in covered)
-    assert total_entries == 393
+    assert total_entries == 500
     both = [p for p in covered if len(p.equivalents) > 1]
-    assert len(both) == 103
+    assert len(both) == 111
     seen_frameworks = {e.framework_name for p in covered for e in p.equivalents}
-    assert seen_frameworks == {"C2M2", "ISO 27001", "CIS Controls", "SOC 2", "PCI DSS"}
+    assert seen_frameworks == {
+        "C2M2",
+        "ISO 27001",
+        "CIS Controls",
+        "SOC 2",
+        "PCI DSS",
+        "NIST CSF 2.0",
+    }
 
 
 # --- NERC CIP <-> ISO 27001 cross-framework equivalence (ADR-0024) ---
@@ -680,3 +696,45 @@ def test_pci_dss_practice_equivalent_points_back_to_nerc_cip() -> None:
     assert practice is not None
     nerc_equivalents = {e.practice_id for e in practice.equivalents if e.framework_name == "NERC CIP"}
     assert "CIP-006-1.1" in nerc_equivalents
+
+
+# --- NERC CIP <-> NIST CSF 2.0 cross-framework equivalence (ADR-0028) ---
+#
+# Unlike every other NERC CIP pairing above, this one is full-text-vs-
+# full-text on both sides (both frameworks were already fully
+# transcribed with real requirement text before this review began), the
+# same rigor as the original NIST CSF 2.0 <-> C2M2 pairing (ADR-0019),
+# not the reduced-rigor treatment the copyright-constrained ISO 27001/
+# SOC 2/PCI DSS pairings required.
+
+
+def test_nerc_cip_practice_with_curated_nist_equivalent_points_back() -> None:
+    """PR.AA-01's equivalents list includes CIP-007-5.3 (verified above
+    from the NERC CIP side too), confirming the merge works
+    symmetrically regardless of which framework is loaded first, the
+    same check already done for the ISO 27001/CIS Controls/SOC 2/PCI
+    DSS pairings.
+    """
+    framework = _registry().require("NIST CSF 2.0")
+    practice = _find_practice(framework, "PR.AA-01")
+    assert practice is not None
+    nerc_equivalents = {e.practice_id for e in practice.equivalents if e.framework_name == "NERC CIP"}
+    assert "CIP-007-5.3" in nerc_equivalents
+
+
+def test_nist_csf_subcategory_has_both_c2m2_and_nerc_cip_equivalents() -> None:
+    """PR.AT-01 (awareness and training) has a real, reviewed equivalent
+    from both cross-framework reviews it has ever been part of — C2M2's
+    WORKFORCE-2a (ADR-0019, Sprint 10) and now NERC CIP's CIP-004-1.1
+    and CIP-004-2.1 (ADR-0028) — merged into one list without either
+    review's entries overwriting the other's, the same generic two-sided
+    schema every pairing in this file uses.
+    """
+    framework = _registry().require("NIST CSF 2.0")
+    practice = _find_practice(framework, "PR.AT-01")
+    assert practice is not None
+    by_framework: dict[str, list[str]] = {}
+    for e in practice.equivalents:
+        by_framework.setdefault(e.framework_name, []).append(e.practice_id)
+    assert by_framework["C2M2"] == ["WORKFORCE-2a"]
+    assert set(by_framework["NERC CIP"]) == {"CIP-004-1.1", "CIP-004-2.1"}

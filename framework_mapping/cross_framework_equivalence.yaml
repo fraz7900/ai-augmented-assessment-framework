@@ -3551,3 +3551,816 @@
   similarity: 0.65
   rationale: Reviewing and approving the supply chain risk management plan on a recurring cadence is the
     same periodic TPSP-risk-management activity Section 12.8 requires.
+
+# --- NERC CIP <-> NIST CSF 2.0 (ADR-0028, Sprint 15) ---
+# Full-text-vs-full-text comparison, the same methodology as the C2M2/
+# NIST and NERC CIP/C2M2 pairings above (NOT the weaker title-or-
+# statement-only comparison the ISO 27001/SOC 2/PCI DSS pairings had to
+# use) - both frameworks' sides are the real, complete subcategory/Part
+# text, since both were already fully transcribed (ADR-0010, ADR-0022)
+# before this review began.
+#
+# 107 of 141 NERC CIP practices have a reviewed NIST CSF 2.0 equivalent
+# below - the highest hit rate of any pairing reviewed for NERC CIP so
+# far (compare: ISO 27001 95/141, CIS Controls 84/141, PCI DSS 80/141,
+# SOC 2 60/141), because NIST CSF 2.0's six functions (Govern, Identify,
+# Protect, Detect, Respond, Recover) collectively span a genuinely
+# comprehensive range of cybersecurity activity, closely matching NERC
+# CIP's own broad technical and organizational scope even at the full-
+# text level - the same "comprehensive framework finds more real
+# matches" pattern the original NIST CSF 2.0 <-> C2M2 pairing (ADR-0019)
+# established.
+#
+# The remaining 34 were reviewed and NOT included, each for a real,
+# disclosed reason:
+# - CIP-002's impact-categorization concept and CIP-003's CIP-Senior-
+#   Manager/delegation concepts have no NIST CSF 2.0 analogue - the same
+#   gap found in every other pairing reviewed for NERC CIP.
+# - CIP-007's forced-password-rotation-cadence part (5.6) and
+#   unsuccessful-authentication-attempt-limiting part (5.7) have no
+#   NIST CSF 2.0 subcategory at this level of specificity - the same
+#   gap already found for CIS Controls/SOC 2/PCI DSS (current best-
+#   practice guidance has moved away from mandatory password rotation,
+#   and NIST CSF 2.0's PR.AA series does not name a specific lockout-
+#   threshold mechanism).
+# - CIP-011's BCSI-reuse and BCSI-disposal parts (2.1, 2.2) have no
+#   NIST CSF 2.0 analogue - NIST CSF 2.0 does not have an explicit
+#   media-sanitization/data-disposal subcategory at this granularity
+#   (unlike, for example, CIS Controls' 3.5 or SOC 2's C1.2), a genuine
+#   gap confirmed by direct search of the source text.
+# - CIP-014 (physical Transmission station risk assessment) again
+#   overlaps least of any standard, the pattern every prior pairing has
+#   found - only 4 of its 27 parts matched, and even those (2.4/6.4's
+#   NDA-confidentiality parts, 4.3's threat-intelligence part, 5.1's
+#   resiliency-measures part) are the same generic-enough-to-transfer
+#   concepts every other pairing's CIP-014 matches have been.
+#
+# Several accepted entries were found by directly searching NIST CSF
+# 2.0's real transcribed text for a concept the embedding's top-3
+# candidates missed entirely - the same "human review adds value
+# beyond the ranking" pattern ADR-0019 established for the original
+# NIST CSF 2.0 <-> C2M2 pairing, recurring here because NERC's
+# regulatory vocabulary ("Electronic Security Perimeter," "unaffiliated
+# verifying entity," "personnel risk assessment") differs enough from
+# NIST's own vocabulary ("protected from unauthorized logical access,"
+# "identities are proofed") that the embedding under-ranked several
+# genuinely strong matches (e.g. CIP-004's personnel-risk-assessment
+# parts matched to PR.AA-02's identity-proofing subcategory, which
+# never appeared in the embedding's own top-3 for those parts).
+#
+# As with every other pairing, several NERC CIP parts share the same
+# NIST CSF 2.0 subcategory as another part of the same standard (e.g.
+# CIP-009's backup-testing parts 1.3/1.4/2.2 all point to PR.DS-11, and
+# CIP-013's supply-chain parts 2/3 both point to GV.SC-01) - this
+# reflects NIST CSF 2.0 being genuinely coarser-grained than NERC CIP
+# in these areas, not a duplication error.
+
+- framework_a: NERC CIP
+  practice_a_id: CIP-004-1.1
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.AT-01
+  similarity: 0.746
+  rationale: Security awareness that reinforces cyber security practices is precisely what PR.AT-01's
+    general workforce awareness and training requirement covers.
+- framework_a: NERC CIP
+  practice_a_id: CIP-004-2.1
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.AT-01
+  similarity: 0.55
+  rationale: The required training-content topics are the substance a general awareness and training program
+    (PR.AT-01) is built to deliver.
+- framework_a: NERC CIP
+  practice_a_id: CIP-004-3.1
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.AA-02
+  similarity: 0.758
+  rationale: A process to confirm identity is precisely what PR.AA-02's identity-proofing requirement
+    describes.
+- framework_a: NERC CIP
+  practice_a_id: CIP-004-3.2
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.AA-02
+  similarity: 0.55
+  rationale: Performing a criminal history records check as part of a personnel risk assessment is a form
+    of the same identity-proofing activity PR.AA-02 requires.
+- framework_a: NERC CIP
+  practice_a_id: CIP-004-3.3
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.AA-02
+  similarity: 0.55
+  rationale: Evaluating criminal history records checks for authorizing access is part of the same identity-proofing
+    process PR.AA-02 requires.
+- framework_a: NERC CIP
+  practice_a_id: CIP-004-3.4
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.AA-02
+  similarity: 0.55
+  rationale: Verifying that personnel risk assessments were conducted for contractors and vendors is the
+    same identity-proofing concept PR.AA-02 requires, extended to third parties.
+- framework_a: NERC CIP
+  practice_a_id: CIP-004-3.5
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.AA-02
+  similarity: 0.55
+  rationale: Ensuring personnel risk assessments remain current for those with authorized access is the
+    same identity-proofing activity PR.AA-02 requires.
+- framework_a: NERC CIP
+  practice_a_id: CIP-004-4.1
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.AA-05
+  similarity: 0.55
+  rationale: Authorizing electronic and physical access based on need is precisely what PR.AA-05's least-privilege
+    access-permission requirement covers.
+- framework_a: NERC CIP
+  practice_a_id: CIP-004-4.2
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.AA-05
+  similarity: 0.55
+  rationale: Verifying quarterly that access authorization records exist is part of the same access-permissions-reviewed
+    activity PR.AA-05 requires.
+- framework_a: NERC CIP
+  practice_a_id: CIP-004-4.3
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.AA-05
+  similarity: 0.55
+  rationale: Verifying periodically that user privileges are correct and necessary is the same access-review
+    activity as CIP-004-4.2, matching PR.AA-05.
+- framework_a: NERC CIP
+  practice_a_id: CIP-004-5.1
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.AA-01
+  similarity: 0.55
+  rationale: Removing access ability upon termination is part of the same identity/credential-lifecycle
+    management PR.AA-01 requires.
+- framework_a: NERC CIP
+  practice_a_id: CIP-004-5.2
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.AA-01
+  similarity: 0.55
+  rationale: Revoking no-longer-needed access after a reassignment is the same identity/credential-management
+    concept as CIP-004-5.1, matching PR.AA-01.
+- framework_a: NERC CIP
+  practice_a_id: CIP-004-5.3
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.AA-01
+  similarity: 0.55
+  rationale: Revoking non-shared accounts after termination is the same identity/credential-lifecycle
+    management PR.AA-01 requires.
+- framework_a: NERC CIP
+  practice_a_id: CIP-004-5.4
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.AA-01
+  similarity: 0.55
+  rationale: Rotating a shared account's password after personnel departure is a form of the same credential-management
+    discipline PR.AA-01 requires.
+- framework_a: NERC CIP
+  practice_a_id: CIP-004-6.1
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.AA-05
+  similarity: 0.55
+  rationale: Authorizing provisioned BCSI access based on need is the same least-privilege access-permission
+    concept as CIP-004-4.1, matching PR.AA-05.
+- framework_a: NERC CIP
+  practice_a_id: CIP-004-6.2
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.AA-05
+  similarity: 0.55
+  rationale: Verifying that provisioned BCSI access is still authorized and needed is the same access-review
+    activity PR.AA-05 requires.
+- framework_a: NERC CIP
+  practice_a_id: CIP-004-6.3
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.AA-01
+  similarity: 0.55
+  rationale: Removing BCSI access after termination is the same identity/credential-lifecycle management
+    PR.AA-01 requires.
+- framework_a: NERC CIP
+  practice_a_id: CIP-005-1.1
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.IR-01
+  similarity: 0.55
+  rationale: Requiring Cyber Assets to reside within a defined Electronic Security Perimeter is precisely
+    what PR.IR-01's network-boundary-protection requirement covers.
+- framework_a: NERC CIP
+  practice_a_id: CIP-005-1.2
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.IR-01
+  similarity: 0.55
+  rationale: Requiring external connectivity through an identified access point is the same network-boundary-protection
+    concept as CIP-005-1.1, matching PR.IR-01.
+- framework_a: NERC CIP
+  practice_a_id: CIP-005-1.3
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.IR-01
+  similarity: 0.688
+  rationale: Denying all access by default and permitting only authorized traffic is the same network-protection-from-unauthorized-access
+    discipline PR.IR-01 requires.
+- framework_a: NERC CIP
+  practice_a_id: CIP-005-1.4
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.AA-03
+  similarity: 0.728
+  rationale: Requiring authentication for dial-up connectivity is precisely what PR.AA-03's user/service/hardware
+    authentication requirement covers.
+- framework_a: NERC CIP
+  practice_a_id: CIP-005-1.5
+  framework_b: NIST CSF 2.0
+  practice_b_id: DE.CM-01
+  similarity: 0.687
+  rationale: Detecting known or suspected malicious communications is the same network-monitoring-for-adverse-events
+    activity DE.CM-01 requires.
+- framework_a: NERC CIP
+  practice_a_id: CIP-005-2.1
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.IR-01
+  similarity: 0.55
+  rationale: Routing remote access through an Intermediate System rather than direct access is the same
+    network-boundary-protection concept PR.IR-01 describes.
+- framework_a: NERC CIP
+  practice_a_id: CIP-005-2.2
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.DS-02
+  similarity: 0.55
+  rationale: Encrypting remote access sessions is precisely what PR.DS-02's data-in-transit protection
+    requirement covers.
+- framework_a: NERC CIP
+  practice_a_id: CIP-005-2.3
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.AA-03
+  similarity: 0.732
+  rationale: Requiring MFA for all Interactive Remote Access sessions is precisely what PR.AA-03's authentication
+    requirement covers.
+- framework_a: NERC CIP
+  practice_a_id: CIP-005-2.4
+  framework_b: NIST CSF 2.0
+  practice_b_id: DE.CM-06
+  similarity: 0.662
+  rationale: Determining active vendor remote access sessions is precisely what DE.CM-06's external-service-provider
+    monitoring requirement covers.
+- framework_a: NERC CIP
+  practice_a_id: CIP-005-2.5
+  framework_b: NIST CSF 2.0
+  practice_b_id: DE.CM-06
+  similarity: 0.55
+  rationale: Disabling vendor remote access is part of the same external-service-provider-activity monitoring
+    and control DE.CM-06 requires.
+- framework_a: NERC CIP
+  practice_a_id: CIP-005-3.1
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.AA-03
+  similarity: 0.735
+  rationale: Determining authenticated vendor-initiated remote connections is the same authentication
+    activity PR.AA-03 requires.
+- framework_a: NERC CIP
+  practice_a_id: CIP-005-3.2
+  framework_b: NIST CSF 2.0
+  practice_b_id: DE.CM-06
+  similarity: 0.55
+  rationale: Terminating vendor-initiated remote connections and controlling reconnection is the same
+    external-service-provider monitoring and control concept DE.CM-06 describes.
+- framework_a: NERC CIP
+  practice_a_id: CIP-006-1.1
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.AA-06
+  similarity: 0.718
+  rationale: Defining controls to restrict physical access is precisely what PR.AA-06's physical-access-management
+    requirement covers.
+- framework_a: NERC CIP
+  practice_a_id: CIP-006-1.2
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.AA-06
+  similarity: 0.688
+  rationale: Utilizing a physical access control to allow only authorized individuals is the same physical-access-management
+    concept as CIP-006-1.1, matching PR.AA-06.
+- framework_a: NERC CIP
+  practice_a_id: CIP-006-1.3
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.AA-06
+  similarity: 0.685
+  rationale: Utilizing multiple physical access controls is the same physical-access-management concept
+    PR.AA-06 describes.
+- framework_a: NERC CIP
+  practice_a_id: CIP-006-1.4
+  framework_b: NIST CSF 2.0
+  practice_b_id: DE.CM-02
+  similarity: 0.55
+  rationale: Monitoring for unauthorized physical access is precisely what DE.CM-02's physical-environment
+    monitoring requirement covers.
+- framework_a: NERC CIP
+  practice_a_id: CIP-006-1.5
+  framework_b: NIST CSF 2.0
+  practice_b_id: DE.CM-02
+  similarity: 0.55
+  rationale: Issuing an alarm in response to detected unauthorized physical access is part of the same
+    physical-environment monitoring activity DE.CM-02 requires.
+- framework_a: NERC CIP
+  practice_a_id: CIP-006-1.6
+  framework_b: NIST CSF 2.0
+  practice_b_id: DE.CM-02
+  similarity: 0.55
+  rationale: Monitoring the Physical Access Control System itself is the same physical-environment monitoring
+    activity as CIP-006-1.4, matching DE.CM-02.
+- framework_a: NERC CIP
+  practice_a_id: CIP-006-1.7
+  framework_b: NIST CSF 2.0
+  practice_b_id: DE.CM-02
+  similarity: 0.55
+  rationale: Issuing an alarm for unauthorized access to the Physical Access Control System is the same
+    physical-environment monitoring concept DE.CM-02 describes.
+- framework_a: NERC CIP
+  practice_a_id: CIP-006-1.8
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.PS-04
+  similarity: 0.657
+  rationale: Logging physical entry with identifying information is precisely what PR.PS-04's log-record-generation
+    requirement covers.
+- framework_a: NERC CIP
+  practice_a_id: CIP-006-1.9
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.PS-04
+  similarity: 0.658
+  rationale: Retaining physical access logs is part of the same log-availability requirement PR.PS-04
+    describes.
+- framework_a: NERC CIP
+  practice_a_id: CIP-006-1.10
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.AA-06
+  similarity: 0.55
+  rationale: Restricting physical access to cabling within facilities is part of the same physical-access-management
+    concept PR.AA-06 requires.
+- framework_a: NERC CIP
+  practice_a_id: CIP-006-2.1
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.AA-06
+  similarity: 0.667
+  rationale: Requiring escorted access for visitors without authorized unescorted access is the same physical-access-management
+    concept PR.AA-06 describes.
+- framework_a: NERC CIP
+  practice_a_id: CIP-006-2.2
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.PS-04
+  similarity: 0.55
+  rationale: Logging visitor entry and exit is part of the same log-record-generation requirement PR.PS-04
+    covers.
+- framework_a: NERC CIP
+  practice_a_id: CIP-006-2.3
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.PS-04
+  similarity: 0.757
+  rationale: Retaining visitor logs is precisely what PR.PS-04's log-availability requirement covers.
+- framework_a: NERC CIP
+  practice_a_id: CIP-006-3.1
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.PS-03
+  similarity: 0.648
+  rationale: Maintaining and testing physical access control hardware is precisely what PR.PS-03's hardware-maintenance
+    requirement covers.
+- framework_a: NERC CIP
+  practice_a_id: CIP-007-1.1
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.IR-01
+  similarity: 0.687
+  rationale: Enabling only needed logical network ports is the same network-protection-from-unauthorized-access
+    concept PR.IR-01 describes.
+- framework_a: NERC CIP
+  practice_a_id: CIP-007-1.2
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.IR-01
+  similarity: 0.714
+  rationale: Protecting against unnecessary physical I/O ports used for network connectivity is part of
+    the same network-protection concept PR.IR-01 covers.
+- framework_a: NERC CIP
+  practice_a_id: CIP-007-2.1
+  framework_b: NIST CSF 2.0
+  practice_b_id: ID.RA-01
+  similarity: 0.55
+  rationale: Maintaining a patch management process is part of the same vulnerability-identification-and-tracking
+    activity ID.RA-01 requires.
+- framework_a: NERC CIP
+  practice_a_id: CIP-007-2.2
+  framework_b: NIST CSF 2.0
+  practice_b_id: ID.RA-01
+  similarity: 0.55
+  rationale: Evaluating released security patches for applicability on a defined cadence is the same vulnerability-tracking
+    activity as CIP-007-2.1, matching ID.RA-01.
+- framework_a: NERC CIP
+  practice_a_id: CIP-007-2.3
+  framework_b: NIST CSF 2.0
+  practice_b_id: ID.RA-08
+  similarity: 0.665
+  rationale: Applying patches or creating a mitigation plan is precisely what ID.RA-08's vulnerability-response
+    process requirement covers.
+- framework_a: NERC CIP
+  practice_a_id: CIP-007-3.1
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.PS-05
+  similarity: 0.696
+  rationale: Deploying methods to deter, detect, or prevent malicious code is precisely what PR.PS-05's
+    unauthorized-software-prevention requirement covers.
+- framework_a: NERC CIP
+  practice_a_id: CIP-007-3.2
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.PS-05
+  similarity: 0.757
+  rationale: Mitigating the threat of detected malicious code is the same unauthorized-software concept
+    PR.PS-05 describes.
+- framework_a: NERC CIP
+  practice_a_id: CIP-007-3.3
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.PS-05
+  similarity: 0.55
+  rationale: Maintaining a process to update malicious-code signatures is part of the same anti-malware-mechanism-maintenance
+    activity PR.PS-05 requires.
+- framework_a: NERC CIP
+  practice_a_id: CIP-007-4.1
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.PS-04
+  similarity: 0.55
+  rationale: Logging specific security-relevant event types is precisely what PR.PS-04's log-record-generation
+    requirement covers.
+- framework_a: NERC CIP
+  practice_a_id: CIP-007-4.2
+  framework_b: NIST CSF 2.0
+  practice_b_id: DE.AE-08
+  similarity: 0.708
+  rationale: Generating alerts for determined security events is precisely what DE.AE-08's incident-declaration-criteria
+    requirement covers.
+- framework_a: NERC CIP
+  practice_a_id: CIP-007-4.3
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.PS-04
+  similarity: 0.703
+  rationale: Retaining event logs for a minimum period is precisely what PR.PS-04's log-availability requirement
+    covers.
+- framework_a: NERC CIP
+  practice_a_id: CIP-007-4.4
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.PS-04
+  similarity: 0.699
+  rationale: Reviewing logged events at a defined interval to identify undetected incidents is part of
+    the same log-monitoring activity PR.PS-04 requires.
+- framework_a: NERC CIP
+  practice_a_id: CIP-007-5.1
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.AA-03
+  similarity: 0.738
+  rationale: Enforcing authentication of interactive user access is precisely what PR.AA-03's authentication
+    requirement covers.
+- framework_a: NERC CIP
+  practice_a_id: CIP-007-5.2
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.AA-01
+  similarity: 0.55
+  rationale: Identifying and inventorying default account types is part of the same identity/credential-management
+    activity PR.AA-01 requires.
+- framework_a: NERC CIP
+  practice_a_id: CIP-007-5.3
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.AA-01
+  similarity: 0.733
+  rationale: Identifying individuals authorized to use shared accounts is precisely what PR.AA-01's identity-and-credential-management
+    requirement covers.
+- framework_a: NERC CIP
+  practice_a_id: CIP-007-5.4
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.AA-01
+  similarity: 0.658
+  rationale: Changing known default passwords is part of the same credential-management discipline PR.AA-01
+    requires.
+- framework_a: NERC CIP
+  practice_a_id: CIP-007-5.5
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.AA-02
+  similarity: 0.657
+  rationale: The minimum password length and complexity parameters specified are part of the same credential-strength
+    concept PR.AA-02's identity-proofing-and-binding requirement covers.
+- framework_a: NERC CIP
+  practice_a_id: CIP-008-1.1
+  framework_b: NIST CSF 2.0
+  practice_b_id: DE.AE-08
+  similarity: 0.55
+  rationale: Maintaining processes to identify, classify, and respond to Cyber Security Incidents is precisely
+    what DE.AE-08's incident-declaration-criteria requirement covers.
+- framework_a: NERC CIP
+  practice_a_id: CIP-008-1.2
+  framework_b: NIST CSF 2.0
+  practice_b_id: DE.AE-08
+  similarity: 0.733
+  rationale: Defining criteria to evaluate and classify compromise attempts is the same incident-declaration-criteria
+    concept as CIP-008-1.1, matching DE.AE-08.
+- framework_a: NERC CIP
+  practice_a_id: CIP-008-1.3
+  framework_b: NIST CSF 2.0
+  practice_b_id: GV.RR-02
+  similarity: 0.55
+  rationale: Defining the roles and responsibilities of incident response groups is precisely what GV.RR-02's
+    cybersecurity-role-assignment requirement covers.
+- framework_a: NERC CIP
+  practice_a_id: CIP-008-1.4
+  framework_b: NIST CSF 2.0
+  practice_b_id: ID.IM-04
+  similarity: 0.55
+  rationale: Incident handling procedures are precisely the cybersecurity plans ID.IM-04 requires be established,
+    communicated, and maintained.
+- framework_a: NERC CIP
+  practice_a_id: CIP-008-2.1
+  framework_b: NIST CSF 2.0
+  practice_b_id: ID.IM-04
+  similarity: 0.712
+  rationale: Testing the incident response plan is part of the same plan-maintenance-and-improvement activity
+    ID.IM-04 requires.
+- framework_a: NERC CIP
+  practice_a_id: CIP-008-2.2
+  framework_b: NIST CSF 2.0
+  practice_b_id: RS.MA-01
+  similarity: 0.716
+  rationale: Using the incident response plan when responding to an actual incident is precisely what
+    RS.MA-01's plan-execution requirement covers.
+- framework_a: NERC CIP
+  practice_a_id: CIP-008-2.3
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.PS-04
+  similarity: 0.55
+  rationale: Retaining records related to security incidents is the same log/record-availability requirement
+    PR.PS-04 covers.
+- framework_a: NERC CIP
+  practice_a_id: CIP-008-3.1
+  framework_b: NIST CSF 2.0
+  practice_b_id: ID.IM-02
+  similarity: 0.55
+  rationale: Documenting lessons learned after a test or actual incident is precisely what ID.IM-02's
+    improvements-from-security-tests-and-exercises requirement covers.
+- framework_a: NERC CIP
+  practice_a_id: CIP-008-3.2
+  framework_b: NIST CSF 2.0
+  practice_b_id: ID.IM-04
+  similarity: 0.734
+  rationale: Updating the incident response plan after a significant change is part of the same plan-maintenance-and-improvement
+    activity ID.IM-04 requires.
+- framework_a: NERC CIP
+  practice_a_id: CIP-008-4.1
+  framework_b: NIST CSF 2.0
+  practice_b_id: RS.MA-03
+  similarity: 0.684
+  rationale: Including functional-impact, attack-vector, and intrusion-level attributes in a notification
+    is part of the same incident-categorization-and-prioritization activity RS.MA-03 requires.
+- framework_a: NERC CIP
+  practice_a_id: CIP-008-4.2
+  framework_b: NIST CSF 2.0
+  practice_b_id: RS.CO-02
+  similarity: 0.731
+  rationale: Providing initial incident notification within defined timelines is precisely what RS.CO-02's
+    stakeholder-notification requirement covers.
+- framework_a: NERC CIP
+  practice_a_id: CIP-008-4.3
+  framework_b: NIST CSF 2.0
+  practice_b_id: RS.CO-02
+  similarity: 0.55
+  rationale: Providing updated notifications with new incident information is the same stakeholder-notification
+    activity as CIP-008-4.2, matching RS.CO-02.
+- framework_a: NERC CIP
+  practice_a_id: CIP-009-1.1
+  framework_b: NIST CSF 2.0
+  practice_b_id: RS.MA-05
+  similarity: 0.802
+  rationale: Defining conditions for recovery plan activation is precisely what RS.MA-05's incident-recovery-initiation-criteria
+    requirement covers.
+- framework_a: NERC CIP
+  practice_a_id: CIP-009-1.2
+  framework_b: NIST CSF 2.0
+  practice_b_id: GV.RR-02
+  similarity: 0.55
+  rationale: Defining the roles and responsibilities of recovery-plan responders is the same cybersecurity-role-assignment
+    concept as CIP-008-1.3, matching GV.RR-02.
+- framework_a: NERC CIP
+  practice_a_id: CIP-009-1.3
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.DS-11
+  similarity: 0.752
+  rationale: Maintaining a process for backup and storage of recovery information is precisely what PR.DS-11's
+    backup-creation-and-maintenance requirement covers.
+- framework_a: NERC CIP
+  practice_a_id: CIP-009-1.4
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.DS-11
+  similarity: 0.736
+  rationale: Verifying successful completion of backup processes and addressing failures is the same backup-testing
+    concept PR.DS-11 describes.
+- framework_a: NERC CIP
+  practice_a_id: CIP-009-1.5
+  framework_b: NIST CSF 2.0
+  practice_b_id: RS.AN-06
+  similarity: 0.55
+  rationale: Preserving data for incident-cause determination is precisely what RS.AN-06's investigation-record-integrity-preservation
+    requirement covers.
+- framework_a: NERC CIP
+  practice_a_id: CIP-009-2.1
+  framework_b: NIST CSF 2.0
+  practice_b_id: RS.MA-05
+  similarity: 0.721
+  rationale: Testing the recovery plan on a defined cadence is part of the same recovery-initiation-criteria-application
+    activity RS.MA-05 requires.
+- framework_a: NERC CIP
+  practice_a_id: CIP-009-2.2
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.DS-11
+  similarity: 0.657
+  rationale: Testing a representative sample of recovery information is the same backup-testing concept
+    as CIP-009-1.4, matching PR.DS-11.
+- framework_a: NERC CIP
+  practice_a_id: CIP-009-2.3
+  framework_b: NIST CSF 2.0
+  practice_b_id: RC.RP-01
+  similarity: 0.701
+  rationale: Testing recovery plans through a full operational exercise is precisely what RC.RP-01's recovery-plan-execution
+    requirement covers.
+- framework_a: NERC CIP
+  practice_a_id: CIP-009-3.1
+  framework_b: NIST CSF 2.0
+  practice_b_id: ID.IM-01
+  similarity: 0.55
+  rationale: Documenting lessons learned after a recovery plan test is precisely what ID.IM-01's improvements-from-evaluations
+    requirement covers.
+- framework_a: NERC CIP
+  practice_a_id: CIP-009-3.2
+  framework_b: NIST CSF 2.0
+  practice_b_id: RC.RP-01
+  similarity: 0.703
+  rationale: Updating the recovery plan after a change to roles or technology is part of the same recovery-plan-execution-and-maintenance
+    activity RC.RP-01 requires.
+- framework_a: NERC CIP
+  practice_a_id: CIP-010-1.1
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.PS-01
+  similarity: 0.709
+  rationale: Developing a documented baseline configuration is precisely what PR.PS-01's configuration-management-practices
+    requirement covers.
+- framework_a: NERC CIP
+  practice_a_id: CIP-010-1.2
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.PS-01
+  similarity: 0.684
+  rationale: Authorizing and documenting deviations from the baseline configuration is part of the same
+    configuration-management-practices concept PR.PS-01 requires.
+- framework_a: NERC CIP
+  practice_a_id: CIP-010-1.3
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.PS-01
+  similarity: 0.597
+  rationale: Updating the baseline configuration after an authorized change is part of the same configuration-management
+    process as CIP-010-1.1/1.2, matching PR.PS-01.
+- framework_a: NERC CIP
+  practice_a_id: CIP-010-1.4
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.PS-01
+  similarity: 0.55
+  rationale: Verifying that a change does not adversely affect required security controls is part of the
+    same configuration-management discipline PR.PS-01 requires.
+- framework_a: NERC CIP
+  practice_a_id: CIP-010-1.5
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.PS-01
+  similarity: 0.55
+  rationale: Testing changes before implementing them in production is part of the same configuration-management-practices
+    concept PR.PS-01 describes.
+- framework_a: NERC CIP
+  practice_a_id: CIP-010-1.6
+  framework_b: NIST CSF 2.0
+  practice_b_id: ID.RA-09
+  similarity: 0.721
+  rationale: Verifying the identity and integrity of a software source is precisely what ID.RA-09's software-authenticity-and-integrity-assessment
+    requirement covers.
+- framework_a: NERC CIP
+  practice_a_id: CIP-010-2.1
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.PS-01
+  similarity: 0.622
+  rationale: Monitoring for unauthorized baseline changes is part of the same configuration-management-practices
+    activity PR.PS-01 requires.
+- framework_a: NERC CIP
+  practice_a_id: CIP-010-3.1
+  framework_b: NIST CSF 2.0
+  practice_b_id: ID.RA-08
+  similarity: 0.672
+  rationale: Conducting a vulnerability assessment is part of the same vulnerability-response-process
+    activity ID.RA-08 requires.
+- framework_a: NERC CIP
+  practice_a_id: CIP-010-3.2
+  framework_b: NIST CSF 2.0
+  practice_b_id: ID.RA-01
+  similarity: 0.55
+  rationale: Performing an active vulnerability assessment in a test or production environment is precisely
+    what ID.RA-01's vulnerability-identification-and-validation requirement covers.
+- framework_a: NERC CIP
+  practice_a_id: CIP-010-3.3
+  framework_b: NIST CSF 2.0
+  practice_b_id: ID.RA-01
+  similarity: 0.686
+  rationale: Performing a vulnerability assessment before adding a new Cyber Asset to production is the
+    same vulnerability-identification activity as CIP-010-3.2, matching ID.RA-01.
+- framework_a: NERC CIP
+  practice_a_id: CIP-010-3.4
+  framework_b: NIST CSF 2.0
+  practice_b_id: ID.RA-06
+  similarity: 0.55
+  rationale: Documenting assessment results and a remediation action plan is precisely what ID.RA-06's
+    risk-response-planning-and-tracking requirement covers.
+- framework_a: NERC CIP
+  practice_a_id: CIP-010-4
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.PS-05
+  similarity: 0.55
+  rationale: Implementing a plan for Transient Cyber Assets and Removable Media malicious-code risk mitigation
+    is the same unauthorized-software-prevention concept PR.PS-05 requires.
+- framework_a: NERC CIP
+  practice_a_id: CIP-011-1.1
+  framework_b: NIST CSF 2.0
+  practice_b_id: ID.AM-07
+  similarity: 0.55
+  rationale: Establishing methods to identify BES Cyber System Information is precisely what ID.AM-07's
+    data-and-metadata-inventory requirement covers.
+- framework_a: NERC CIP
+  practice_a_id: CIP-011-1.2
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.DS-01
+  similarity: 0.724
+  rationale: Protecting and securely handling BCSI to mitigate confidentiality risk is precisely what
+    PR.DS-01's data-at-rest protection requirement covers.
+- framework_a: NERC CIP
+  practice_a_id: CIP-012-1.1
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.DS-02
+  similarity: 0.55
+  rationale: Mitigating the risk of unauthorized disclosure or modification of Real-time data in transit
+    is precisely what PR.DS-02's data-in-transit protection requirement covers.
+- framework_a: NERC CIP
+  practice_a_id: CIP-012-1.2
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.IR-04
+  similarity: 0.55
+  rationale: Mitigating the risk of losing the ability to communicate between Control Centers is precisely
+    what PR.IR-04's resource-capacity-for-availability requirement covers.
+- framework_a: NERC CIP
+  practice_a_id: CIP-012-1.3
+  framework_b: NIST CSF 2.0
+  practice_b_id: RC.RP-02
+  similarity: 0.55
+  rationale: Recovering communication links used to transmit Real-time data is precisely what RC.RP-02's
+    recovery-actions requirement covers.
+- framework_a: NERC CIP
+  practice_a_id: CIP-013-1.1
+  framework_b: NIST CSF 2.0
+  practice_b_id: GV.SC-03
+  similarity: 0.739
+  rationale: Assessing cyber security risk from vendor products, services, and vendor transitions is precisely
+    what GV.SC-03's supply-chain-risk-management-integration requirement covers.
+- framework_a: NERC CIP
+  practice_a_id: CIP-013-1.2
+  framework_b: NIST CSF 2.0
+  practice_b_id: GV.SC-05
+  similarity: 0.55
+  rationale: Requiring vendor incident notification, remote-access controls, and vulnerability disclosure
+    is precisely what GV.SC-05's supply-chain-contractual-requirements covers.
+- framework_a: NERC CIP
+  practice_a_id: CIP-013-2
+  framework_b: NIST CSF 2.0
+  practice_b_id: GV.SC-01
+  similarity: 0.809
+  rationale: Implementing the supply chain cyber security risk management plan is precisely what GV.SC-01's
+    supply-chain-risk-management-program requirement covers.
+- framework_a: NERC CIP
+  practice_a_id: CIP-013-3
+  framework_b: NIST CSF 2.0
+  practice_b_id: GV.SC-01
+  similarity: 0.742
+  rationale: Reviewing and approving the supply chain risk management plan on a recurring cadence is the
+    same supply-chain-risk-management-program concept as CIP-013-2, matching GV.SC-01.
+- framework_a: NERC CIP
+  practice_a_id: CIP-014-2.4
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.DS-02
+  similarity: 0.732
+  rationale: Using non-disclosure agreements to protect sensitive information shared with a third-party
+    verifier is a confidentiality-protection mechanism, the same concept PR.DS-02's data protection requirement
+    describes.
+- framework_a: NERC CIP
+  practice_a_id: CIP-014-4.3
+  framework_b: NIST CSF 2.0
+  practice_b_id: ID.RA-03
+  similarity: 0.709
+  rationale: Receiving intelligence and threat warnings from external sources is precisely what ID.RA-03's
+    internal-and-external-threat-identification requirement covers.
+- framework_a: NERC CIP
+  practice_a_id: CIP-014-5.1
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.IR-03
+  similarity: 0.759
+  rationale: Resiliency measures designed to deter, detect, delay, assess, communicate, and respond to
+    physical threats are precisely what PR.IR-03's resilience-mechanism requirement covers.
+- framework_a: NERC CIP
+  practice_a_id: CIP-014-6.4
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.DS-02
+  similarity: 0.71
+  rationale: Using non-disclosure agreements to protect sensitive information shared with a reviewer is
+    the same confidentiality-protection concept as CIP-014-2.4, matching PR.DS-02.

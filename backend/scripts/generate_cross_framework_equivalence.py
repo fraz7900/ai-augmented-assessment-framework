@@ -22,21 +22,22 @@ where [pair] is "nist" (NIST CSF 2.0 reviewed against C2M2, ADR-0019,
 the default), "nerc" (NERC CIP reviewed against C2M2, ADR-0023), "iso"
 (NERC CIP reviewed against ISO 27001, ADR-0024), "cis" (NERC CIP
 reviewed against CIS Controls v8, ADR-0025), "soc2" (NERC CIP reviewed
-against SOC 2, ADR-0026), or "pci" (NERC CIP reviewed against PCI DSS
-v4.0.1, ADR-0027). The "iso", "soc2", and "pci" pairs are
-methodologically weaker than the others: ISO 27001's side is a short
-official control TITLE only, SOC 2's side is a short official
-criterion STATEMENT only, and PCI DSS's side is a Section-level
-STATEMENT only (see generate_iso_27001_yaml.py's, generate_soc2_yaml.py's,
-and generate_pci_dss_yaml.py's module docstrings — the full requirement/
+against SOC 2, ADR-0026), "pci" (NERC CIP reviewed against PCI DSS
+v4.0.1, ADR-0027), or "nerc-nist" (NERC CIP reviewed against NIST CSF
+2.0, ADR-0028). The "iso", "soc2", and "pci" pairs are methodologically
+weaker than the others: ISO 27001's side is a short official control
+TITLE only, SOC 2's side is a short official criterion STATEMENT only,
+and PCI DSS's side is a Section-level STATEMENT only (see
+generate_iso_27001_yaml.py's, generate_soc2_yaml.py's, and
+generate_pci_dss_yaml.py's module docstrings — the full requirement/
 points-of-focus/testing-procedure text is copyrighted, all-rights-
 reserved content not available to this project to reproduce), so these
 candidate lists are a title-or-statement-vs-full-text comparison, not
 the full-text-vs-full-text comparison every other pairing uses. Treat
 their candidates with correspondingly more skepticism during review.
-The "cis" pair does not have this weakness — CIS Controls v8's side is
-full official Safeguard text, the same full-text-vs-full-text
-comparison as "nist"/"nerc".
+The "cis" and "nerc-nist" pairs do not have this weakness — both
+frameworks' sides are full official text, the same full-text-vs-full-
+text comparison as "nist"/"nerc".
 """
 
 from __future__ import annotations
@@ -120,8 +121,16 @@ def main() -> None:
         pci = registry.require("PCI DSS")
         pci_practices = [practice for domain in pci.domains for practice in domain.all_practices()]
         _print_top3_candidates(nerc_practices, "NERC CIP", pci_practices, "PCI DSS", embedder)
+    elif pair == "nerc-nist":
+        nerc = registry.require("NERC CIP")
+        nerc_practices = [practice for domain in nerc.domains for practice in domain.all_practices()]
+        nist = registry.require("NIST CSF 2.0")
+        nist_practices = [practice for domain in nist.domains for practice in domain.all_practices()]
+        _print_top3_candidates(nerc_practices, "NERC CIP", nist_practices, "NIST CSF 2.0", embedder)
     else:
-        raise SystemExit(f"Unknown pair {pair!r} — expected 'nist', 'nerc', 'iso', 'cis', 'soc2', or 'pci'.")
+        raise SystemExit(
+            f"Unknown pair {pair!r} — expected 'nist', 'nerc', 'iso', 'cis', 'soc2', 'pci', or 'nerc-nist'."
+        )
 
 
 if __name__ == "__main__":
