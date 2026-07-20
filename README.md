@@ -101,6 +101,30 @@ changes. 204 backend tests passing (8 new, 4 fixed for a stale "CIS Controls = u
 naming collision the ISO 27001 work had itself introduced). See
 `docs/adr/ADR-0025-cis-controls-full-transcription-and-equivalence.md`.
 
+**Sprint 13: SOC 2 added — criterion-statement-only, the same treatment as ISO 27001.**
+Before writing any code, confirmed directly that the AICPA's Trust Services Criteria (TSC) — the
+real control criteria a SOC 2 report is assessed against — is copyrighted, all-rights-reserved
+content (the source PDF's own final page states this explicitly), **even though the document
+itself is freely downloadable at no cost**: "free to download" and "licensed for reproduction" are
+different questions, and only the second one determines transcription scope. Rather than asking the
+project owner the same question a second time, this ADR applied ISO 27001's already-established
+answer (ADR-0024) directly: all 5 Trust Services Categories and all 61 real criterion **statements**
+were transcribed (`framework_mapping/soc2_tsc.yaml`), never the much longer "points of focus"
+elaboration every criterion also has in the real document, which remains AICPA's all-rights-reserved
+copyrighted content. `Practice.applicability` distinguishes the 33 Common Criteria (required in
+every SOC 2 report) from the 28 additional category-specific criteria (required only when that
+category is in scope) — a genuine reuse of the field ADR-0021/ADR-0025 already introduced, with zero
+further schema changes. NERC CIP↔SOC 2 cross-framework equivalence was then built too (60 of 141
+NERC CIP practices), explicitly disclosed as methodologically weaker than the C2M2/NIST/CIS Controls
+pairings — several NERC concepts (personnel screening, patch management, password rotation, general
+log retention) have no match because they're only covered in SOC 2's points of focus, out of scope
+here. Notably, SOC 2's Common Criteria explicitly cover physical access control, giving CIP-006
+(Physical Security) a stronger match here than in the CIS Controls pairing — bringing NERC CIP's
+total reviewed coverage to 116 of 141 practices across all four pairings. `EquivalentPractice.tsx`
+needed no changes. 209 backend tests passing (5 new, 4 fixed for coverage-count changes and a stale
+"SOC 2 = unknown framework" naming collision the CIS Controls work had itself introduced). See
+`docs/adr/ADR-0026-soc2-statement-only-and-equivalence.md`.
+
 **Sprint 10: the platform gained a real frontend, not just an API.**
 A real FastAPI app (`backend/src/compliance_platform`) ingests documents, embeds them locally (ONNX, no PyTorch, no network calls), tracks assessments through a draft → in-review → finalized lifecycle, scores both C2M2 maturity and NIST CSF 2.0 coverage, proposes evidence-to-practice mappings via retrieval-based semantic matching with mandatory human review, produces a structured dashboard (`GET /assessments/{id}/dashboard`, see ADR-0012) exportable as PDF/XLSX (`.../report/pdf` / `.../report/xlsx`, see ADR-0013), and answers natural-language questions grounded only in an assessment's own reviewed evidence (`POST /assessments/{id}/chat`, retrieval-only, no LLM — see ADR-0014). Through Sprint 9 every one of those capabilities was reachable only via Swagger/curl; `frontend/` (Vite + React + TypeScript, ADR-0016) now covers every persona's primary flow end to end — upload, assessment create/status/history, evidence link + AI-propose + accept/edit/reject, the dashboard with PDF/XLSX download, and chat — and closes NFR-4's UI-level requirement (AI-proposed evidence must be visibly distinguishable from human-confirmed, not just at the data-model/API layers). Verified live against the real running backend via a Playwright-driven walkthrough, not just built: zero console errors on the final pass, and two real bugs (a React key collision, a stale-dev-server symptom traced to this repo's OneDrive/WSL2 filesystem — R-11) were found and fixed during that same verification. Run it yourself:
 
@@ -125,7 +149,7 @@ then open `http://localhost:5173`: upload a document (a sample is in `data/sampl
 - [`docs/product/`](./docs/product/) — PRD, personas, epics/user stories, requirements, assumptions log, decision log, risk register, prioritized backlog
 - [`docs/architecture/00-repository-architecture.md`](./docs/architecture/00-repository-architecture.md) — repository layout and rationale
 - [`docs/architecture/01-claude-code-workspace.md`](./docs/architecture/01-claude-code-workspace.md) — hooks, skills, and MCP design for this project's `.claude/` workspace
-- [`docs/adr/`](./docs/adr/) — Architecture Decision Records (25 as of Sprint 12)
+- [`docs/adr/`](./docs/adr/) — Architecture Decision Records (26 as of Sprint 13)
 - [`docs/consulting/`](./docs/consulting/) — per-sprint executive summaries, business value/risk/ROI assessments, and MBA/interview narrative
 - [`docs/current_sprint.md`](./docs/current_sprint.md) — single-source-of-truth sprint tracker
 
@@ -139,4 +163,4 @@ Python (FastAPI, backend live as of Sprint 1), React (frontend, Vite + TypeScrip
 
 ## Roadmap
 
-Primary frameworks: C2M2, NIST CSF 2.0. NERC CIP fully transcribed (Sprint 11): all 13 currently-mandatory standards, 141 of 141 practices. ISO 27001 added titles-only (Sprint 11): all 4 Annex A themes, 93 of 93 control titles — the full standard is a paid, copyrighted publication with no free access, a real and disclosed limitation. CIS Controls v8 fully transcribed (Sprint 12): all 18 Controls, 153 of 153 Safeguards, complete official text — freely licensed under Creative Commons, unlike ISO 27001. NERC CIP↔NIST CSF 2.0 cross-framework equivalence remains open backlog. Future extensibility: SOC 2, PCI DSS. Full sprint sequence in `PROJECT_CHARTER.md` Section 13.
+Primary frameworks: C2M2, NIST CSF 2.0. NERC CIP fully transcribed (Sprint 11): all 13 currently-mandatory standards, 141 of 141 practices. ISO 27001 added titles-only (Sprint 11): all 4 Annex A themes, 93 of 93 control titles — the full standard is a paid, copyrighted publication with no free access, a real and disclosed limitation. CIS Controls v8 fully transcribed (Sprint 12): all 18 Controls, 153 of 153 Safeguards, complete official text — freely licensed under Creative Commons, unlike ISO 27001. SOC 2 added criterion-statement-only (Sprint 13): all 5 Trust Services Categories, 61 of 61 criterion statements — the AICPA's TSC is copyrighted, all-rights-reserved content despite being freely downloadable, a real and disclosed limitation the same way ISO 27001's is. NERC CIP↔NIST CSF 2.0 cross-framework equivalence remains open backlog. Future extensibility: PCI DSS. Full sprint sequence in `PROJECT_CHARTER.md` Section 13.

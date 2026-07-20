@@ -44,6 +44,7 @@ _KNOWN_FRAMEWORKS: dict[str, str] = {
     "NERC CIP": "nerc_cip.yaml",
     "ISO 27001": "iso_27001.yaml",
     "CIS Controls": "cis_controls_v8.yaml",
+    "SOC 2": "soc2_tsc.yaml",
 }
 
 
