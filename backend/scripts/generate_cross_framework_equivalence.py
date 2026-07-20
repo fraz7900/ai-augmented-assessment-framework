@@ -19,15 +19,18 @@ rationale sentence, not just a similarity score. Run with:
     cd backend && source .venv/bin/activate && python scripts/generate_cross_framework_equivalence.py [pair]
 
 where [pair] is "nist" (NIST CSF 2.0 reviewed against C2M2, ADR-0019,
-the default), "nerc" (NERC CIP reviewed against C2M2, ADR-0023), or
-"iso" (NERC CIP reviewed against ISO 27001, ADR-0024). The "iso" pair
-is methodologically weaker than the others: ISO 27001's side is a
-short official control TITLE only (see generate_iso_27001_yaml.py's
-module docstring — the full requirement text is a paid ISO/IEC
-publication, not available to this project), so this candidate list
-is a title-vs-full-text comparison, not the full-text-vs-full-text
+the default), "nerc" (NERC CIP reviewed against C2M2, ADR-0023), "iso"
+(NERC CIP reviewed against ISO 27001, ADR-0024), or "cis" (NERC CIP
+reviewed against CIS Controls v8, ADR-0025). The "iso" pair is
+methodologically weaker than the others: ISO 27001's side is a short
+official control TITLE only (see generate_iso_27001_yaml.py's module
+docstring — the full requirement text is a paid ISO/IEC publication,
+not available to this project), so this candidate list is a
+title-vs-full-text comparison, not the full-text-vs-full-text
 comparison every other pairing uses. Treat its candidates with
-correspondingly more skepticism during review.
+correspondingly more skepticism during review. The "cis" pair does not
+have this weakness — CIS Controls v8's side is full official Safeguard
+text, the same full-text-vs-full-text comparison as "nist"/"nerc".
 """
 
 from __future__ import annotations
@@ -93,8 +96,14 @@ def main() -> None:
         iso = registry.require("ISO 27001")
         iso_practices = [practice for domain in iso.domains for practice in domain.all_practices()]
         _print_top3_candidates(nerc_practices, "NERC CIP", iso_practices, "ISO 27001", embedder)
+    elif pair == "cis":
+        nerc = registry.require("NERC CIP")
+        nerc_practices = [practice for domain in nerc.domains for practice in domain.all_practices()]
+        cis = registry.require("CIS Controls")
+        cis_practices = [practice for domain in cis.domains for practice in domain.all_practices()]
+        _print_top3_candidates(nerc_practices, "NERC CIP", cis_practices, "CIS Controls", embedder)
     else:
-        raise SystemExit(f"Unknown pair {pair!r} — expected 'nist', 'nerc', or 'iso'.")
+        raise SystemExit(f"Unknown pair {pair!r} — expected 'nist', 'nerc', 'iso', or 'cis'.")
 
 
 if __name__ == "__main__":

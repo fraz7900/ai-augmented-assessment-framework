@@ -1774,3 +1774,676 @@
   similarity: 0.733
   rationale: Using non-disclosure agreements to protect sensitive information shared with a reviewer is
     the same confidentiality/non-disclosure-agreements control CIP-014-2.4 also matches.
+
+# --- NERC CIP <-> CIS Controls v8 (ADR-0025, Sprint 12) ---
+# Full-text-vs-full-text comparison, the same methodology as the C2M2 and
+# NIST pairings above (NOT the weaker title-only comparison the ISO 27001
+# pairing had to use) - CIS Controls v8's side is the real, complete
+# Safeguard description text.
+#
+# 84 of 141 NERC CIP practices have a reviewed CIS Controls equivalent
+# below. The remaining 57 were reviewed and NOT included, each for a real,
+# disclosed reason, generally following the same gap pattern already
+# established by the C2M2 and ISO 27001 pairings:
+# - CIP-002's impact-categorization concept (identifying High/Medium/Low
+#   impact BES Cyber Systems) and CIP-003's CIP-Senior-Manager naming/
+#   delegation-of-authority concepts have no CIS analogue at all, the
+#   same gap already documented for the C2M2 and ISO 27001 pairings.
+# - CIP-004's personnel-risk-assessment parts (3.1-3.5: criminal history
+#   checks, identity confirmation) have no CIS analogue - CIS Controls v8
+#   has no personnel-vetting/background-check Safeguard, a real gap this
+#   framework does not fill (confirmed by direct search of the source
+#   text, not assumed).
+# - CIP-006's physical-security-perimeter parts (badge access, visitor
+#   escort, alarms, cabling protection) are almost entirely absent from
+#   CIS Controls v8, which is essentially IT/cyber-focused with minimal
+#   physical-security coverage - a sharper gap here than for ISO 27001,
+#   whose Annex A has a dedicated Physical theme. Only the two parts
+#   whose underlying concept is generic log/record retention (1.9, 2.3)
+#   found a real CIS match.
+# - CIP-012's communication-link-availability parts (1.2, 1.3: mitigating
+#   loss of, and recovering, the Real-time data link between Control
+#   Centers) have no CIS analogue - CIS Controls v8 has no network-link
+#   availability/redundancy Safeguard distinct from general data
+#   recovery, which is a different concept.
+# - CIP-014 (physical Transmission station risk assessment) overlaps
+#   least of any standard, the same finding as both prior pairings -
+#   only Part 5.2 (law enforcement contact information) matched, because
+#   CIS 17.2's contact-information Safeguard explicitly names law
+#   enforcement as an example contact, a generic-enough concept to
+#   transfer across the physical/cyber domain boundary. Every other
+#   CIP-014 part (risk-assessment cadence, unaffiliated verifying-entity
+#   selection criteria, transmission-station characteristics) is
+#   civil/physical-infrastructure-specific with no cyber-framework
+#   analogue in any of the three pairings reviewed so far.
+# - A number of procedural/scheduling-only parts one level more specific
+#   than any single CIS Safeguard describes were excluded even where a
+#   sibling part of the same NERC requirement was accepted (e.g.
+#   CIP-007-5.6's password-rotation-cadence requirement was excluded
+#   because CIS Controls v8's password Safeguard, 5.2, addresses
+#   uniqueness and length, not forced periodic rotation - a genuine
+#   substantive difference, not just a wording gap, so forcing the tie
+#   would have misrepresented it).
+#
+# Several accepted entries were found by directly searching CIS
+# Controls v8's real transcribed text for a concept the embedding's
+# top-3 candidates missed entirely (e.g. CIP-005-1.1's Electronic
+# Security Perimeter requirement matched to CIS 12.2's secure-network-
+# architecture-and-segmentation Safeguard, which never appeared in the
+# embedding's own top-3 for that part) - the same "human review adds
+# value beyond the ranking" pattern established by the C2M2 and ISO
+# 27001 pairings, here because NERC CIP's networking/perimeter
+# vocabulary ("Electronic Security Perimeter", "Electronic Access
+# Point") differs enough from CIS's own networking vocabulary
+# ("secure network architecture", "segmentation") that the embedding
+# under-ranked several genuinely strong matches.
+#
+# As with the C2M2 pairing, several NERC CIP parts share the same CIS
+# Safeguard as another part of the same standard (e.g. CIP-009's
+# backup-testing parts 2.1/2.2/2.3 all point to CIS 11.5, and
+# CIP-010's baseline-configuration parts 1.1/1.2/1.3 all point to CIS
+# 4.1) - this reflects CIS Controls v8 being genuinely coarser-grained
+# than NERC CIP in these areas, not a duplication error: NERC splits
+# one underlying control concept into several distinct, separately-
+# numbered regulatory parts where CIS has a single Safeguard covering
+# the same overall concept.
+
+- framework_a: NERC CIP
+  practice_a_id: CIP-004-1.1
+  framework_b: CIS Controls
+  practice_b_id: '14.1'
+  similarity: 0.695
+  rationale: Both require an ongoing security awareness program that reinforces cyber security practices
+    for personnel with system access.
+- framework_a: NERC CIP
+  practice_a_id: CIP-004-2.1
+  framework_b: CIS Controls
+  practice_b_id: '14.1'
+  similarity: 0.6
+  rationale: The required training-content topics (policies, physical/electronic access controls, incident
+    identification, recovery plans) are the substance a security awareness program (CIS 14.1) is built
+    to deliver.
+- framework_a: NERC CIP
+  practice_a_id: CIP-004-4.1
+  framework_b: CIS Controls
+  practice_b_id: '6.1'
+  similarity: 0.669
+  rationale: Both require a defined process to authorize electronic and physical access based on documented
+    need.
+- framework_a: NERC CIP
+  practice_a_id: CIP-004-4.2
+  framework_b: CIS Controls
+  practice_b_id: '6.8'
+  similarity: 0.6
+  rationale: Both require a recurring review that verifies individuals with active access still have a
+    valid authorization record.
+- framework_a: NERC CIP
+  practice_a_id: CIP-004-4.3
+  framework_b: CIS Controls
+  practice_b_id: '6.8'
+  similarity: 0.6
+  rationale: Both require periodic verification that account privileges are correct and still necessary,
+    the same access-control-review activity as Part 4.2 at a different NERC-specified cadence.
+- framework_a: NERC CIP
+  practice_a_id: CIP-004-5.1
+  framework_b: CIS Controls
+  practice_b_id: '6.2'
+  similarity: 0.712
+  rationale: Both require prompt, defined revocation of access upon termination.
+- framework_a: NERC CIP
+  practice_a_id: CIP-004-5.2
+  framework_b: CIS Controls
+  practice_b_id: '6.2'
+  similarity: 0.743
+  rationale: Both require revoking no-longer-needed access following a reassignment or transfer, the same
+    revocation process as termination handling.
+- framework_a: NERC CIP
+  practice_a_id: CIP-004-5.3
+  framework_b: CIS Controls
+  practice_b_id: '6.2'
+  similarity: 0.695
+  rationale: Revoking non-shared user accounts after termination is the same access-revocation process
+    CIS 6.2 defines.
+- framework_a: NERC CIP
+  practice_a_id: CIP-004-5.4
+  framework_b: CIS Controls
+  practice_b_id: '6.2'
+  similarity: 0.6
+  rationale: Changing a shared account's password after personnel departure is a form of access revocation
+    for that individual, the same underlying concept as CIS 6.2.
+- framework_a: NERC CIP
+  practice_a_id: CIP-004-6.1
+  framework_b: CIS Controls
+  practice_b_id: '6.1'
+  similarity: 0.677
+  rationale: Authorizing provisioned access to BCSI based on need is the same access-granting process
+    as Part 4.1, applied to a specific information asset.
+- framework_a: NERC CIP
+  practice_a_id: CIP-004-6.2
+  framework_b: CIS Controls
+  practice_b_id: '6.8'
+  similarity: 0.681
+  rationale: Verifying that provisioned BCSI access is still authorized and still needed is the same access-control-review
+    activity as Parts 4.2/4.3.
+- framework_a: NERC CIP
+  practice_a_id: CIP-004-6.3
+  framework_b: CIS Controls
+  practice_b_id: '6.2'
+  similarity: 0.662
+  rationale: Removing provisioned BCSI access after termination is the same access-revocation process
+    as Part 5.1, applied to BCSI specifically.
+- framework_a: NERC CIP
+  practice_a_id: CIP-005-1.1
+  framework_b: CIS Controls
+  practice_b_id: '12.2'
+  similarity: 0.55
+  rationale: Requiring all applicable Cyber Assets to reside within a defined Electronic Security Perimeter
+    is the same network-segmentation requirement CIS 12.2's secure network architecture Safeguard describes;
+    the embedding ranked this lower due to vocabulary difference ("Electronic Security Perimeter" vs.
+    "segmentation").
+- framework_a: NERC CIP
+  practice_a_id: CIP-005-1.2
+  framework_b: CIS Controls
+  practice_b_id: '12.2'
+  similarity: 0.55
+  rationale: Requiring all external routable connectivity to pass through an identified Electronic Access
+    Point is the same controlled-perimeter concept as CIP-005-1.1, both matching CIS 12.2's secure network
+    architecture Safeguard.
+- framework_a: NERC CIP
+  practice_a_id: CIP-005-1.3
+  framework_b: CIS Controls
+  practice_b_id: '4.5'
+  similarity: 0.55
+  rationale: Denying all access by default and permitting only explicitly authorized inbound/outbound
+    traffic is the exact default-deny firewall behavior CIS 4.5 describes; the embedding's top candidates
+    missed this direct match.
+- framework_a: NERC CIP
+  practice_a_id: CIP-005-1.4
+  framework_b: CIS Controls
+  practice_b_id: '6.4'
+  similarity: 0.683
+  rationale: Requiring authentication for dial-up connectivity is the same remote-access-authentication
+    requirement as CIS 6.4, applied to an older connectivity method.
+- framework_a: NERC CIP
+  practice_a_id: CIP-005-1.5
+  framework_b: CIS Controls
+  practice_b_id: '13.3'
+  similarity: 0.55
+  rationale: Detecting known or suspected malicious communications inbound and outbound is precisely what
+    a network intrusion detection solution (CIS 13.3) is deployed to do.
+- framework_a: NERC CIP
+  practice_a_id: CIP-005-2.1
+  framework_b: CIS Controls
+  practice_b_id: '12.7'
+  similarity: 0.55
+  rationale: Routing all Interactive Remote Access through an Intermediate System, rather than direct
+    access, is the same controlled-remote-access-path requirement as CIS 12.7's VPN/AAA infrastructure
+    Safeguard.
+- framework_a: NERC CIP
+  practice_a_id: CIP-005-2.2
+  framework_b: CIS Controls
+  practice_b_id: '3.10'
+  similarity: 0.591
+  rationale: Encrypting remote access sessions is the same in-transit encryption requirement CIS 3.10
+    describes.
+- framework_a: NERC CIP
+  practice_a_id: CIP-005-2.3
+  framework_b: CIS Controls
+  practice_b_id: '6.4'
+  similarity: 0.732
+  rationale: Requiring MFA for all Interactive Remote Access sessions is precisely what CIS 6.4 requires
+    for remote network access.
+- framework_a: NERC CIP
+  practice_a_id: CIP-005-2.4
+  framework_b: CIS Controls
+  practice_b_id: '13.5'
+  similarity: 0.63
+  rationale: Determining active vendor remote access sessions is part of the same remote-access-control-management
+    activity CIS 13.5 describes.
+- framework_a: NERC CIP
+  practice_a_id: CIP-005-2.5
+  framework_b: CIS Controls
+  practice_b_id: '6.2'
+  similarity: 0.55
+  rationale: Disabling active vendor remote access is the same access-revocation capability CIS 6.2 requires,
+    applied to vendor sessions specifically.
+- framework_a: NERC CIP
+  practice_a_id: CIP-005-3.1
+  framework_b: CIS Controls
+  practice_b_id: '12.7'
+  similarity: 0.698
+  rationale: Determining authenticated vendor-initiated remote connections is the same VPN/AAA-gated remote-access
+    requirement as CIS 12.7.
+- framework_a: NERC CIP
+  practice_a_id: CIP-005-3.2
+  framework_b: CIS Controls
+  practice_b_id: '6.2'
+  similarity: 0.55
+  rationale: Terminating vendor-initiated remote connections and controlling reconnection is the same
+    access-revocation concept as CIP-005-2.5, matching CIS 6.2.
+- framework_a: NERC CIP
+  practice_a_id: CIP-006-1.9
+  framework_b: CIS Controls
+  practice_b_id: '8.10'
+  similarity: 0.67
+  rationale: Retaining physical access logs for at least 90 days is the same log-retention requirement
+    CIS 8.10 sets, applied to physical rather than digital access logs.
+- framework_a: NERC CIP
+  practice_a_id: CIP-006-2.3
+  framework_b: CIS Controls
+  practice_b_id: '8.10'
+  similarity: 0.79
+  rationale: Retaining visitor logs for at least 90 days is the same audit-log-retention baseline CIS
+    8.10 requires.
+- framework_a: NERC CIP
+  practice_a_id: CIP-007-1.1
+  framework_b: CIS Controls
+  practice_b_id: '4.5'
+  similarity: 0.55
+  rationale: Enabling only the logical network ports determined to be needed, and nothing else, is the
+    same default-deny port-filtering behavior CIS 4.5 requires; the embedding ranked a network-access-control-protocol
+    Safeguard higher due to "logical network accessible ports" vocabulary overlap, but 4.5's port-filtering
+    scope is the closer real match.
+- framework_a: NERC CIP
+  practice_a_id: CIP-007-2.1
+  framework_b: CIS Controls
+  practice_b_id: '7.1'
+  similarity: 0.55
+  rationale: Maintaining a documented process for tracking and evaluating cyber security patches is the
+    same vulnerability management process CIS 7.1 requires.
+- framework_a: NERC CIP
+  practice_a_id: CIP-007-2.2
+  framework_b: CIS Controls
+  practice_b_id: '7.3'
+  similarity: 0.55
+  rationale: Evaluating released security patches for applicability on a 35-day cadence is the same patch-management
+    activity CIS 7.3 requires on a monthly cadence.
+- framework_a: NERC CIP
+  practice_a_id: CIP-007-2.3
+  framework_b: CIS Controls
+  practice_b_id: '7.4'
+  similarity: 0.55
+  rationale: Applying applicable patches within 35 days of evaluation is the same patch-application activity
+    CIS 7.4 requires on a monthly cadence.
+- framework_a: NERC CIP
+  practice_a_id: CIP-007-2.4
+  framework_b: CIS Controls
+  practice_b_id: '7.2'
+  similarity: 0.621
+  rationale: Implementing a documented mitigation plan within its specified timeframe is the same risk-based
+    remediation-process requirement CIS 7.2 describes.
+- framework_a: NERC CIP
+  practice_a_id: CIP-007-3.1
+  framework_b: CIS Controls
+  practice_b_id: '10.1'
+  similarity: 0.72
+  rationale: Deploying methods to deter, detect, or prevent malicious code is precisely what anti-malware
+    software (CIS 10.1) is deployed to do.
+- framework_a: NERC CIP
+  practice_a_id: CIP-007-3.2
+  framework_b: CIS Controls
+  practice_b_id: '10.1'
+  similarity: 0.6
+  rationale: Mitigating the threat of detected malicious code is the operational counterpart to deploying
+    anti-malware software under CIS 10.1.
+- framework_a: NERC CIP
+  practice_a_id: CIP-007-3.3
+  framework_b: CIS Controls
+  practice_b_id: '10.2'
+  similarity: 0.55
+  rationale: Maintaining a process to test and install updated malicious-code signatures/patterns is precisely
+    what CIS 10.2's automatic anti-malware signature update Safeguard covers.
+- framework_a: NERC CIP
+  practice_a_id: CIP-007-4.1
+  framework_b: CIS Controls
+  practice_b_id: '8.5'
+  similarity: 0.55
+  rationale: Logging specific security-relevant event types (successful/failed logins, detected malicious
+    code) is the same detailed audit logging CIS 8.5 requires.
+- framework_a: NERC CIP
+  practice_a_id: CIP-007-4.2
+  framework_b: CIS Controls
+  practice_b_id: '13.1'
+  similarity: 0.749
+  rationale: Generating alerts for determined security events is the same centralized security event alerting
+    CIS 13.1 requires.
+- framework_a: NERC CIP
+  practice_a_id: CIP-007-4.3
+  framework_b: CIS Controls
+  practice_b_id: '8.10'
+  similarity: 0.707
+  rationale: Retaining applicable event logs for at least the last 90 consecutive days is the same audit-log-retention
+    baseline CIS 8.10 requires.
+- framework_a: NERC CIP
+  practice_a_id: CIP-007-4.4
+  framework_b: CIS Controls
+  practice_b_id: '8.11'
+  similarity: 0.669
+  rationale: Reviewing logged events at a defined interval to identify undetected incidents is the same
+    audit log review activity CIS 8.11 requires.
+- framework_a: NERC CIP
+  practice_a_id: CIP-007-5.1
+  framework_b: CIS Controls
+  practice_b_id: '12.5'
+  similarity: 0.687
+  rationale: Enforcing authentication of interactive user access is part of the same centralized network
+    authentication, authorization, and auditing CIS 12.5 requires.
+- framework_a: NERC CIP
+  practice_a_id: CIP-007-5.2
+  framework_b: CIS Controls
+  practice_b_id: '4.7'
+  similarity: 0.699
+  rationale: Identifying and inventorying enabled default or generic account types is precisely what CIS
+    4.7's default-account-management Safeguard addresses.
+- framework_a: NERC CIP
+  practice_a_id: CIP-007-5.3
+  framework_b: CIS Controls
+  practice_b_id: '5.1'
+  similarity: 0.692
+  rationale: Identifying individuals authorized to use shared accounts is part of the same account inventory
+    CIS 5.1 requires.
+- framework_a: NERC CIP
+  practice_a_id: CIP-007-5.4
+  framework_b: CIS Controls
+  practice_b_id: '4.7'
+  similarity: 0.668
+  rationale: Changing known default passwords is the same default-account-hardening activity CIS 4.7 requires.
+- framework_a: NERC CIP
+  practice_a_id: CIP-007-5.5
+  framework_b: CIS Controls
+  practice_b_id: '5.2'
+  similarity: 0.753
+  rationale: The minimum password length and complexity parameters specified match the same unique-password
+    standard CIS 5.2 sets.
+- framework_a: NERC CIP
+  practice_a_id: CIP-007-5.7
+  framework_b: CIS Controls
+  practice_b_id: '4.10'
+  similarity: 0.636
+  rationale: Limiting unsuccessful authentication attempts or alerting on a threshold is the same automatic-lockout
+    concept CIS 4.10 requires, though CIS scopes it to portable end-user devices while NERC applies it
+    more broadly.
+- framework_a: NERC CIP
+  practice_a_id: CIP-008-1.1
+  framework_b: CIS Controls
+  practice_b_id: '17.4'
+  similarity: 0.55
+  rationale: Maintaining one or more processes to identify, classify, and respond to Cyber Security Incidents
+    is the same incident response process CIS 17.4 requires.
+- framework_a: NERC CIP
+  practice_a_id: CIP-008-1.2
+  framework_b: CIS Controls
+  practice_b_id: '17.9'
+  similarity: 0.748
+  rationale: Defining criteria to distinguish a reportable incident from an attempted compromise is the
+    same incident-vs-event threshold CIS 17.9 requires.
+- framework_a: NERC CIP
+  practice_a_id: CIP-008-1.3
+  framework_b: CIS Controls
+  practice_b_id: '17.5'
+  similarity: 0.816
+  rationale: Defining the roles and responsibilities of incident response groups is precisely what CIS
+    17.5 requires.
+- framework_a: NERC CIP
+  practice_a_id: CIP-008-1.4
+  framework_b: CIS Controls
+  practice_b_id: '17.6'
+  similarity: 0.727
+  rationale: Incident handling procedures necessarily include the communication mechanisms CIS 17.6 requires
+    be defined for incident response.
+- framework_a: NERC CIP
+  practice_a_id: CIP-008-2.1
+  framework_b: CIS Controls
+  practice_b_id: '17.7'
+  similarity: 0.752
+  rationale: Testing the incident response plan via drill, tabletop, or operational exercise is precisely
+    what CIS 17.7's routine exercise requirement covers.
+- framework_a: NERC CIP
+  practice_a_id: CIP-008-2.2
+  framework_b: CIS Controls
+  practice_b_id: '17.4'
+  similarity: 0.55
+  rationale: Using the incident response plan when responding to an actual incident, and documenting deviations,
+    is the operational application of the process CIS 17.4 requires be established.
+- framework_a: NERC CIP
+  practice_a_id: CIP-008-3.1
+  framework_b: CIS Controls
+  practice_b_id: '17.8'
+  similarity: 0.677
+  rationale: Documenting lessons learned after a test or actual incident, and updating the plan accordingly,
+    is precisely what CIS 17.8's post-incident review requires.
+- framework_a: NERC CIP
+  practice_a_id: CIP-008-3.2
+  framework_b: CIS Controls
+  practice_b_id: '17.4'
+  similarity: 0.55
+  rationale: Updating the incident response plan after a significant change to roles or technology is
+    the same review trigger CIS 17.4's own annual/change-driven review requirement describes.
+- framework_a: NERC CIP
+  practice_a_id: CIP-008-4.2
+  framework_b: CIS Controls
+  practice_b_id: '17.3'
+  similarity: 0.723
+  rationale: Providing initial incident notification within defined timelines is the same reporting-timeframe
+    requirement CIS 17.3 sets, though the specific numeric windows differ.
+- framework_a: NERC CIP
+  practice_a_id: CIP-009-1.1
+  framework_b: CIS Controls
+  practice_b_id: '11.1'
+  similarity: 0.711
+  rationale: Defining conditions for activation of the recovery plan is part of the same data recovery
+    process CIS 11.1 requires be established.
+- framework_a: NERC CIP
+  practice_a_id: CIP-009-1.2
+  framework_b: CIS Controls
+  practice_b_id: '17.5'
+  similarity: 0.843
+  rationale: Defining the roles and responsibilities of recovery-plan responders is the same key-role-assignment
+    activity CIS 17.5 requires.
+- framework_a: NERC CIP
+  practice_a_id: CIP-009-1.3
+  framework_b: CIS Controls
+  practice_b_id: '11.2'
+  similarity: 0.55
+  rationale: Maintaining a process for backup and storage of information needed to recover system functionality
+    is precisely what CIS 11.2's automated backup Safeguard covers.
+- framework_a: NERC CIP
+  practice_a_id: CIP-009-1.4
+  framework_b: CIS Controls
+  practice_b_id: '11.2'
+  similarity: 0.55
+  rationale: Verifying successful completion of backup processes and addressing failures is the operational
+    counterpart to CIS 11.2's automated backup requirement.
+- framework_a: NERC CIP
+  practice_a_id: CIP-009-1.5
+  framework_b: CIS Controls
+  practice_b_id: '11.3'
+  similarity: 0.797
+  rationale: Preserving recovery data for incident-cause determination without impeding recovery is the
+    same protected-recovery-data concept CIS 11.3 requires.
+- framework_a: NERC CIP
+  practice_a_id: CIP-009-2.1
+  framework_b: CIS Controls
+  practice_b_id: '11.5'
+  similarity: 0.55
+  rationale: Testing the recovery plan on a 15-month cadence is the same backup-recovery testing CIS 11.5
+    requires on a quarterly cadence.
+- framework_a: NERC CIP
+  practice_a_id: CIP-009-2.2
+  framework_b: CIS Controls
+  practice_b_id: '11.5'
+  similarity: 0.71
+  rationale: Testing a representative sample of recovery information is the same recovery-testing activity
+    as Part 2.1, both matching CIS 11.5.
+- framework_a: NERC CIP
+  practice_a_id: CIP-009-2.3
+  framework_b: CIS Controls
+  practice_b_id: '11.5'
+  similarity: 0.699
+  rationale: Testing recovery plans through a full operational exercise every 36 months is the most rigorous
+    form of the same recovery testing CIS 11.5 requires; NERC splits one underlying testing concept into
+    three cadence-differentiated parts where CIS has a single Safeguard.
+- framework_a: NERC CIP
+  practice_a_id: CIP-009-3.1
+  framework_b: CIS Controls
+  practice_b_id: '17.8'
+  similarity: 0.626
+  rationale: Documenting lessons learned after a recovery plan test and updating the plan is the same
+    post-incident review activity as CIP-008-3.1, matching CIS 17.8.
+- framework_a: NERC CIP
+  practice_a_id: CIP-009-3.2
+  framework_b: CIS Controls
+  practice_b_id: '17.5'
+  similarity: 0.666
+  rationale: Updating the recovery plan after a change to roles or responders is the same role-assignment-maintenance
+    activity CIS 17.5 requires.
+- framework_a: NERC CIP
+  practice_a_id: CIP-010-1.1
+  framework_b: CIS Controls
+  practice_b_id: '4.1'
+  similarity: 0.733
+  rationale: Developing a documented baseline configuration is precisely what CIS 4.1's secure configuration
+    process requires.
+- framework_a: NERC CIP
+  practice_a_id: CIP-010-1.2
+  framework_b: CIS Controls
+  practice_b_id: '4.1'
+  similarity: 0.665
+  rationale: Authorizing and documenting deviations from the baseline configuration is part of the same
+    secure configuration process CIS 4.1 requires.
+- framework_a: NERC CIP
+  practice_a_id: CIP-010-1.3
+  framework_b: CIS Controls
+  practice_b_id: '4.1'
+  similarity: 0.55
+  rationale: Updating the baseline configuration within 30 days of an authorized change is part of the
+    same secure configuration process as Parts 1.1/1.2, matching CIS 4.1.
+- framework_a: NERC CIP
+  practice_a_id: CIP-010-1.4
+  framework_b: CIS Controls
+  practice_b_id: '4.2'
+  similarity: 0.698
+  rationale: Verifying that a configuration change does not adversely affect required cyber security controls
+    is part of the same secure configuration management discipline CIS 4.2 requires.
+- framework_a: NERC CIP
+  practice_a_id: CIP-010-1.5
+  framework_b: CIS Controls
+  practice_b_id: '16.8'
+  similarity: 0.55
+  rationale: Testing changes in a test environment before applying them to production, and documenting
+    environment differences, is the same production/non-production separation practice CIS 16.8 requires.
+- framework_a: NERC CIP
+  practice_a_id: CIP-010-1.6
+  framework_b: CIS Controls
+  practice_b_id: '16.5'
+  similarity: 0.657
+  rationale: Verifying the identity and integrity of a software source before installing it is the same
+    trusted-software-component practice CIS 16.5 requires.
+- framework_a: NERC CIP
+  practice_a_id: CIP-010-3.1
+  framework_b: CIS Controls
+  practice_b_id: '7.5'
+  similarity: 0.55
+  rationale: Conducting a vulnerability assessment on a 15-month cadence is the same internal vulnerability
+    scanning CIS 7.5 requires on a quarterly cadence.
+- framework_a: NERC CIP
+  practice_a_id: CIP-010-3.2
+  framework_b: CIS Controls
+  practice_b_id: '7.5'
+  similarity: 0.55
+  rationale: Performing an active vulnerability assessment in a test or production environment every 36
+    months is the same vulnerability-scanning activity as Part 3.1, matching CIS 7.5 at a different NERC-specified
+    cadence.
+- framework_a: NERC CIP
+  practice_a_id: CIP-010-3.3
+  framework_b: CIS Controls
+  practice_b_id: '7.5'
+  similarity: 0.668
+  rationale: Performing a vulnerability assessment before adding a new Cyber Asset to production is the
+    same internal vulnerability scanning practice CIS 7.5 requires, applied at asset-onboarding time.
+- framework_a: NERC CIP
+  practice_a_id: CIP-010-3.4
+  framework_b: CIS Controls
+  practice_b_id: '7.7'
+  similarity: 0.684
+  rationale: Documenting assessment results and a remediation action plan is precisely what CIS 7.7's
+    vulnerability remediation Safeguard requires.
+- framework_a: NERC CIP
+  practice_a_id: CIP-010-4
+  framework_b: CIS Controls
+  practice_b_id: '10.4'
+  similarity: 0.55
+  rationale: Implementing a documented plan for Transient Cyber Assets and Removable Media malicious-code
+    risk mitigation is the same removable-media anti-malware scanning CIS 10.4 requires.
+- framework_a: NERC CIP
+  practice_a_id: CIP-011-1.1
+  framework_b: CIS Controls
+  practice_b_id: '3.2'
+  similarity: 0.55
+  rationale: Establishing method(s) to identify BES Cyber System Information is the same sensitive-data
+    inventory practice CIS 3.2 requires.
+- framework_a: NERC CIP
+  practice_a_id: CIP-011-1.2
+  framework_b: CIS Controls
+  practice_b_id: '3.3'
+  similarity: 0.55
+  rationale: Protecting and securely handling BCSI to mitigate confidentiality risk is the same need-to-know
+    data access control CIS 3.3 requires.
+- framework_a: NERC CIP
+  practice_a_id: CIP-011-2.1
+  framework_b: CIS Controls
+  practice_b_id: '3.5'
+  similarity: 0.55
+  rationale: Preventing unauthorized retrieval of BCSI before reusing a Cyber Asset is the same secure-disposal/sanitization
+    discipline CIS 3.5 requires.
+- framework_a: NERC CIP
+  practice_a_id: CIP-011-2.2
+  framework_b: CIS Controls
+  practice_b_id: '3.5'
+  similarity: 0.641
+  rationale: Preventing unauthorized retrieval of BCSI before disposal, or destroying the media, is precisely
+    what CIS 3.5's secure data disposal Safeguard requires.
+- framework_a: NERC CIP
+  practice_a_id: CIP-012-1.1
+  framework_b: CIS Controls
+  practice_b_id: '3.10'
+  similarity: 0.55
+  rationale: Mitigating the risk of unauthorized disclosure or modification of Real-time data in transit
+    between Control Centers is the same in-transit encryption requirement CIS 3.10 sets.
+- framework_a: NERC CIP
+  practice_a_id: CIP-013-1.1
+  framework_b: CIS Controls
+  practice_b_id: '15.3'
+  similarity: 0.55
+  rationale: Assessing cyber security risk from vendor products, services, and vendor transitions is the
+    same risk-based service-provider classification CIS 15.3 requires.
+- framework_a: NERC CIP
+  practice_a_id: CIP-013-1.2
+  framework_b: CIS Controls
+  practice_b_id: '15.4'
+  similarity: 0.697
+  rationale: Requiring vendor incident notification, remote-access controls, vulnerability disclosure,
+    and software-integrity verification is precisely the set of contractual security requirements CIS
+    15.4 requires.
+- framework_a: NERC CIP
+  practice_a_id: CIP-013-2
+  framework_b: CIS Controls
+  practice_b_id: '15.2'
+  similarity: 0.55
+  rationale: Implementing the supply chain cyber security risk management plan is the operational application
+    of the service provider management policy CIS 15.2 requires be established.
+- framework_a: NERC CIP
+  practice_a_id: CIP-013-3
+  framework_b: CIS Controls
+  practice_b_id: '15.2'
+  similarity: 0.55
+  rationale: Reviewing and approving the supply chain risk management plan on a recurring cadence is the
+    same periodic policy review CIS 15.2 requires.
+- framework_a: NERC CIP
+  practice_a_id: CIP-014-5.2
+  framework_b: CIS Controls
+  practice_b_id: '17.2'
+  similarity: 0.735
+  rationale: Law enforcement contact and coordination information is exactly the kind of external contact
+    CIS 17.2 requires be established and maintained, which explicitly names law enforcement as an example
+    contact.

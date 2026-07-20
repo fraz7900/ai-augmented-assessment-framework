@@ -1,0 +1,1063 @@
+# GENERATED FILE. Do not hand-edit — regenerate via
+# backend/scripts/generate_cis_controls_yaml.py, which is the source of truth
+# for this file's content and carries the source citation.
+name: CIS Controls
+full_name: CIS Critical Security Controls Version 8
+version: '8'
+source_title: CIS Critical Security Controls® Version 8
+source_publisher: Center for Internet Security, Inc. (CIS)
+source_date: 2021-05
+source_url: https://www.cisecurity.org/controls/v8
+retrieved_date: '2026-07-20'
+total_practices_in_source: 153
+scoring_model: coverage
+mil_levels: []
+scoring_note: CIS Controls v8 has no native maturity-level concept, like NIST CSF 2.0/NERC CIP/ISO 27001
+  (ADR-0010/ADR-0022/ADR-0024) — Practice.mil is always None here. Scores are the project-defined coverage
+  measure (fraction of a Control's Safeguards with accepted/edited evidence), via services/scoring_service.py's
+  compute_domain_coverage. Practice.applicability holds the real Implementation Group (IG1/IG2/IG3) marking
+  from the Safeguards table — which enterprise size/risk profile a Safeguard applies to, the same structural
+  role NERC CIP's per-part impact-tier applicability plays (ADR-0021), not a maturity level an organization
+  progresses through. Unlike ISO 27001, this framework's Practice.text is the FULL official Safeguard
+  description, not a title only — CIS Controls v8 is licensed under Creative Commons Attribution-NonCommercial-No
+  Derivatives 4.0, which explicitly permits copying and redistributing the content, unlike ISO 27001's
+  all-rights-reserved paid standard (see ADR-0025).
+domains:
+- short_code: CIS-01
+  full_name: Inventory and Control of Enterprise Assets
+  purpose: Actively manage (inventory, track, and correct) all enterprise assets (end-user devices, including
+    portable and mobile; network devices; non-computing/Internet of Things (IoT) devices; and servers)
+    connected to the infrastructure physically, virtually, remotely, and those within cloud environments,
+    to accurately know the totality of assets that need to be monitored and protected within the enterprise.
+    This will also support identifying unauthorized and unmanaged assets to remove or remediate.
+  practices_populated: true
+  objectives:
+  - number: 1
+    title: Inventory and Control of Enterprise Assets
+    purpose: ''
+    practices:
+    - id: '1.1'
+      text: 'Establish and Maintain Detailed Enterprise Asset Inventory. Establish and maintain an accurate,
+        detailed, and up-to-date inventory of all enterprise assets with the potential to store or process
+        data, to include: end-user devices (including portable and mobile), network devices, non-computing/IoT
+        devices, and servers. Ensure the inventory records the network address (if static), hardware address,
+        machine name, enterprise asset owner, department for each asset, and whether the asset has been
+        approved to connect to the network. For mobile end-user devices, MDM type tools can support this
+        process, where appropriate. This inventory includes assets connected to the infrastructure physically,
+        virtually, remotely, and those within cloud environments. Additionally, it includes assets that
+        are regularly connected to the enterprise''s network infrastructure, even if they are not under
+        control of the enterprise. Review and update the inventory of all enterprise assets bi-annually,
+        or more frequently.'
+      applicability: IG1, IG2, IG3
+    - id: '1.2'
+      text: Address Unauthorized Assets. Ensure that a process exists to address unauthorized assets on
+        a weekly basis. The enterprise may choose to remove the asset from the network, deny the asset
+        from connecting remotely to the network, or quarantine the asset.
+      applicability: IG1, IG2, IG3
+    - id: '1.3'
+      text: Utilize an Active Discovery Tool. Utilize an active discovery tool to identify assets connected
+        to the enterprise's network. Configure the active discovery tool to execute daily, or more frequently.
+      applicability: IG2, IG3
+    - id: '1.4'
+      text: Use Dynamic Host Configuration Protocol (DHCP) Logging to Update Enterprise Asset Inventory.
+        Use DHCP logging on all DHCP servers or Internet Protocol (IP) address management tools to update
+        the enterprise's asset inventory. Review and use logs to update the enterprise's asset inventory
+        weekly, or more frequently.
+      applicability: IG2, IG3
+    - id: '1.5'
+      text: Use a Passive Asset Discovery Tool. Use a passive discovery tool to identify assets connected
+        to the enterprise's network. Review and use scans to update the enterprise's asset inventory at
+        least weekly, or more frequently.
+      applicability: IG3
+  source_version: ''
+  source_url: ''
+- short_code: CIS-02
+  full_name: Inventory and Control of Software Assets
+  purpose: Actively manage (inventory, track, and correct) all software (operating systems and applications)
+    on the network so that only authorized software is installed and can execute, and that unauthorized
+    and unmanaged software is found and prevented from installation or execution.
+  practices_populated: true
+  objectives:
+  - number: 1
+    title: Inventory and Control of Software Assets
+    purpose: ''
+    practices:
+    - id: '2.1'
+      text: Establish and Maintain a Software Inventory. Establish and maintain a detailed inventory of
+        all licensed software installed on enterprise assets. The software inventory must document the
+        title, publisher, initial install/use date, and business purpose for each entry; where appropriate,
+        include the Uniform Resource Locator (URL), app store(s), version(s), deployment mechanism, and
+        decommission date. Review and update the software inventory bi-annually, or more frequently.
+      applicability: IG1, IG2, IG3
+    - id: '2.2'
+      text: Ensure Authorized Software is Currently Supported. Ensure that only currently supported software
+        is designated as authorized in the software inventory for enterprise assets. If software is unsupported,
+        yet necessary for the fulfillment of the enterprise's mission, document an exception detailing
+        mitigating controls and residual risk acceptance. For any unsupported software without an exception
+        documentation, designate as unauthorized. Review the software list to verify software support
+        at least monthly, or more frequently.
+      applicability: IG1, IG2, IG3
+    - id: '2.3'
+      text: Address Unauthorized Software. Ensure that unauthorized software is either removed from use
+        on enterprise assets or receives a documented exception. Review monthly, or more frequently.
+      applicability: IG1, IG2, IG3
+    - id: '2.4'
+      text: Utilize Automated Software Inventory Tools. Utilize software inventory tools, when possible,
+        throughout the enterprise to automate the discovery and documentation of installed software.
+      applicability: IG2, IG3
+    - id: '2.5'
+      text: Allowlist Authorized Software. Use technical controls, such as application allowlisting, to
+        ensure that only authorized software can execute or be accessed. Reassess bi-annually, or more
+        frequently.
+      applicability: IG2, IG3
+    - id: '2.6'
+      text: Allowlist Authorized Libraries. Use technical controls to ensure that only authorized software
+        libraries, such as specific .dll, .ocx, .so, etc., files are allowed to load into a system process.
+        Block unauthorized libraries from loading into a system process. Reassess bi-annually, or more
+        frequently.
+      applicability: IG2, IG3
+    - id: '2.7'
+      text: Allowlist Authorized Scripts. Use technical controls, such as digital signatures and version
+        control, to ensure that only authorized scripts, such as specific .ps1, .py, etc., files are allowed
+        to execute. Block unauthorized scripts from executing. Reassess bi-annually, or more frequently.
+      applicability: IG3
+  source_version: ''
+  source_url: ''
+- short_code: CIS-03
+  full_name: Data Protection
+  purpose: Develop processes and technical controls to identify, classify, securely handle, retain, and
+    dispose of data.
+  practices_populated: true
+  objectives:
+  - number: 1
+    title: Data Protection
+    purpose: ''
+    practices:
+    - id: '3.1'
+      text: Establish and Maintain a Data Management Process. Establish and maintain a data management
+        process. In the process, address data sensitivity, data owner, handling of data, data retention
+        limits, and disposal requirements, based on sensitivity and retention standards for the enterprise.
+        Review and update documentation annually, or when significant enterprise changes occur that could
+        impact this Safeguard.
+      applicability: IG1, IG2, IG3
+    - id: '3.2'
+      text: Establish and Maintain a Data Inventory. Establish and maintain a data inventory, based on
+        the enterprise's data management process. Inventory sensitive data, at a minimum. Review and update
+        inventory annually, at a minimum, with a priority on sensitive data.
+      applicability: IG1, IG2, IG3
+    - id: '3.3'
+      text: Configure Data Access Control Lists. Configure data access control lists based on a user's
+        need to know. Apply data access control lists, also known as access permissions, to local and
+        remote file systems, databases, and applications.
+      applicability: IG1, IG2, IG3
+    - id: '3.4'
+      text: Enforce Data Retention. Retain data according to the enterprise's data management process.
+        Data retention must include both minimum and maximum timelines.
+      applicability: IG1, IG2, IG3
+    - id: '3.5'
+      text: Securely Dispose of Data. Securely dispose of data as outlined in the enterprise's data management
+        process. Ensure the disposal process and method are commensurate with the data sensitivity.
+      applicability: IG1, IG2, IG3
+    - id: '3.6'
+      text: 'Encrypt Data on End-User Devices. Encrypt data on end-user devices containing sensitive data.
+        Example implementations can include: Windows BitLocker, Apple FileVault, Linux dm-crypt.'
+      applicability: IG1, IG2, IG3
+    - id: '3.7'
+      text: Establish and Maintain a Data Classification Scheme. Establish and maintain an overall data
+        classification scheme for the enterprise. Enterprises may use labels, such as "Sensitive," "Confidential,"
+        and "Public," and classify their data according to those labels. Review and update the classification
+        scheme annually, or when significant enterprise changes occur that could impact this Safeguard.
+      applicability: IG2, IG3
+    - id: '3.8'
+      text: Document Data Flows. Document data flows. Data flow documentation includes service provider
+        data flows and should be based on the enterprise's data management process. Review and update
+        documentation annually, or when significant enterprise changes occur that could impact this Safeguard.
+      applicability: IG2, IG3
+    - id: '3.9'
+      text: Encrypt Data on Removable Media. Encrypt data on removable media.
+      applicability: IG2, IG3
+    - id: '3.10'
+      text: 'Encrypt Sensitive Data in Transit. Encrypt sensitive data in transit. Example implementations
+        can include: Transport Layer Security (TLS) and Open Secure Shell (OpenSSH).'
+      applicability: IG2, IG3
+    - id: '3.11'
+      text: Encrypt Sensitive Data at Rest. Encrypt sensitive data at rest on servers, applications, and
+        databases containing sensitive data. Storage-layer encryption, also known as server-side encryption,
+        meets the minimum requirement of this Safeguard. Additional encryption methods may include application-layer
+        encryption, also known as client-side encryption, where access to the data storage device(s) does
+        not permit access to the plain-text data.
+      applicability: IG2, IG3
+    - id: '3.12'
+      text: Segment Data Processing and Storage Based on Sensitivity. Segment data processing and storage
+        based on the sensitivity of the data. Do not process sensitive data on enterprise assets intended
+        for lower sensitivity data.
+      applicability: IG2, IG3
+    - id: '3.13'
+      text: Deploy a Data Loss Prevention Solution. Implement an automated tool, such as a host-based
+        Data Loss Prevention (DLP) tool to identify all sensitive data stored, processed, or transmitted
+        through enterprise assets, including those located onsite or at a remote service provider, and
+        update the enterprise's sensitive data inventory.
+      applicability: IG3
+    - id: '3.14'
+      text: Log Sensitive Data Access. Log sensitive data access, including modification and disposal.
+      applicability: IG3
+  source_version: ''
+  source_url: ''
+- short_code: CIS-04
+  full_name: Secure Configuration of Enterprise Assets and Software
+  purpose: Establish and maintain the secure configuration of enterprise assets (end-user devices, including
+    portable and mobile; network devices; non-computing/IoT devices; and servers) and software (operating
+    systems and applications).
+  practices_populated: true
+  objectives:
+  - number: 1
+    title: Secure Configuration of Enterprise Assets and Software
+    purpose: ''
+    practices:
+    - id: '4.1'
+      text: Establish and Maintain a Secure Configuration Process. Establish and maintain a secure configuration
+        process for enterprise assets (end-user devices, including portable and mobile; non-computing/IoT
+        devices; and servers) and software (operating systems and applications). Review and update documentation
+        annually, or when significant enterprise changes occur that could impact this Safeguard.
+      applicability: IG1, IG2, IG3
+    - id: '4.2'
+      text: Establish and Maintain a Secure Configuration Process for Network Infrastructure. Establish
+        and maintain a secure configuration process for network devices. Review and update documentation
+        annually, or when significant enterprise changes occur that could impact this Safeguard.
+      applicability: IG1, IG2, IG3
+    - id: '4.3'
+      text: Configure Automatic Session Locking on Enterprise Assets. Configure automatic session locking
+        on enterprise assets after a defined period of inactivity. For general purpose operating systems,
+        the period must not exceed 15 minutes. For mobile end-user devices, the period must not exceed
+        2 minutes.
+      applicability: IG1, IG2, IG3
+    - id: '4.4'
+      text: Implement and Manage a Firewall on Servers. Implement and manage a firewall on servers, where
+        supported. Example implementations include a virtual firewall, operating system firewall, or a
+        third-party firewall agent.
+      applicability: IG1, IG2, IG3
+    - id: '4.5'
+      text: Implement and Manage a Firewall on End-User Devices. Implement and manage a host-based firewall
+        or port-filtering tool on end-user devices, with a default-deny rule that drops all traffic except
+        those services and ports that are explicitly allowed.
+      applicability: IG1, IG2, IG3
+    - id: '4.6'
+      text: Securely Manage Enterprise Assets and Software. Securely manage enterprise assets and software.
+        Example implementations include managing configuration through version-controlled-infrastructure-as-code
+        and accessing administrative interfaces over secure network protocols, such as Secure Shell (SSH)
+        and Hypertext Transfer Protocol Secure (HTTPS). Do not use insecure management protocols, such
+        as Telnet (Teletype Network) and HTTP, unless operationally essential.
+      applicability: IG1, IG2, IG3
+    - id: '4.7'
+      text: 'Manage Default Accounts on Enterprise Assets and Software. Manage default accounts on enterprise
+        assets and software, such as root, administrator, and other pre-configured vendor accounts. Example
+        implementations can include: disabling default accounts or making them unusable.'
+      applicability: IG1, IG2, IG3
+    - id: '4.8'
+      text: Uninstall or Disable Unnecessary Services on Enterprise Assets and Software. Uninstall or
+        disable unnecessary services on enterprise assets and software, such as an unused file sharing
+        service, web application module, or service function.
+      applicability: IG2, IG3
+    - id: '4.9'
+      text: 'Configure Trusted DNS Servers on Enterprise Assets. Configure trusted DNS servers on enterprise
+        assets. Example implementations include: configuring assets to use enterprise-controlled DNS servers
+        and/or reputable externally accessible DNS servers.'
+      applicability: IG2, IG3
+    - id: '4.10'
+      text: Enforce Automatic Device Lockout on Portable End-User Devices. Enforce automatic device lockout
+        following a predetermined threshold of local failed authentication attempts on portable end-user
+        devices, where supported. For laptops, do not allow more than 20 failed authentication attempts;
+        for tablets and smartphones, no more than 10 failed authentication attempts. Example implementations
+        include Microsoft InTune Device Lock and Apple Configuration Profile maxFailedAttempts.
+      applicability: IG2, IG3
+    - id: '4.11'
+      text: Enforce Remote Wipe Capability on Portable End-User Devices. Remotely wipe enterprise data
+        from enterprise-owned portable end-user devices when deemed appropriate such as lost or stolen
+        devices, or when an individual no longer supports the enterprise.
+      applicability: IG2, IG3
+    - id: '4.12'
+      text: Separate Enterprise Workspaces on Mobile End-User Devices. Ensure separate enterprise workspaces
+        are used on mobile end-user devices, where supported. Example implementations include using an
+        Apple Configuration Profile or Android Work Profile to separate enterprise applications and data
+        from personal applications and data.
+      applicability: IG3
+  source_version: ''
+  source_url: ''
+- short_code: CIS-05
+  full_name: Account Management
+  purpose: Use processes and tools to assign and manage authorization to credentials for user accounts,
+    including administrator accounts, as well as service accounts, to enterprise assets and software.
+  practices_populated: true
+  objectives:
+  - number: 1
+    title: Account Management
+    purpose: ''
+    practices:
+    - id: '5.1'
+      text: Establish and Maintain an Inventory of Accounts. Establish and maintain an inventory of all
+        accounts managed in the enterprise. The inventory must include both user and administrator accounts.
+        The inventory, at a minimum, should contain the person's name, username, start/stop dates, and
+        department. Validate that all active accounts are authorized, on a recurring schedule at a minimum
+        quarterly, or more frequently.
+      applicability: IG1, IG2, IG3
+    - id: '5.2'
+      text: Use Unique Passwords. Use unique passwords for all enterprise assets. Best practice implementation
+        includes, at a minimum, an 8-character password for accounts using MFA and a 14-character password
+        for accounts not using MFA.
+      applicability: IG1, IG2, IG3
+    - id: '5.3'
+      text: Disable Dormant Accounts. Delete or disable any dormant accounts after a period of 45 days
+        of inactivity, where supported.
+      applicability: IG1, IG2, IG3
+    - id: '5.4'
+      text: Restrict Administrator Privileges to Dedicated Administrator Accounts. Restrict administrator
+        privileges to dedicated administrator accounts on enterprise assets. Conduct general computing
+        activities, such as internet browsing, email, and productivity suite use, from the user's primary,
+        non-privileged account.
+      applicability: IG1, IG2, IG3
+    - id: '5.5'
+      text: Establish and Maintain an Inventory of Service Accounts. Establish and maintain an inventory
+        of service accounts. The inventory, at a minimum, must contain department owner, review date,
+        and purpose. Perform service account reviews to validate that all active accounts are authorized,
+        on a recurring schedule at a minimum quarterly, or more frequently.
+      applicability: IG2, IG3
+    - id: '5.6'
+      text: Centralize Account Management. Centralize account management through a directory or identity
+        service.
+      applicability: IG2, IG3
+  source_version: ''
+  source_url: ''
+- short_code: CIS-06
+  full_name: Access Control Management
+  purpose: Use processes and tools to create, assign, manage, and revoke access credentials and privileges
+    for user, administrator, and service accounts for enterprise assets and software.
+  practices_populated: true
+  objectives:
+  - number: 1
+    title: Access Control Management
+    purpose: ''
+    practices:
+    - id: '6.1'
+      text: Establish an Access Granting Process. Establish and follow a process, preferably automated,
+        for granting access to enterprise assets upon new hire, rights grant, or role change of a user.
+      applicability: IG1, IG2, IG3
+    - id: '6.2'
+      text: Establish an Access Revoking Process. Establish and follow a process, preferably automated,
+        for revoking access to enterprise assets, through disabling accounts immediately upon termination,
+        rights revocation, or role change of a user. Disabling accounts, instead of deleting accounts,
+        may be necessary to preserve audit trails.
+      applicability: IG1, IG2, IG3
+    - id: '6.3'
+      text: Require MFA for Externally-Exposed Applications. Require all externally-exposed enterprise
+        or third-party applications to enforce MFA, where supported. Enforcing MFA through a directory
+        service or SSO provider is a satisfactory implementation of this Safeguard.
+      applicability: IG1, IG2, IG3
+    - id: '6.4'
+      text: Require MFA for Remote Network Access. Require MFA for remote network access.
+      applicability: IG1, IG2, IG3
+    - id: '6.5'
+      text: Require MFA for Administrative Access. Require MFA for all administrative access accounts,
+        where supported, on all enterprise assets, whether managed on-site or through a third-party provider.
+      applicability: IG1, IG2, IG3
+    - id: '6.6'
+      text: Establish and Maintain an Inventory of Authentication and Authorization Systems. Establish
+        and maintain an inventory of the enterprise's authentication and authorization systems, including
+        those hosted on-site or at a remote service provider. Review and update the inventory, at a minimum,
+        annually, or more frequently.
+      applicability: IG2, IG3
+    - id: '6.7'
+      text: Centralize Access Control. Centralize access control for all enterprise assets through a directory
+        service or SSO provider, where supported.
+      applicability: IG2, IG3
+    - id: '6.8'
+      text: Define and Maintain Role-Based Access Control. Define and maintain role-based access control,
+        through determining and documenting the access rights necessary for each role within the enterprise
+        to successfully carry out its assigned duties. Perform access control reviews of enterprise assets
+        to validate that all privileges are authorized, on a recurring schedule at a minimum annually,
+        or more frequently.
+      applicability: IG3
+  source_version: ''
+  source_url: ''
+- short_code: CIS-07
+  full_name: Continuous Vulnerability Management
+  purpose: Develop a plan to continuously assess and track vulnerabilities on all enterprise assets within
+    the enterprise's infrastructure, in order to remediate, and minimize, the window of opportunity for
+    attackers. Monitor public and private industry sources for new threat and vulnerability information.
+  practices_populated: true
+  objectives:
+  - number: 1
+    title: Continuous Vulnerability Management
+    purpose: ''
+    practices:
+    - id: '7.1'
+      text: Establish and Maintain a Vulnerability Management Process. Establish and maintain a documented
+        vulnerability management process for enterprise assets. Review and update documentation annually,
+        or when significant enterprise changes occur that could impact this Safeguard.
+      applicability: IG1, IG2, IG3
+    - id: '7.2'
+      text: Establish and Maintain a Remediation Process. Establish and maintain a risk-based remediation
+        strategy documented in a remediation process, with monthly, or more frequent, reviews.
+      applicability: IG1, IG2, IG3
+    - id: '7.3'
+      text: Perform Automated Operating System Patch Management. Perform operating system updates on enterprise
+        assets through automated patch management on a monthly, or more frequent, basis.
+      applicability: IG1, IG2, IG3
+    - id: '7.4'
+      text: Perform Automated Application Patch Management. Perform application updates on enterprise
+        assets through automated patch management on a monthly, or more frequent, basis.
+      applicability: IG1, IG2, IG3
+    - id: '7.5'
+      text: Perform Automated Vulnerability Scans of Internal Enterprise Assets. Perform automated vulnerability
+        scans of internal enterprise assets on a quarterly, or more frequent, basis. Conduct both authenticated
+        and unauthenticated scans, using a SCAP-compliant vulnerability scanning tool.
+      applicability: IG2, IG3
+    - id: '7.6'
+      text: Perform Automated Vulnerability Scans of Externally-Exposed Enterprise Assets. Perform automated
+        vulnerability scans of externally-exposed enterprise assets using a SCAP-compliant vulnerability
+        scanning tool. Perform scans on a monthly, or more frequent, basis.
+      applicability: IG2, IG3
+    - id: '7.7'
+      text: Remediate Detected Vulnerabilities. Remediate detected vulnerabilities in software through
+        processes and tooling on a monthly, or more frequent, basis, based on the remediation process.
+      applicability: IG2, IG3
+  source_version: ''
+  source_url: ''
+- short_code: CIS-08
+  full_name: Audit Log Management
+  purpose: Collect, alert, review, and retain audit logs of events that could help detect, understand,
+    or recover from an attack.
+  practices_populated: true
+  objectives:
+  - number: 1
+    title: Audit Log Management
+    purpose: ''
+    practices:
+    - id: '8.1'
+      text: Establish and Maintain an Audit Log Management Process. Establish and maintain an audit log
+        management process that defines the enterprise's logging requirements. At a minimum, address the
+        collection, review, and retention of audit logs for enterprise assets. Review and update documentation
+        annually, or when significant enterprise changes occur that could impact this Safeguard.
+      applicability: IG1, IG2, IG3
+    - id: '8.2'
+      text: Collect Audit Logs. Collect audit logs. Ensure that logging, per the enterprise's audit log
+        management process, has been enabled across enterprise assets.
+      applicability: IG1, IG2, IG3
+    - id: '8.3'
+      text: Ensure Adequate Audit Log Storage. Ensure that logging destinations maintain adequate storage
+        to comply with the enterprise's audit log management process.
+      applicability: IG1, IG2, IG3
+    - id: '8.4'
+      text: Standardize Time Synchronization. Standardize time synchronization. Configure at least two
+        synchronized time sources across enterprise assets, where supported.
+      applicability: IG2, IG3
+    - id: '8.5'
+      text: Collect Detailed Audit Logs. Configure detailed audit logging for enterprise assets containing
+        sensitive data. Include event source, date, username, timestamp, source addresses, destination
+        addresses, and other useful elements that could assist in a forensic investigation.
+      applicability: IG2, IG3
+    - id: '8.6'
+      text: Collect DNS Query Audit Logs. Collect DNS query audit logs on enterprise assets, where appropriate
+        and supported.
+      applicability: IG2, IG3
+    - id: '8.7'
+      text: Collect URL Request Audit Logs. Collect URL request audit logs on enterprise assets, where
+        appropriate and supported.
+      applicability: IG2, IG3
+    - id: '8.8'
+      text: Collect Command-Line Audit Logs. Collect command-line audit logs. Example implementations
+        include collecting audit logs from PowerShell, BASH, and remote administrative terminals.
+      applicability: IG2, IG3
+    - id: '8.9'
+      text: Centralize Audit Logs. Centralize, to the extent possible, audit log collection and retention
+        across enterprise assets.
+      applicability: IG2, IG3
+    - id: '8.10'
+      text: Retain Audit Logs. Retain audit logs across enterprise assets for a minimum of 90 days.
+      applicability: IG2, IG3
+    - id: '8.11'
+      text: Conduct Audit Log Reviews. Conduct reviews of audit logs to detect anomalies or abnormal events
+        that could indicate a potential threat. Conduct reviews on a weekly, or more frequent, basis.
+      applicability: IG2, IG3
+    - id: '8.12'
+      text: Collect Service Provider Logs. Collect service provider logs, where supported. Example implementations
+        include collecting authentication and authorization events, data creation and disposal events,
+        and user management events.
+      applicability: IG3
+  source_version: ''
+  source_url: ''
+- short_code: CIS-09
+  full_name: Email and Web Browser Protections
+  purpose: Improve protections and detections of threats from email and web vectors, as these are opportunities
+    for attackers to manipulate human behavior through direct engagement.
+  practices_populated: true
+  objectives:
+  - number: 1
+    title: Email and Web Browser Protections
+    purpose: ''
+    practices:
+    - id: '9.1'
+      text: Ensure Use of Only Fully Supported Browsers and Email Clients. Ensure only fully supported
+        browsers and email clients are allowed to execute in the enterprise, only using the latest version
+        of browsers and email clients provided through the vendor.
+      applicability: IG1, IG2, IG3
+    - id: '9.2'
+      text: Use DNS Filtering Services. Use DNS filtering services on all enterprise assets to block access
+        to known malicious domains.
+      applicability: IG1, IG2, IG3
+    - id: '9.3'
+      text: Maintain and Enforce Network-Based URL Filters. Enforce and update network-based URL filters
+        to limit an enterprise asset from connecting to potentially malicious or unapproved websites.
+        Example implementations include category-based filtering, reputation-based filtering, or through
+        the use of block lists. Enforce filters for all enterprise assets.
+      applicability: IG2, IG3
+    - id: '9.4'
+      text: Restrict Unnecessary or Unauthorized Browser and Email Client Extensions. Restrict, either
+        through uninstalling or disabling, any unauthorized or unnecessary browser or email client plugins,
+        extensions, and add-on applications.
+      applicability: IG2, IG3
+    - id: '9.5'
+      text: Implement DMARC. To lower the chance of spoofed or modified emails from valid domains, implement
+        DMARC policy and verification, starting with implementing the Sender Policy Framework (SPF) and
+        the DomainKeys Identified Mail (DKIM) standards.
+      applicability: IG2, IG3
+    - id: '9.6'
+      text: Block Unnecessary File Types. Block unnecessary file types attempting to enter the enterprise's
+        email gateway.
+      applicability: IG2, IG3
+    - id: '9.7'
+      text: Deploy and Maintain Email Server Anti-Malware Protections. Deploy and maintain email server
+        anti-malware protections, such as attachment scanning and/or sandboxing.
+      applicability: IG3
+  source_version: ''
+  source_url: ''
+- short_code: CIS-10
+  full_name: Malware Defenses
+  purpose: Prevent or control the installation, spread, and execution of malicious applications, code,
+    or scripts on enterprise assets.
+  practices_populated: true
+  objectives:
+  - number: 1
+    title: Malware Defenses
+    purpose: ''
+    practices:
+    - id: '10.1'
+      text: Deploy and Maintain Anti-Malware Software. Deploy and maintain anti-malware software on all
+        enterprise assets.
+      applicability: IG1, IG2, IG3
+    - id: '10.2'
+      text: Configure Automatic Anti-Malware Signature Updates. Configure automatic updates for anti-malware
+        signature files on all enterprise assets.
+      applicability: IG1, IG2, IG3
+    - id: '10.3'
+      text: Disable Autorun and Autoplay for Removable Media. Disable autorun and autoplay auto-execute
+        functionality for removable media.
+      applicability: IG1, IG2, IG3
+    - id: '10.4'
+      text: Configure Automatic Anti-Malware Scanning of Removable Media. Configure anti-malware software
+        to automatically scan removable media.
+      applicability: IG2, IG3
+    - id: '10.5'
+      text: Enable Anti-Exploitation Features. Enable anti-exploitation features on enterprise assets
+        and software, where possible, such as Microsoft Data Execution Prevention (DEP), Windows Defender
+        Exploit Guard (WDEG), or Apple System Integrity Protection (SIP) and Gatekeeper.
+      applicability: IG2, IG3
+    - id: '10.6'
+      text: Centrally Manage Anti-Malware Software. Centrally manage anti-malware software.
+      applicability: IG2, IG3
+    - id: '10.7'
+      text: Use Behavior-Based Anti-Malware Software. Use behavior-based anti-malware software.
+      applicability: IG2, IG3
+  source_version: ''
+  source_url: ''
+- short_code: CIS-11
+  full_name: Data Recovery
+  purpose: Establish and maintain data recovery practices sufficient to restore in-scope enterprise assets
+    to a pre-incident and trusted state.
+  practices_populated: true
+  objectives:
+  - number: 1
+    title: Data Recovery
+    purpose: ''
+    practices:
+    - id: '11.1'
+      text: Establish and Maintain a Data Recovery Process. Establish and maintain a data recovery process.
+        In the process, address the scope of data recovery activities, recovery prioritization, and the
+        security of backup data. Review and update documentation annually, or when significant enterprise
+        changes occur that could impact this Safeguard.
+      applicability: IG1, IG2, IG3
+    - id: '11.2'
+      text: Perform Automated Backups. Perform automated backups of in-scope enterprise assets. Run backups
+        weekly, or more frequently, based on the sensitivity of the data.
+      applicability: IG1, IG2, IG3
+    - id: '11.3'
+      text: Protect Recovery Data. Protect recovery data with equivalent controls to the original data.
+        Reference encryption or data separation, based on requirements.
+      applicability: IG1, IG2, IG3
+    - id: '11.4'
+      text: Establish and Maintain an Isolated Instance of Recovery Data. Establish and maintain an isolated
+        instance of recovery data. Example implementations include version controlling backup destinations
+        through offline, cloud, or off-site systems or services.
+      applicability: IG1, IG2, IG3
+    - id: '11.5'
+      text: Test Data Recovery. Test backup recovery quarterly, or more frequently, for a sampling of
+        in-scope enterprise assets.
+      applicability: IG2, IG3
+  source_version: ''
+  source_url: ''
+- short_code: CIS-12
+  full_name: Network Infrastructure Management
+  purpose: Establish, implement, and actively manage (track, report, correct) network devices, in order
+    to prevent attackers from exploiting vulnerable network services and access points.
+  practices_populated: true
+  objectives:
+  - number: 1
+    title: Network Infrastructure Management
+    purpose: ''
+    practices:
+    - id: '12.1'
+      text: Ensure Network Infrastructure is Up-to-Date. Ensure network infrastructure is kept up-to-date.
+        Example implementations include running the latest stable release of software and/or using currently
+        supported network-as-a-service (NaaS) offerings. Review software versions monthly, or more frequently,
+        to verify software support.
+      applicability: IG1, IG2, IG3
+    - id: '12.2'
+      text: Establish and Maintain a Secure Network Architecture. Establish and maintain a secure network
+        architecture. A secure network architecture must address segmentation, least privilege, and availability,
+        at a minimum.
+      applicability: IG2, IG3
+    - id: '12.3'
+      text: Securely Manage Network Infrastructure. Securely manage network infrastructure. Example implementations
+        include version-controlled-infrastructure-as-code, and the use of secure network protocols, such
+        as SSH and HTTPS.
+      applicability: IG2, IG3
+    - id: '12.4'
+      text: Establish and Maintain Architecture Diagram(s). Establish and maintain architecture diagram(s)
+        and/or other network system documentation. Review and update documentation annually, or when significant
+        enterprise changes occur that could impact this Safeguard.
+      applicability: IG2, IG3
+    - id: '12.5'
+      text: Centralize Network Authentication, Authorization, and Auditing (AAA). Centralize network AAA.
+      applicability: IG2, IG3
+    - id: '12.6'
+      text: Use of Secure Network Management and Communication Protocols. Use secure network management
+        and communication protocols (e.g., 802.1X, Wi-Fi Protected Access 2 (WPA2) Enterprise or greater).
+      applicability: IG2, IG3
+    - id: '12.7'
+      text: Ensure Remote Devices Utilize a VPN and are Connecting to an Enterprise's AAA Infrastructure.
+        Require users to authenticate to enterprise-managed VPN and authentication services prior to accessing
+        enterprise resources on end-user devices.
+      applicability: IG2, IG3
+    - id: '12.8'
+      text: Establish and Maintain Dedicated Computing Resources for All Administrative Work. Establish
+        and maintain dedicated computing resources, either physically or logically separated, for all
+        administrative tasks or tasks requiring administrative access. The computing resources should
+        be segmented from the enterprise's primary network and not be allowed internet access.
+      applicability: IG3
+  source_version: ''
+  source_url: ''
+- short_code: CIS-13
+  full_name: Network Monitoring and Defense
+  purpose: Operate processes and tooling to establish and maintain comprehensive network monitoring and
+    defense against security threats across the enterprise's network infrastructure and user base.
+  practices_populated: true
+  objectives:
+  - number: 1
+    title: Network Monitoring and Defense
+    purpose: ''
+    practices:
+    - id: '13.1'
+      text: Centralize Security Event Alerting. Centralize security event alerting across enterprise assets
+        for log correlation and analysis. Best practice implementation requires the use of a SIEM, which
+        includes vendor-defined event correlation alerts. A log analytics platform configured with security-relevant
+        correlation alerts also satisfies this Safeguard.
+      applicability: IG2, IG3
+    - id: '13.2'
+      text: Deploy a Host-Based Intrusion Detection Solution. Deploy a host-based intrusion detection
+        solution on enterprise assets, where appropriate and/or supported.
+      applicability: IG2, IG3
+    - id: '13.3'
+      text: Deploy a Network Intrusion Detection Solution. Deploy a network intrusion detection solution
+        on enterprise assets, where appropriate. Example implementations include the use of a Network
+        Intrusion Detection System (NIDS) or equivalent cloud service provider (CSP) service.
+      applicability: IG2, IG3
+    - id: '13.4'
+      text: Perform Traffic Filtering Between Network Segments. Perform traffic filtering between network
+        segments, where appropriate.
+      applicability: IG2, IG3
+    - id: '13.5'
+      text: 'Manage Access Control for Remote Assets. Manage access control for assets remotely connecting
+        to enterprise resources. Determine amount of access to enterprise resources based on: up-to-date
+        anti-malware software installed, configuration compliance with the enterprise''s secure configuration
+        process, and ensuring the operating system and applications are up-to-date.'
+      applicability: IG2, IG3
+    - id: '13.6'
+      text: Collect Network Traffic Flow Logs. Collect network traffic flow logs and/or network traffic
+        to review and alert upon from network devices.
+      applicability: IG2, IG3
+    - id: '13.7'
+      text: Deploy a Host-Based Intrusion Prevention Solution. Deploy a host-based intrusion prevention
+        solution on enterprise assets, where appropriate and/or supported. Example implementations include
+        use of an Endpoint Detection and Response (EDR) client or host-based IPS agent.
+      applicability: IG3
+    - id: '13.8'
+      text: Deploy a Network Intrusion Prevention Solution. Deploy a network intrusion prevention solution,
+        where appropriate. Example implementations include the use of a Network Intrusion Prevention System
+        (NIPS) or equivalent CSP service.
+      applicability: IG3
+    - id: '13.9'
+      text: Deploy Port-Level Access Control. Deploy port-level access control. Port-level access control
+        utilizes 802.1x, or similar network access control protocols, such as certificates, and may incorporate
+        user and/or device authentication.
+      applicability: IG3
+    - id: '13.10'
+      text: Perform Application Layer Filtering. Perform application layer filtering. Example implementations
+        include a filtering proxy, application layer firewall, or gateway.
+      applicability: IG3
+    - id: '13.11'
+      text: Tune Security Event Alerting Thresholds. Tune security event alerting thresholds monthly,
+        or more frequently.
+      applicability: IG3
+  source_version: ''
+  source_url: ''
+- short_code: CIS-14
+  full_name: Security Awareness and Skills Training
+  purpose: Establish and maintain a security awareness program to influence behavior among the workforce
+    to be security conscious and properly skilled to reduce cybersecurity risks to the enterprise.
+  practices_populated: true
+  objectives:
+  - number: 1
+    title: Security Awareness and Skills Training
+    purpose: ''
+    practices:
+    - id: '14.1'
+      text: Establish and Maintain a Security Awareness Program. Establish and maintain a security awareness
+        program. The purpose of a security awareness program is to educate the enterprise's workforce
+        on how to interact with enterprise assets and data in a secure manner. Conduct training at hire
+        and, at a minimum, annually. Review and update content annually, or when significant enterprise
+        changes occur that could impact this Safeguard.
+      applicability: IG1, IG2, IG3
+    - id: '14.2'
+      text: Train Workforce Members to Recognize Social Engineering Attacks. Train workforce members to
+        recognize social engineering attacks, such as phishing, pre-texting, and tailgating.
+      applicability: IG1, IG2, IG3
+    - id: '14.3'
+      text: Train Workforce Members on Authentication Best Practices. Train workforce members on authentication
+        best practices. Example topics include MFA, password composition, and credential management.
+      applicability: IG1, IG2, IG3
+    - id: '14.4'
+      text: Train Workforce on Data Handling Best Practices. Train workforce members on how to identify
+        and properly store, transfer, archive, and destroy sensitive data. This also includes training
+        workforce members on clear screen and desk best practices, such as locking their screen when they
+        step away from their enterprise asset, erasing physical and virtual whiteboards at the end of
+        meetings, and storing data and assets securely.
+      applicability: IG1, IG2, IG3
+    - id: '14.5'
+      text: Train Workforce Members on Causes of Unintentional Data Exposure. Train workforce members
+        to be aware of causes for unintentional data exposure. Example topics include mis-delivery of
+        sensitive data, losing a portable end-user device, or publishing data to unintended audiences.
+      applicability: IG1, IG2, IG3
+    - id: '14.6'
+      text: Train Workforce Members on Recognizing and Reporting Security Incidents. Train workforce members
+        to be able to recognize a potential incident and be able to report such an incident.
+      applicability: IG1, IG2, IG3
+    - id: '14.7'
+      text: Train Workforce on How to Identify and Report if Their Enterprise Assets are Missing Security
+        Updates. Train workforce to understand how to verify and report out-of-date software patches or
+        any failures in automated processes and tools. Part of this training should include notifying
+        IT personnel of any failures in automated processes and tools.
+      applicability: IG1, IG2, IG3
+    - id: '14.8'
+      text: Train Workforce on the Dangers of Connecting to and Transmitting Enterprise Data Over Insecure
+        Networks. Train workforce members on the dangers of connecting to, and transmitting data over,
+        insecure networks for enterprise activities. If the enterprise has remote workers, training must
+        include guidance to ensure that all users securely configure their home network infrastructure.
+      applicability: IG1, IG2, IG3
+    - id: '14.9'
+      text: Conduct Role-Specific Security Awareness and Skills Training. Conduct role-specific security
+        awareness and skills training. Example implementations include secure system administration courses
+        for IT professionals, OWASP Top 10 vulnerability awareness and prevention training for web application
+        developers, and advanced social engineering awareness training for high-profile roles.
+      applicability: IG2, IG3
+  source_version: ''
+  source_url: ''
+- short_code: CIS-15
+  full_name: Service Provider Management
+  purpose: Develop a process to evaluate service providers who hold sensitive data, or are responsible
+    for an enterprise's critical IT platforms or processes, to ensure these providers are protecting those
+    platforms and data appropriately.
+  practices_populated: true
+  objectives:
+  - number: 1
+    title: Service Provider Management
+    purpose: ''
+    practices:
+    - id: '15.1'
+      text: Establish and Maintain an Inventory of Service Providers. Establish and maintain an inventory
+        of service providers. The inventory is to list all known service providers, include classification(s),
+        and designate an enterprise contact for each service provider. Review and update the inventory
+        annually, or when significant enterprise changes occur that could impact this Safeguard.
+      applicability: IG1, IG2, IG3
+    - id: '15.2'
+      text: Establish and Maintain a Service Provider Management Policy. Establish and maintain a service
+        provider management policy. Ensure the policy addresses the classification, inventory, assessment,
+        monitoring, and decommissioning of service providers. Review and update the policy annually, or
+        when significant enterprise changes occur that could impact this Safeguard.
+      applicability: IG2, IG3
+    - id: '15.3'
+      text: Classify Service Providers. Classify service providers. Classification consideration may include
+        one or more characteristics, such as data sensitivity, data volume, availability requirements,
+        applicable regulations, inherent risk, and mitigated risk. Update and review classifications annually,
+        or when significant enterprise changes occur that could impact this Safeguard.
+      applicability: IG2, IG3
+    - id: '15.4'
+      text: Ensure Service Provider Contracts Include Security Requirements. Ensure service provider contracts
+        include security requirements. Example requirements may include minimum security program requirements,
+        security incident and/or data breach notification and response, data encryption requirements,
+        and data disposal commitments. These security requirements must be consistent with the enterprise's
+        service provider management policy. Review service provider contracts annually to ensure contracts
+        are not missing security requirements.
+      applicability: IG2, IG3
+    - id: '15.5'
+      text: Assess Service Providers. Assess service providers consistent with the enterprise's service
+        provider management policy. Assessment scope may vary based on classification(s), and may include
+        review of standardized assessment reports, such as Service Organization Control 2 (SOC 2) and
+        Payment Card Industry (PCI) Attestation of Compliance (AoC), customized questionnaires, or other
+        appropriately rigorous processes. Reassess service providers annually, at a minimum, or with new
+        and renewed contracts.
+      applicability: IG3
+    - id: '15.6'
+      text: Monitor Service Providers. Monitor service providers consistent with the enterprise's service
+        provider management policy. Monitoring may include periodic reassessment of service provider compliance,
+        monitoring service provider release notes, and dark web monitoring.
+      applicability: IG3
+    - id: '15.7'
+      text: Securely Decommission Service Providers. Securely decommission service providers. Example
+        considerations include user and service account deactivation, termination of data flows, and secure
+        disposal of enterprise data within service provider systems.
+      applicability: IG3
+  source_version: ''
+  source_url: ''
+- short_code: CIS-16
+  full_name: Application Software Security
+  purpose: Manage the security life cycle of in-house developed, hosted, or acquired software to prevent,
+    detect, and remediate security weaknesses before they can impact the enterprise.
+  practices_populated: true
+  objectives:
+  - number: 1
+    title: Application Software Security
+    purpose: ''
+    practices:
+    - id: '16.1'
+      text: 'Establish and Maintain a Secure Application Development Process. Establish and maintain a
+        secure application development process. In the process, address such items as: secure application
+        design standards, secure coding practices, developer training, vulnerability management, security
+        of third-party code, and application security testing procedures. Review and update documentation
+        annually, or when significant enterprise changes occur that could impact this Safeguard.'
+      applicability: IG2, IG3
+    - id: '16.2'
+      text: 'Establish and Maintain a Process to Accept and Address Software Vulnerabilities. Establish
+        and maintain a process to accept and address reports of software vulnerabilities, including providing
+        a means for external entities to report. The process is to include such items as: a vulnerability
+        handling policy that identifies reporting process, responsible party for handling vulnerability
+        reports, and a process for intake, assignment, remediation, and remediation testing. As part of
+        the process, use a vulnerability tracking system that includes severity ratings, and metrics for
+        measuring timing for identification, analysis, and remediation of vulnerabilities. Review and
+        update documentation annually, or when significant enterprise changes occur that could impact
+        this Safeguard. Third-party application developers need to consider this an externally-facing
+        policy that helps to set expectations for outside stakeholders.'
+      applicability: IG2, IG3
+    - id: '16.3'
+      text: Perform Root Cause Analysis on Security Vulnerabilities. Perform root cause analysis on security
+        vulnerabilities. When reviewing vulnerabilities, root cause analysis is the task of evaluating
+        underlying issues that create vulnerabilities in code, and allows development teams to move beyond
+        just fixing individual vulnerabilities as they arise.
+      applicability: IG2, IG3
+    - id: '16.4'
+      text: Establish and Manage an Inventory of Third-Party Software Components. Establish and manage
+        an updated inventory of third-party components used in development, often referred to as a "bill
+        of materials," as well as components slated for future use. This inventory is to include any risks
+        that each third-party component could pose. Evaluate the list at least monthly to identify any
+        changes or updates to these components, and validate that the component is still supported.
+      applicability: IG2, IG3
+    - id: '16.5'
+      text: Use Up-to-Date and Trusted Third-Party Software Components. Use up-to-date and trusted third-party
+        software components. When possible, choose established and proven frameworks and libraries that
+        provide adequate security. Acquire these components from trusted sources or evaluate the software
+        for vulnerabilities before use.
+      applicability: IG2, IG3
+    - id: '16.6'
+      text: Establish and Maintain a Severity Rating System and Process for Application Vulnerabilities.
+        Establish and maintain a severity rating system and process for application vulnerabilities that
+        facilitates prioritizing the order in which discovered vulnerabilities are fixed. This process
+        includes setting a minimum level of security acceptability for releasing code or applications.
+        Severity ratings bring a systematic way of triaging vulnerabilities that improves risk management
+        and helps ensure the most severe bugs are fixed first. Review and update the system and process
+        annually.
+      applicability: IG2, IG3
+    - id: '16.7'
+      text: Use Standard Hardening Configuration Templates for Application Infrastructure. Use standard,
+        industry-recommended hardening configuration templates for application infrastructure components.
+        This includes underlying servers, databases, and web servers, and applies to cloud containers,
+        Platform as a Service (PaaS) components, and SaaS components. Do not allow in-house developed
+        software to weaken configuration hardening.
+      applicability: IG2, IG3
+    - id: '16.8'
+      text: Separate Production and Non-Production Systems. Maintain separate environments for production
+        and non-production systems.
+      applicability: IG2, IG3
+    - id: '16.9'
+      text: Train Developers in Application Security Concepts and Secure Coding. Ensure that all software
+        development personnel receive training in writing secure code for their specific development environment
+        and responsibilities. Training can include general security principles and application security
+        standard practices. Conduct training at least annually and design in a way to promote security
+        within the development team, and build a culture of security among the developers.
+      applicability: IG2, IG3
+    - id: '16.10'
+      text: Apply Secure Design Principles in Application Architectures. Apply secure design principles
+        in application architectures. Secure design principles include the concept of least privilege
+        and enforcing mediation to validate every operation that the user makes, promoting the concept
+        of "never trust user input." Examples include ensuring that explicit error checking is performed
+        and documented for all input, including for size, data type, and acceptable ranges or formats.
+        Secure design also means minimizing the application infrastructure attack surface, such as turning
+        off unprotected ports and services, removing unnecessary programs and files, and renaming or removing
+        default accounts.
+      applicability: IG2, IG3
+    - id: '16.11'
+      text: Leverage Vetted Modules or Services for Application Security Components. Leverage vetted modules
+        or services for application security components, such as identity management, encryption, and
+        auditing and logging. Using platform features in critical security functions will reduce developers'
+        workload and minimize the likelihood of design or implementation errors. Modern operating systems
+        provide effective mechanisms for identification, authentication, and authorization and make those
+        mechanisms available to applications. Use only standardized, currently accepted, and extensively
+        reviewed encryption algorithms. Operating systems also provide mechanisms to create and maintain
+        secure audit logs.
+      applicability: IG2, IG3
+    - id: '16.12'
+      text: Implement Code-Level Security Checks. Apply static and dynamic analysis tools within the application
+        life cycle to verify that secure coding practices are being followed.
+      applicability: IG3
+    - id: '16.13'
+      text: Conduct Application Penetration Testing. Conduct application penetration testing. For critical
+        applications, authenticated penetration testing is better suited to finding business logic vulnerabilities
+        than code scanning and automated security testing. Penetration testing relies on the skill of
+        the tester to manually manipulate an application as an authenticated and unauthenticated user.
+      applicability: IG3
+    - id: '16.14'
+      text: Conduct Threat Modeling. Conduct threat modeling. Threat modeling is the process of identifying
+        and addressing application security design flaws within a design, before code is created. It is
+        conducted through specially trained individuals who evaluate the application design and gauge
+        security risks for each entry point and access level. The goal is to map out the application,
+        architecture, and infrastructure in a structured way to understand its weaknesses.
+      applicability: IG3
+  source_version: ''
+  source_url: ''
+- short_code: CIS-17
+  full_name: Incident Response Management
+  purpose: Establish a program to develop and maintain an incident response capability (e.g., policies,
+    plans, procedures, defined roles, training, and communications) to prepare, detect, and quickly respond
+    to an attack.
+  practices_populated: true
+  objectives:
+  - number: 1
+    title: Incident Response Management
+    purpose: ''
+    practices:
+    - id: '17.1'
+      text: Designate Personnel to Manage Incident Handling. Designate one key person, and at least one
+        backup, who will manage the enterprise's incident handling process. Management personnel are responsible
+        for the coordination and documentation of incident response and recovery efforts and can consist
+        of employees internal to the enterprise, third-party vendors, or a hybrid approach. If using a
+        third-party vendor, designate at least one person internal to the enterprise to oversee any third-party
+        work. Review annually, or when significant enterprise changes occur that could impact this Safeguard.
+      applicability: IG1, IG2, IG3
+    - id: '17.2'
+      text: Establish and Maintain Contact Information for Reporting Security Incidents. Establish and
+        maintain contact information for parties that need to be informed of security incidents. Contacts
+        may include internal staff, third-party vendors, law enforcement, cyber insurance providers, relevant
+        government agencies, Information Sharing and Analysis Center (ISAC) partners, or other stakeholders.
+        Verify contacts annually to ensure that information is up-to-date.
+      applicability: IG1, IG2, IG3
+    - id: '17.3'
+      text: Establish and Maintain an Enterprise Process for Reporting Incidents. Establish and maintain
+        an enterprise process for the workforce to report security incidents. The process includes reporting
+        timeframe, personnel to report to, mechanism for reporting, and the minimum information to be
+        reported. Ensure the process is publicly available to all of the workforce. Review annually, or
+        when significant enterprise changes occur that could impact this Safeguard.
+      applicability: IG1, IG2, IG3
+    - id: '17.4'
+      text: Establish and Maintain an Incident Response Process. Establish and maintain an incident response
+        process that addresses roles and responsibilities, compliance requirements, and a communication
+        plan. Review annually, or when significant enterprise changes occur that could impact this Safeguard.
+      applicability: IG2, IG3
+    - id: '17.5'
+      text: Assign Key Roles and Responsibilities. Assign key roles and responsibilities for incident
+        response, including staff from legal, IT, information security, facilities, public relations,
+        human resources, incident responders, and analysts, as applicable. Review annually, or when significant
+        enterprise changes occur that could impact this Safeguard.
+      applicability: IG2, IG3
+    - id: '17.6'
+      text: Define Mechanisms for Communicating During Incident Response. Determine which primary and
+        secondary mechanisms will be used to communicate and report during a security incident. Mechanisms
+        can include phone calls, emails, or letters. Keep in mind that certain mechanisms, such as emails,
+        can be affected during a security incident. Review annually, or when significant enterprise changes
+        occur that could impact this Safeguard.
+      applicability: IG2, IG3
+    - id: '17.7'
+      text: Conduct Routine Incident Response Exercises. Plan and conduct routine incident response exercises
+        and scenarios for key personnel involved in the incident response process to prepare for responding
+        to real-world incidents. Exercises need to test communication channels, decision-making, and workflows.
+        Conduct testing on an annual basis, at a minimum.
+      applicability: IG2, IG3
+    - id: '17.8'
+      text: Conduct Post-Incident Reviews. Conduct post-incident reviews. Post-incident reviews help prevent
+        incident recurrence through identifying lessons learned and follow-up action.
+      applicability: IG2, IG3
+    - id: '17.9'
+      text: 'Establish and Maintain Security Incident Thresholds. Establish and maintain security incident
+        thresholds, including, at a minimum, differentiating between an incident and an event. Examples
+        can include: abnormal activity, security vulnerability, security weakness, data breach, privacy
+        incident, etc. Review annually, or when significant enterprise changes occur that could impact
+        this Safeguard.'
+      applicability: IG3
+  source_version: ''
+  source_url: ''
+- short_code: CIS-18
+  full_name: Penetration Testing
+  purpose: Test the effectiveness and resiliency of enterprise assets through identifying and exploiting
+    weaknesses in controls (people, processes, and technology), and simulating the objectives and actions
+    of an attacker.
+  practices_populated: true
+  objectives:
+  - number: 1
+    title: Penetration Testing
+    purpose: ''
+    practices:
+    - id: '18.1'
+      text: Establish and Maintain a Penetration Testing Program. Establish and maintain a penetration
+        testing program appropriate to the size, complexity, and maturity of the enterprise. Penetration
+        testing program characteristics include scope, such as network, web application, Application Programming
+        Interface (API), hosted services, and physical premise controls; frequency; limitations, such
+        as acceptable hours, and excluded attack types; point of contact information; remediation, such
+        as how findings will be routed internally; and retrospective requirements.
+      applicability: IG2, IG3
+    - id: '18.2'
+      text: Perform Periodic External Penetration Tests. Perform periodic external penetration tests based
+        on program requirements, no less than annually. External penetration testing must include enterprise
+        and environmental reconnaissance to detect exploitable information. Penetration testing requires
+        specialized skills and experience and must be conducted through a qualified party. The testing
+        may be clear box or opaque box.
+      applicability: IG2, IG3
+    - id: '18.3'
+      text: Remediate Penetration Test Findings. Remediate penetration test findings based on the enterprise's
+        policy for remediation scope and prioritization.
+      applicability: IG2, IG3
+    - id: '18.4'
+      text: Validate Security Measures. Validate security measures after each penetration test. If deemed
+        necessary, modify rulesets and capabilities to detect the techniques used during testing.
+      applicability: IG3
+    - id: '18.5'
+      text: Perform Periodic Internal Penetration Tests. Perform periodic internal penetration tests based
+        on program requirements, no less than annually.
+      applicability: IG3
+  source_version: ''
+  source_url: ''

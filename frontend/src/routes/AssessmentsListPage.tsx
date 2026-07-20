@@ -4,13 +4,13 @@ import { useAssessments, useCreateAssessment } from '../api/assessments'
 import StatusBadge from '../components/StatusBadge'
 
 // framework_name is free text at the API level (models/assessment.py).
-// C2M2, NIST CSF 2.0, and NERC CIP are fully transcribed with real,
-// full requirement text (ADR-0018, ADR-0010, ADR-0022). ISO 27001 is
-// deliberately titles-only (ADR-0024) — the full standard is a paid,
-// copyrighted publication with no free full-text access, so
-// Practice.text there is the real official control title only, never
-// the full descriptive requirement.
-const KNOWN_FRAMEWORKS = ['C2M2', 'NIST CSF 2.0', 'NERC CIP', 'ISO 27001']
+// C2M2, NIST CSF 2.0, NERC CIP, and CIS Controls are fully transcribed
+// with real, full requirement text (ADR-0018, ADR-0010, ADR-0022,
+// ADR-0025). ISO 27001 is deliberately titles-only (ADR-0024) — the
+// full standard is a paid, copyrighted publication with no free
+// full-text access, so Practice.text there is the real official
+// control title only, never the full descriptive requirement.
+const KNOWN_FRAMEWORKS = ['C2M2', 'NIST CSF 2.0', 'NERC CIP', 'ISO 27001', 'CIS Controls']
 
 export default function AssessmentsListPage() {
   const { data: assessments, isLoading, isError, error } = useAssessments()

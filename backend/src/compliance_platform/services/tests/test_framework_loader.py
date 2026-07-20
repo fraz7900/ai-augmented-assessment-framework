@@ -140,7 +140,7 @@ def test_management_activities_objective_has_no_mil1_practices() -> None:
 
 
 def test_get_returns_none_for_unknown_framework() -> None:
-    assert _registry().get("CIS Controls") is None
+    assert _registry().get("SOC 2") is None
 
 
 def test_registry_caches_loaded_framework() -> None:
@@ -337,27 +337,30 @@ def test_nerc_cip_domain_for_practice_id_resolves_correctly() -> None:
 
 
 def test_nerc_cip_practice_with_curated_equivalents_points_to_c2m2_and_iso() -> None:
-    """CIP-007-5.3 has two real, reviewed entries in
+    """CIP-007-5.3 has three real, reviewed entries in
     framework_mapping/cross_framework_equivalence.yaml — one to C2M2's
-    ACCESS-1a (ADR-0023), one to ISO 27001's A.8.2 (ADR-0024) — merged
-    correctly into one list by the same generic two-sided schema
-    (framework_a/practice_a_id/framework_b/practice_b_id) every pairing
-    in this file uses, not a special case per framework pair.
+    ACCESS-1a (ADR-0023), one to ISO 27001's A.8.2 (ADR-0024), one to
+    CIS Controls' 5.1 (ADR-0025) — merged correctly into one list by
+    the same generic two-sided schema (framework_a/practice_a_id/
+    framework_b/practice_b_id) every pairing in this file uses, not a
+    special case per framework pair.
     """
     framework = _registry().require("NERC CIP")
     practice = _find_practice(framework, "CIP-007-5.3")
     assert practice is not None
-    assert len(practice.equivalents) == 2
+    assert len(practice.equivalents) == 3
     by_framework = {e.framework_name: e for e in practice.equivalents}
     assert by_framework["C2M2"].practice_id == "ACCESS-1a"
     assert by_framework["ISO 27001"].practice_id == "A.8.2"
+    assert by_framework["CIS Controls"].practice_id == "5.1"
     assert all(e.rationale for e in practice.equivalents)  # real text, not blank
 
 
 def test_nerc_cip_practice_without_curated_equivalence_entry_has_empty_list() -> None:
     """CIP-002-1.1 (BES Cyber System impact categorization) has no
-    equivalent in either C2M2 (ADR-0023) or ISO 27001 (ADR-0024) — a
-    real, confirmed standards gap in both reviews, not an oversight.
+    equivalent in C2M2 (ADR-0023), ISO 27001 (ADR-0024), or CIS
+    Controls (ADR-0025) — a real, confirmed standards gap in all three
+    reviews, not an oversight.
     """
     framework = _registry().require("NERC CIP")
     practice = _find_practice(framework, "CIP-002-1.1")
@@ -366,24 +369,24 @@ def test_nerc_cip_practice_without_curated_equivalence_entry_has_empty_list() ->
 
 
 def test_nerc_cip_equivalence_review_is_partial_and_disclosed() -> None:
-    """ADR-0023 (C2M2) + ADR-0024 (ISO 27001): 100 of 141 NERC CIP
-    practices have at least one reviewed equivalent (169 entries total
-    across both pairings — 68 practices have both a C2M2 and an ISO
-    27001 equivalent). NERC CIP <-> NIST CSF 2.0 remains separate,
-    unstarted future work. Asserted against the real committed file so
-    a future edit that silently changes this count is caught, mirroring
-    how the C2M2/NIST coverage counts are pinned elsewhere in this
-    project's own documentation.
+    """ADR-0023 (C2M2) + ADR-0024 (ISO 27001) + ADR-0025 (CIS Controls):
+    114 of 141 NERC CIP practices have at least one reviewed equivalent
+    (253 entries total across all three pairings — 89 practices have
+    more than one equivalent). NERC CIP <-> NIST CSF 2.0 remains
+    separate, unstarted future work. Asserted against the real
+    committed file so a future edit that silently changes this count is
+    caught, mirroring how the C2M2/NIST coverage counts are pinned
+    elsewhere in this project's own documentation.
     """
     framework = _registry().require("NERC CIP")
     covered = [p for d in framework.domains for p in d.all_practices() if p.equivalents]
-    assert len(covered) == 100
+    assert len(covered) == 114
     total_entries = sum(len(p.equivalents) for p in covered)
-    assert total_entries == 169
+    assert total_entries == 253
     both = [p for p in covered if len(p.equivalents) > 1]
-    assert len(both) == 68
+    assert len(both) == 89
     seen_frameworks = {e.framework_name for p in covered for e in p.equivalents}
-    assert seen_frameworks == {"C2M2", "ISO 27001"}
+    assert seen_frameworks == {"C2M2", "ISO 27001", "CIS Controls"}
 
 
 # --- NERC CIP <-> ISO 27001 cross-framework equivalence (ADR-0024) ---
@@ -439,3 +442,73 @@ def test_iso_27001_practice_text_is_a_title_not_a_full_requirement() -> None:
     assert len(practice.text) < 100  # a title, not a multi-sentence requirement
     assert practice.mil is None
     assert practice.applicability == ""
+
+
+# --- CIS Controls v8 (ADR-0025 — genuinely free under CC BY-NC-ND 4.0,
+# so unlike ISO 27001, Practice.text holds the full official Safeguard
+# description, not a title only) ---
+
+
+def test_cis_controls_loads_with_all_eighteen_controls() -> None:
+    framework = _registry().require("CIS Controls")
+    assert framework.scoring_model == "coverage"
+    assert len(framework.domains) == 18
+    assert {d.short_code for d in framework.domains} == {f"CIS-{i:02d}" for i in range(1, 19)}
+
+
+def test_cis_controls_safeguard_count_matches_the_official_total() -> None:
+    """153 is CIS Controls v8's own stated Safeguard total across 18
+    Controls; the generator script asserts this at write time, and this
+    test asserts it again at load time, mirroring
+    test_iso_27001_annex_a_control_count_matches_the_official_total and
+    test_nist_csf_subcategory_count_matches_the_official_total above.
+    """
+    framework = _registry().require("CIS Controls")
+    assert len(framework.all_practice_ids()) == 153
+    assert all(d.practices_populated for d in framework.domains)
+
+
+def test_cis_controls_practice_has_full_description_and_real_ig_applicability() -> None:
+    """Unlike ISO 27001's title-only Practice.text, CIS Controls v8's
+    license (Creative Commons Attribution-NonCommercial-No Derivatives
+    4.0) permits redistributing the full official Safeguard text, so
+    Practice.text here is the complete description, not just a title.
+    Practice.applicability holds the real Implementation Group (IG1/
+    IG2/IG3) markers — a genuine reuse of the applicability field
+    ADR-0021 introduced for NERC CIP, not a new schema concept.
+    Practice.mil is always None (CIS Controls v8 has no MIL concept).
+    """
+    framework = _registry().require("CIS Controls")
+    practice = _find_practice(framework, "1.1")
+    assert practice is not None
+    assert practice.text.startswith("Establish and Maintain Detailed Enterprise Asset Inventory.")
+    assert len(practice.text) > 200  # a full description, not a short title
+    assert practice.mil is None
+    assert practice.applicability == "IG1, IG2, IG3"
+
+
+def test_cis_controls_ig3_only_safeguard_has_narrower_applicability() -> None:
+    """Not every Safeguard applies to every Implementation Group — 2.7
+    (allowlisting authorized scripts) is IG3-only in the real source
+    table, confirming applicability isn't just copied uniformly."""
+    framework = _registry().require("CIS Controls")
+    practice = _find_practice(framework, "2.7")
+    assert practice is not None
+    assert practice.applicability == "IG3"
+
+
+# --- NERC CIP <-> CIS Controls cross-framework equivalence (ADR-0025) ---
+
+
+def test_cis_controls_practice_equivalent_points_back_to_nerc_cip() -> None:
+    """The CIS Controls side of the pairing resolves correctly too —
+    5.1's equivalents list includes CIP-007-5.3, confirming the merge
+    works symmetrically regardless of which framework is loaded first,
+    the same check test_nerc_cip_practice_with_curated_iso_equivalent_points_back
+    already does for the ISO 27001 pairing.
+    """
+    framework = _registry().require("CIS Controls")
+    practice = _find_practice(framework, "5.1")
+    assert practice is not None
+    equivalent = next(e for e in practice.equivalents if e.framework_name == "NERC CIP")
+    assert equivalent.practice_id == "CIP-007-5.3"
