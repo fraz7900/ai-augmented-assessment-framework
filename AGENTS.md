@@ -6,16 +6,20 @@ is updated every time status changes.
 
 ## What this is
 
-Local-first AI compliance assessment platform (C2M2, NIST CSF 2.0). Backend only so far
-(`backend/src/compliance_platform`, FastAPI); no frontend exists yet. Full problem statement:
-`PROJECT_CHARTER.md`. Architecture decisions: `docs/adr/` (read the relevant one before changing
-anything it covers — check filenames first, don't guess).
+Local-first AI compliance assessment platform. MVP frameworks: C2M2, NIST CSF 2.0; extended
+post-MVP to NERC CIP, ISO 27001, CIS Controls v8, SOC 2, and PCI DSS (7 frameworks total as of
+Sprint 16 — see `docs/current_sprint.md`). Backend (`backend/src/compliance_platform`, FastAPI)
+plus a real frontend (`frontend/`, Vite/React/TypeScript, live since Sprint 10, ADR-0016) covering
+every persona's primary flow end to end. Full problem statement: `PROJECT_CHARTER.md`. Architecture
+decisions: `docs/adr/` (read the relevant one before changing anything it covers — check filenames
+first, don't guess).
 
 ## Two rules that override normal engineering instinct here
 
-1. **Never hardcode framework structure (C2M2, NIST CSF) in Python.** It lives in
-   `framework_mapping/*.yaml`. If a task seems to need a framework-specific `if` branch in
-   `services/`, that's a design smell — flag it, don't add it (see ADR-0002).
+1. **Never hardcode any framework's structure (C2M2, NIST CSF, NERC CIP, ISO 27001, CIS Controls,
+   SOC 2, PCI DSS) in Python.** It lives in `framework_mapping/*.yaml`. If a task seems to need a
+   framework-specific `if` branch in `services/`, that's a design smell — flag it, don't add it
+   (see ADR-0002).
 2. **Never let a score exist without a linked evidence trail, and never auto-accept an AI-proposed
    mapping.** Human review (accept/edit/reject) is a required state transition, not a skippable
    step. C2M2 MIL scores are cumulative within a domain (MIL2 requires every MIL1 practice met too)
@@ -44,12 +48,19 @@ what you're touching before editing it:
 ## Commands
 
 ```
-cd backend && source .venv/bin/activate && pytest          # 130 tests as of Sprint 6 — run before finishing any backend change
+cd backend && source .venv/bin/activate && pytest          # 215 tests as of Sprint 16 — run before finishing any backend change
 cd backend && source .venv/bin/activate && ruff check .    # lint
 cd backend && source .venv/bin/activate && uvicorn compliance_platform.main:app --reload   # run the API, http://127.0.0.1:8000/docs
+cd frontend && npm run test    # vitest — run before finishing any frontend change
+cd frontend && npm run dev     # run the UI, http://localhost:5173
 ```
 First `uvicorn` startup can take a couple of minutes if this checkout sits on a slow/synced
-filesystem (e.g. OneDrive) — not a hang, let it finish.
+filesystem (e.g. OneDrive) — not a hang, let it finish. On a fresh clone, `npm install` needs
+`--legacy-peer-deps` (a real `openapi-typescript`/TypeScript peer conflict, see ADR-0016) and, on
+this same class of slow/synced filesystem, can intermittently leave `node_modules/.bin` or
+transitive optional deps (e.g. `esbuild`) incompletely installed — if `npm run test`/`dev` reports
+a missing binary or vitest workers time out with no error, delete `node_modules` and reinstall
+rather than assuming the source is broken.
 
 ## Repo housekeeping
 

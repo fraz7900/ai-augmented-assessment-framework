@@ -171,6 +171,29 @@ updated for the six-pairing coverage totals and the newly-multi-equivalent subca
 closes R-27, the last remaining item in this project's cross-framework equivalence roadmap. See
 `docs/adr/ADR-0028-nerc-cip-nist-csf-cross-framework-equivalence.md`.
 
+**Sprint 16: PCI DSS extended to leaf-level transcription; NERC CIP↔PCI DSS equivalence
+re-reviewed at the new granularity.** Finished a prior session's interrupted extension of PCI DSS
+(ADR-0027, Sprint 14) from Section-level (63 statements) to full leaf-level "Defined Approach
+Requirement" transcription — **249 real leaf items**, directly counted and verified against a
+re-fetched copy of the source PDF (confirmed genuine PCI SSC content via `pypdf`, the same
+discipline every prior framework addition used). Each Section (e.g. "9.2") is now a real
+`Objective` carrying the Section's own number and statement as its title, mirroring NERC CIP's own
+Objective pattern; each Defined Approach Requirement (e.g. "9.2.1") is a `Practice`. Six real
+extraction artifacts were found and corrected against the raw PDF text during this pass (a table
+layout that merged a short requirement and its testing procedure onto one line for a few items,
+and cross-referenced requirement numbers that fooled leaf-boundary detection for five others).
+Restructuring PCI DSS's granularity broke all 80 existing NERC CIP↔PCI DSS equivalence entries
+(`practice_b_id` values were Section-level IDs that no longer resolved to any Practice) — rather
+than withdraw the pairing, a full re-review was done at the new leaf granularity: **60 of the 80
+NERC CIP practices retained a real leaf-level equivalent** (61 entries — CIP-005-1.3 now correctly
+matches two leaves), 20 were dropped with disclosed reasons (mostly PCI DSS's recurring "N.1"
+administrative-only Sections, which read as a match at the Section-statement level but have no
+substantive leaf backing it). NERC CIP's own total reviewed-equivalent count across all six
+pairings is now 481 entries (was 500); `cross_framework_equivalence.yaml`'s whole-file total is 560
+(the 481 NERC-CIP-side entries plus 79 unrelated original C2M2↔NIST CSF 2.0 entries, ADR-0019). 215
+backend tests passing (5 updated for the new leaf-level structure and equivalence counts). See
+`docs/adr/ADR-0029-pci-dss-leaf-level-extension-and-equivalence-re-review.md`.
+
 **Sprint 10: the platform gained a real frontend, not just an API.**
 A real FastAPI app (`backend/src/compliance_platform`) ingests documents, embeds them locally (ONNX, no PyTorch, no network calls), tracks assessments through a draft → in-review → finalized lifecycle, scores both C2M2 maturity and NIST CSF 2.0 coverage, proposes evidence-to-practice mappings via retrieval-based semantic matching with mandatory human review, produces a structured dashboard (`GET /assessments/{id}/dashboard`, see ADR-0012) exportable as PDF/XLSX (`.../report/pdf` / `.../report/xlsx`, see ADR-0013), and answers natural-language questions grounded only in an assessment's own reviewed evidence (`POST /assessments/{id}/chat`, retrieval-only, no LLM — see ADR-0014). Through Sprint 9 every one of those capabilities was reachable only via Swagger/curl; `frontend/` (Vite + React + TypeScript, ADR-0016) now covers every persona's primary flow end to end — upload, assessment create/status/history, evidence link + AI-propose + accept/edit/reject, the dashboard with PDF/XLSX download, and chat — and closes NFR-4's UI-level requirement (AI-proposed evidence must be visibly distinguishable from human-confirmed, not just at the data-model/API layers). Verified live against the real running backend via a Playwright-driven walkthrough, not just built: zero console errors on the final pass, and two real bugs (a React key collision, a stale-dev-server symptom traced to this repo's OneDrive/WSL2 filesystem — R-11) were found and fixed during that same verification. Run it yourself:
 
@@ -195,7 +218,7 @@ then open `http://localhost:5173`: upload a document (a sample is in `data/sampl
 - [`docs/product/`](./docs/product/) — PRD, personas, epics/user stories, requirements, assumptions log, decision log, risk register, prioritized backlog
 - [`docs/architecture/00-repository-architecture.md`](./docs/architecture/00-repository-architecture.md) — repository layout and rationale
 - [`docs/architecture/01-claude-code-workspace.md`](./docs/architecture/01-claude-code-workspace.md) — hooks, skills, and MCP design for this project's `.claude/` workspace
-- [`docs/adr/`](./docs/adr/) — Architecture Decision Records (28 as of Sprint 15)
+- [`docs/adr/`](./docs/adr/) — Architecture Decision Records (29 as of Sprint 16)
 - [`docs/consulting/`](./docs/consulting/) — per-sprint executive summaries, business value/risk/ROI assessments, and MBA/interview narrative
 - [`docs/current_sprint.md`](./docs/current_sprint.md) — single-source-of-truth sprint tracker
 
@@ -209,4 +232,4 @@ Python (FastAPI, backend live as of Sprint 1), React (frontend, Vite + TypeScrip
 
 ## Roadmap
 
-Primary frameworks: C2M2, NIST CSF 2.0. NERC CIP fully transcribed (Sprint 11): all 13 currently-mandatory standards, 141 of 141 practices. ISO 27001 added titles-only (Sprint 11): all 4 Annex A themes, 93 of 93 control titles — the full standard is a paid, copyrighted publication with no free access, a real and disclosed limitation. CIS Controls v8 fully transcribed (Sprint 12): all 18 Controls, 153 of 153 Safeguards, complete official text — freely licensed under Creative Commons, unlike ISO 27001. SOC 2 added criterion-statement-only (Sprint 13): all 5 Trust Services Categories, 61 of 61 criterion statements — the AICPA's TSC is copyrighted, all-rights-reserved content despite being freely downloadable, a real and disclosed limitation the same way ISO 27001's is. PCI DSS added Section-level statement-only (Sprint 14): all 12 Requirements, 63 of 63 Section statements — copyrighted like ISO 27001/SOC 2, and uniquely three hierarchy levels deep, so this transcription deliberately stops at the Section level rather than the finer ~205-item leaf level. NERC CIP↔NIST CSF 2.0 cross-framework equivalence reviewed (Sprint 15): 107 of 141 NERC CIP practices matched, the highest hit rate of any pairing, closing R-27. Every named framework in `PROJECT_CHARTER.md` Section 13 and every reviewed cross-framework equivalence pairing is now delivered. Full sprint sequence in `PROJECT_CHARTER.md` Section 13.
+Primary frameworks: C2M2, NIST CSF 2.0. NERC CIP fully transcribed (Sprint 11): all 13 currently-mandatory standards, 141 of 141 practices. ISO 27001 added titles-only (Sprint 11): all 4 Annex A themes, 93 of 93 control titles — the full standard is a paid, copyrighted publication with no free access, a real and disclosed limitation. CIS Controls v8 fully transcribed (Sprint 12): all 18 Controls, 153 of 153 Safeguards, complete official text — freely licensed under Creative Commons, unlike ISO 27001. SOC 2 added criterion-statement-only (Sprint 13): all 5 Trust Services Categories, 61 of 61 criterion statements — the AICPA's TSC is copyrighted, all-rights-reserved content despite being freely downloadable, a real and disclosed limitation the same way ISO 27001's is. PCI DSS added Section-level statement-only (Sprint 14), then extended to full leaf-level transcription (Sprint 16): all 12 Requirements, 63 of 63 Sections (now modeled as Objectives) and 249 of 249 real leaf-level Defined Approach Requirements (now modeled as Practices) — remains copyrighted like ISO 27001/SOC 2 at every granularity, so only the bolded requirement statement is ever transcribed. NERC CIP↔NIST CSF 2.0 cross-framework equivalence reviewed (Sprint 15): 107 of 141 NERC CIP practices matched, the highest hit rate of any pairing, closing R-27. NERC CIP↔PCI DSS equivalence re-reviewed at the new leaf granularity (Sprint 16): 60 of 141 NERC CIP practices matched (61 entries), down from the original Section-level 80 — see ADR-0029. Every named framework in `PROJECT_CHARTER.md` Section 13 and every reviewed cross-framework equivalence pairing is now delivered. Full sprint sequence in `PROJECT_CHARTER.md` Section 13.

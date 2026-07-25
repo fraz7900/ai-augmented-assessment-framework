@@ -124,7 +124,12 @@ abandoned intentionally, and the project owner confirmed: finish it.
   is now a leaf id (e.g. `9.2.1`, not `9.2`).
 - `framework_mapping/cross_framework_equivalence.yaml`: the NERC CIP↔PCI DSS block replaced —
   61 entries (60 NERC CIP practices), down from 80, with the header comment disclosing exactly
-  which 20 were dropped and why. Total file entries: 481 (was 500).
+  which 20 were dropped and why. NERC CIP's own total entry count across all six of its pairings
+  (C2M2, ISO 27001, CIS Controls, SOC 2, PCI DSS, NIST CSF 2.0) is now 481, down from 500 — this is
+  the number `test_nerc_cip_equivalence_review_is_partial_and_disclosed` asserts (see below), not
+  the whole file's entry count. The file's own total entry count is 560 (was 579): the 481
+  NERC-CIP-side entries plus 79 entries from the original C2M2↔NIST CSF 2.0 pairing (ADR-0019),
+  which involves neither framework this ADR touches and is unaffected.
 - `services/tests/test_framework_loader.py`: `test_pci_dss_section_count_matches_the_official_total`
   renamed to `test_pci_dss_defined_approach_requirement_count_matches_the_official_total` and
   updated to assert 249 leaf practices / 63 objectives (was 63 practices);
