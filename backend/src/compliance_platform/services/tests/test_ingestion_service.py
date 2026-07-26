@@ -19,19 +19,42 @@ from compliance_platform.services.ingestion_service import (
 )
 
 
+class _EmbedderFailure(Exception):
+    """A distinguishable exception, so failure-injection tests can
+    confirm the SPECIFIC injected error propagates, not just "something
+    raised" (which could hide a different, unintended failure).
+    """
+
+
+class _VectorStoreFailure(Exception):
+    pass
+
+
+class _DocumentStoreFailure(Exception):
+    pass
+
+
 class _FakeEmbedder:
     backend_name = "fake"
 
+    def __init__(self, fail: bool = False) -> None:
+        self._fail = fail
+
     def embed(self, texts: list[str]) -> list[list[float]]:
+        if self._fail:
+            raise _EmbedderFailure("simulated embedder outage")
         return [[float(len(t))] for t in texts]
 
 
 class _FakeVectorRepository:
-    def __init__(self, known_document_ids: set[str] | None = None) -> None:
+    def __init__(self, known_document_ids: set[str] | None = None, fail_add_chunks: bool = False) -> None:
         self.added: list[tuple[list[EvidenceChunk], list[list[float]]]] = []
         self._known_document_ids = known_document_ids or set()
+        self._fail_add_chunks = fail_add_chunks
 
     def add_chunks(self, chunks: list[EvidenceChunk], vectors: list[list[float]]) -> None:
+        if self._fail_add_chunks:
+            raise _VectorStoreFailure("simulated vector store write failure")
         self.added.append((chunks, vectors))
 
     def chunks_for_document(self, document_id: str) -> list[dict]:
@@ -39,10 +62,13 @@ class _FakeVectorRepository:
 
 
 class _FakeDocumentRepository:
-    def __init__(self) -> None:
+    def __init__(self, fail_create_document: bool = False) -> None:
         self.documents: dict[str, Document] = {}
+        self._fail_create_document = fail_create_document
 
     def create_document(self, document: Document) -> Document:
+        if self._fail_create_document:
+            raise _DocumentStoreFailure("simulated document-registry write failure")
         self.documents[document.id] = document
         return document
 
@@ -51,7 +77,11 @@ class _FakeDocumentRepository:
 
 
 def _make_service(
-    known_document_ids: set[str] | None = None, **settings_overrides: object
+    known_document_ids: set[str] | None = None,
+    fail_embed: bool = False,
+    fail_add_chunks: bool = False,
+    fail_create_document: bool = False,
+    **settings_overrides: object,
 ) -> tuple[IngestionService, _FakeVectorRepository, _FakeDocumentRepository]:
     defaults: dict[str, object] = {
         "chunk_target_chars": 1000,
@@ -60,12 +90,12 @@ def _make_service(
     }
     defaults.update(settings_overrides)
     settings = Settings(**defaults)  # type: ignore[arg-type]
-    vector_repo = _FakeVectorRepository(known_document_ids)
-    document_repo = _FakeDocumentRepository()
+    vector_repo = _FakeVectorRepository(known_document_ids, fail_add_chunks=fail_add_chunks)
+    document_repo = _FakeDocumentRepository(fail_create_document=fail_create_document)
     svc = IngestionService(
         settings=settings,
         vector_repository=vector_repo,
-        embedder=_FakeEmbedder(),
+        embedder=_FakeEmbedder(fail=fail_embed),
         document_repository=document_repo,
     )
     return svc, vector_repo, document_repo
@@ -168,3 +198,54 @@ def test_ingest_reports_parser_version_in_the_result_and_the_persisted_document(
     stored = documents.get_document(result.document_id)
     assert stored is not None
     assert stored.parser_version == result.parser_version
+
+
+# --- Failure injection (Sprint 18, ADR-0044) ---
+#
+# Prior tests all exercise expected, well-formed failure paths (oversized
+# upload, unsupported content, malformed files). These instead simulate
+# an INFRASTRUCTURE dependency (embedder / vector store / document
+# registry) failing partway through a multi-step ingest, to answer a
+# question no existing test did: does a mid-pipeline crash leave
+# orphaned or inconsistent state behind, or propagate cleanly?
+
+
+def test_embedder_failure_leaves_no_chunks_or_document_persisted() -> None:
+    svc, vector_repo, documents = _make_service(fail_embed=True)
+    with pytest.raises(_EmbedderFailure):
+        svc.ingest("notes.txt", b"Real synthetic evidence content for failure injection tests.")
+    assert vector_repo.added == []
+    assert documents.documents == {}
+
+
+def test_vector_store_write_failure_leaves_no_document_persisted() -> None:
+    # Embedding already happened (real, if wasted, work) by the time
+    # add_chunks() is called -- the property under test is that the
+    # DOCUMENT REGISTRY entry is never created for a document whose
+    # chunks never actually made it into the vector store.
+    svc, vector_repo, documents = _make_service(fail_add_chunks=True)
+    with pytest.raises(_VectorStoreFailure):
+        svc.ingest("notes.txt", b"Real synthetic evidence content for failure injection tests.")
+    assert vector_repo.added == []
+    assert documents.documents == {}
+
+
+def test_document_registry_write_failure_leaves_orphaned_chunks_in_the_vector_store() -> None:
+    """A real, confirmed limitation, not a hypothetical one: ingest()
+    writes chunks to the vector store BEFORE persisting the Document
+    registry row (ADR-0039). If the registry write fails after the
+    vector-store write already succeeded, the chunks are NOT rolled
+    back -- there is no cross-store transaction spanning LanceDB and
+    SQLite. The chunks remain fully functional for evidence linking
+    (existence is checked against the vector store directly, per
+    ADR-0039's own design, not the Document table), but GET
+    /documents/{id} would 404 for a document that otherwise works.
+    Documented here via a real, reproduced test, not fixed -- see
+    ADR-0044's Consequences for why this is disclosed rather than
+    addressed this sprint.
+    """
+    svc, vector_repo, documents = _make_service(fail_create_document=True)
+    with pytest.raises(_DocumentStoreFailure):
+        svc.ingest("notes.txt", b"Real synthetic evidence content for failure injection tests.")
+    assert len(vector_repo.added) == 1  # the chunks WERE written...
+    assert documents.documents == {}  # ...but no Document registry row exists for them

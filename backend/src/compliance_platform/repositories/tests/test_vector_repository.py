@@ -17,6 +17,7 @@ isolated testing before the fix shipped, not assumed away.
 from __future__ import annotations
 
 import threading
+import time
 from pathlib import Path
 
 import lancedb
@@ -280,3 +281,94 @@ def test_page_number_round_trips_through_a_fresh_store(tmp_path: Path) -> None:
     )
     repo.add_chunks([chunk], [[1.0, 0.0, 0.0, 0.0]])
     assert repo.chunks_for_document("doc-1")[0]["page_number"] == 2
+
+
+# --- Performance regression (Sprint 18, ADR-0044) ---
+#
+# Complexity-SCALING guards, not absolute wall-clock thresholds. This
+# project's own WSL2/OneDrive-mounted-filesystem environment is
+# documented as too noisy for reliable absolute timing assertions (see
+# AGENTS.md, and ADR-0033/ADR-0037's own disclosed timing caveats) --
+# but the RATIO between a small-corpus and large-corpus measurement of
+# the same lookup is far more robust to that noise, and is exactly the
+# shape of the real bug ADR-0033 found and fixed:
+# chunks_for_document() used to load the ENTIRE vector store
+# (table.to_pandas()) before filtering in Python -- an O(total corpus
+# size) cost for what should be O(this document's own chunk count). A
+# regression back to that pattern would show a dramatic ratio increase
+# proportional to corpus growth; this test would fail long before
+# reaching anywhere near that magnitude.
+
+
+def _bulk_chunks(prefix: str, document_id: str, count: int) -> list[EvidenceChunk]:
+    return [
+        EvidenceChunk(
+            chunk_id=f"{prefix}-{i}",
+            document_id=document_id,
+            chunk_index=i,
+            text="bulk chunk text",
+            chunking_strategy=ChunkingStrategy.FIXED_WINDOW,
+            char_start=0,
+            char_end=16,
+        )
+        for i in range(count)
+    ]
+
+
+def _measure_chunks_for_document(repo: VectorRepository, document_id: str, samples: int = 50) -> float:
+    for _ in range(10):  # warm-up: excludes cold-open/first-query overhead from the measurement
+        repo.chunks_for_document(document_id)
+    start = time.perf_counter()
+    for _ in range(samples):
+        repo.chunks_for_document(document_id)
+    return time.perf_counter() - start
+
+
+def test_chunks_for_document_latency_does_not_scale_with_unrelated_document_count(
+    tmp_path: Path,
+) -> None:
+    repo = _repo(tmp_path)
+    repo.add_chunks(_bulk_chunks("target", "target-doc", 5), [[0.0] * _DIMENSIONS] * 5)
+    baseline = _measure_chunks_for_document(repo, "target-doc")
+
+    # 30 unrelated documents x 20 chunks = 600 unrelated rows added --
+    # corpus grows >100x from this point.
+    for batch in range(30):
+        repo.add_chunks(
+            _bulk_chunks(f"other-{batch}", f"other-doc-{batch}", 20), [[0.0] * _DIMENSIONS] * 20
+        )
+    assert repo.count() == 605
+
+    after = _measure_chunks_for_document(repo, "target-doc")
+
+    # An O(total corpus) regression would show a slowdown proportional
+    # to the >100x corpus growth; empirically, the real fixed
+    # implementation's ratio is consistently ~1.5-2x across repeated
+    # runs in this environment. 8x leaves generous headroom above that
+    # noise band while still catching a real regression long before it
+    # reaches 100x.
+    assert after < baseline * 8 + 0.5  # +0.5s floor absorbs noise when baseline is near-zero
+
+
+def test_search_within_documents_latency_does_not_scale_with_unrelated_document_count(
+    tmp_path: Path,
+) -> None:
+    repo = _repo(tmp_path)
+    repo.add_chunks(_bulk_chunks("target", "target-doc", 5), [[1.0, 0.0, 0.0, 0.0]] * 5)
+
+    def _measure() -> float:
+        for _ in range(10):
+            repo.search_within_documents([1.0, 0.0, 0.0, 0.0], ["target-doc"])
+        start = time.perf_counter()
+        for _ in range(50):
+            repo.search_within_documents([1.0, 0.0, 0.0, 0.0], ["target-doc"])
+        return time.perf_counter() - start
+
+    baseline = _measure()
+    for batch in range(30):
+        repo.add_chunks(
+            _bulk_chunks(f"other-{batch}", f"other-doc-{batch}", 20), [[0.0] * _DIMENSIONS] * 20
+        )
+    after = _measure()
+
+    assert after < baseline * 8 + 0.5
