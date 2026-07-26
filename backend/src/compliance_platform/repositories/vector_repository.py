@@ -8,6 +8,7 @@ sprint needs to switch vector stores.
 
 from __future__ import annotations
 
+import threading
 from pathlib import Path
 from typing import Any
 
@@ -24,6 +25,13 @@ class VectorRepository:
         store_dir.mkdir(parents=True, exist_ok=True)
         self._db = lancedb.connect(str(store_dir))
         self._dimensions = dimensions
+        # Cached read-path table handle (ADR-0037) -- None until the
+        # table first exists. Guarded by _cache_lock only while
+        # populating the cache; the cached handle's own thread-safety
+        # under concurrent checkout_latest()/search() calls was verified
+        # directly, not assumed (see ADR-0037).
+        self._cached_table = None
+        self._cache_lock = threading.Lock()
 
     def _schema(self) -> pa.Schema:
         return pa.schema(
@@ -55,10 +63,30 @@ class VectorRepository:
         return self._db.create_table(_TABLE_NAME, schema=self._schema(), exist_ok=True)
 
     def _open_existing_table(self):
-        try:
-            return self._db.open_table(_TABLE_NAME)
-        except ValueError:
-            return None
+        # Caches the opened Table handle across calls instead of
+        # re-opening from disk every time (ADR-0033 measured ~40-120ms
+        # of pure re-open overhead per call, multiplied by ~350 calls in
+        # a single propose-mappings request). Safe under concurrent
+        # writes made through a *different* handle (e.g. add_chunks's
+        # _ensure_table(), which is intentionally NOT cached and keeps
+        # opening fresh) only because every read here calls
+        # checkout_latest() first -- confirmed empirically, not assumed:
+        # a held Table handle does NOT see another handle's writes on
+        # its own, but checkout_latest() reliably refreshes it to the
+        # newest version, and doing so is measurably cheaper than a full
+        # open_table() re-open. See ADR-0037 for the verification.
+        if self._cached_table is not None:
+            self._cached_table.checkout_latest()
+            return self._cached_table
+        with self._cache_lock:
+            if self._cached_table is not None:
+                self._cached_table.checkout_latest()
+                return self._cached_table
+            try:
+                self._cached_table = self._db.open_table(_TABLE_NAME)
+            except ValueError:
+                return None
+            return self._cached_table
 
     def add_chunks(self, chunks: list[EvidenceChunk], vectors: list[list[float]]) -> None:
         if len(chunks) != len(vectors):

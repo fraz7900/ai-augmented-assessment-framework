@@ -363,10 +363,18 @@ for the project owner, consistent with this sprint's "feasibility only, not a co
 | LanceDB storage | ~1MB | ~53MB | Linear, expected |
 | Peak RSS | 994MB | 3,848MB | Real, driven by corpus size held in-process during the benchmark run itself |
 
-A second, smaller, high-confidence finding — `VectorRepository._open_existing_table()` re-opens the
-LanceDB table from disk on every call (~40-120ms overhead each, confirmed in isolation) — is real but
-deliberately not fixed this sprint: safely caching an open table handle requires first verifying it
-can't silently serve stale results after a write through a different handle, not verified here.
+A second, smaller finding from last sprint — `VectorRepository._open_existing_table()` re-opening the
+LanceDB table from disk on every call — is **fixed this sprint (ADR-0037)**. Cache-freshness safety
+under concurrent writes was verified directly before shipping (a held table handle does not see writes
+through a different handle on its own, but `Table.checkout_latest()` reliably refreshes it, confirmed
+safe under a concurrent reader/writer thread stress test) — not assumed, per ADR-0033's own
+requirement. Measured effect on the real app (100-document corpus, before/after this exact fix,
+isolated via `git stash`): evidence-linking p50 25.0ms → 21.4ms, single-query retrieval p50 34.1ms →
+24.2ms, dashboard read p50 12.0ms → 8.5ms (~14-29% faster) — real but modest, and honestly, the
+`propose-mappings` full-batch call this overhead was originally flagged against showed **no
+measurable improvement** (21.17s → 21.52s, within noise). Shipped primarily as a correctness/safety
+fix (removes a disclosed staleness risk) with a real but modest performance benefit, not as a
+resolution of the retrieval-latency-at-scale question below.
 
 **Recommended next step, not this sprint**: re-run this exact script on a dedicated, non-shared,
 non-WSL2/OneDrive host to get a trustworthy answer on whether the retrieval-latency number is real —
