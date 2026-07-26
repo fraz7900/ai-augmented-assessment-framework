@@ -3,6 +3,7 @@ from __future__ import annotations
 import io
 import zipfile
 
+import openpyxl
 import pytest
 from docx import Document as DocxDocument
 from pypdf import PdfWriter
@@ -155,3 +156,124 @@ def test_parse_docx_rejects_a_zip_bomb_style_archive_before_decompressing() -> N
     parsed = document_parsers.parse_document("bomb.docx", buffer.getvalue())
     assert parsed.parse_status == ParseStatus.FAILED
     assert any("decompression-bomb" in w for w in parsed.parse_warnings)
+
+
+# --- XLSX/CSV parsing (Sprint 18, ADR-0041) ---
+
+
+def test_parse_xlsx_success_renders_sheet_heading_and_row_citations(
+    sample_xlsx_bytes: bytes,
+) -> None:
+    parsed = document_parsers.parse_document("inventory.xlsx", sample_xlsx_bytes)
+    assert parsed.parse_status == ParseStatus.SUCCESS
+    assert parsed.metadata.file_type == FileType.XLSX
+    assert "# Assets" in parsed.raw_text  # sheet name as a heading, for structure-aware chunking
+    assert "Row 2: Asset Name: Firewall-01 | Owner: NetOps | Criticality: High" in parsed.raw_text
+    assert "Row 3: Asset Name: Switch-12 | Owner: NetOps | Criticality: Medium" in parsed.raw_text
+
+
+def test_parse_xlsx_renders_multiple_sheets_as_separate_headings() -> None:
+    wb = openpyxl.Workbook()
+    ws1 = wb.active
+    ws1.title = "Assets"
+    ws1.append(["Asset Name"])
+    ws1.append(["Firewall-01"])
+    ws2 = wb.create_sheet("Vendors")
+    ws2.append(["Vendor"])
+    ws2.append(["Acme Corp"])
+    buffer = io.BytesIO()
+    wb.save(buffer)
+
+    parsed = document_parsers.parse_document("inventory.xlsx", buffer.getvalue())
+    assert parsed.parse_status == ParseStatus.SUCCESS
+    assert "# Assets" in parsed.raw_text
+    assert "# Vendors" in parsed.raw_text
+    assert parsed.raw_text.index("# Assets") < parsed.raw_text.index("# Vendors")
+
+
+def test_parse_xlsx_skips_blank_rows() -> None:
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.append(["Asset Name"])
+    ws.append(["Firewall-01"])
+    ws.append([None])  # a fully blank row
+    ws.append(["Switch-12"])
+    buffer = io.BytesIO()
+    wb.save(buffer)
+
+    parsed = document_parsers.parse_document("inventory.xlsx", buffer.getvalue())
+    assert parsed.parse_status == ParseStatus.SUCCESS
+    assert "Row 2:" in parsed.raw_text
+    assert "Row 4:" in parsed.raw_text  # blank row 3 skipped, not rendered as an empty citation
+
+
+def test_parse_xlsx_with_only_a_header_row_is_empty() -> None:
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.append(["Asset Name", "Owner"])
+    buffer = io.BytesIO()
+    wb.save(buffer)
+
+    parsed = document_parsers.parse_document("inventory.xlsx", buffer.getvalue())
+    assert parsed.parse_status == ParseStatus.EMPTY
+
+
+def test_parse_xlsx_handles_malformed_content() -> None:
+    parsed = document_parsers.parse_document(
+        "broken.xlsx", b"PK\x03\x04not a real xlsx workbook at all"
+    )
+    assert parsed.parse_status == ParseStatus.FAILED
+    assert parsed.parse_warnings
+
+
+def test_parse_xlsx_rejects_a_zip_bomb_style_archive_before_decompressing() -> None:
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr("xl/worksheets/sheet1.xml", b"\x00" * (250 * 1024 * 1024))
+
+    parsed = document_parsers.parse_document("bomb.xlsx", buffer.getvalue())
+    assert parsed.parse_status == ParseStatus.FAILED
+    assert any("decompression-bomb" in w for w in parsed.parse_warnings)
+
+
+def test_parse_xlsx_extension_with_plain_text_content_is_caught_by_content_sniffing() -> None:
+    parsed = document_parsers.parse_document("fake.xlsx", b"Just plain text, not an xlsx zip.")
+    assert parsed.parse_status == ParseStatus.FAILED
+    assert any("does not match its .xlsx extension" in w for w in parsed.parse_warnings)
+
+
+def test_parse_csv_success_renders_row_citations(sample_csv_bytes: bytes) -> None:
+    parsed = document_parsers.parse_document("inventory.csv", sample_csv_bytes)
+    assert parsed.parse_status == ParseStatus.SUCCESS
+    assert parsed.metadata.file_type == FileType.CSV
+    assert "Row 2: Asset Name: Firewall-01 | Owner: NetOps | Criticality: High" in parsed.raw_text
+    assert "Row 3: Asset Name: Switch-12 | Owner: NetOps | Criticality: Medium" in parsed.raw_text
+
+
+def test_parse_csv_handles_ragged_rows_without_crashing() -> None:
+    # A row with fewer columns than the header, and one with more --
+    # real-world CSV exports are frequently ragged like this.
+    content = b"Asset Name,Owner,Criticality\nFirewall-01,NetOps\nSwitch-12,NetOps,Medium,Extra\n"
+    parsed = document_parsers.parse_document("inventory.csv", content)
+    assert parsed.parse_status == ParseStatus.SUCCESS
+    assert "Row 2: Asset Name: Firewall-01 | Owner: NetOps" in parsed.raw_text
+    assert "Row 3: Asset Name: Switch-12 | Owner: NetOps | Criticality: Medium" in parsed.raw_text
+
+
+def test_parse_csv_with_only_a_header_row_is_empty() -> None:
+    parsed = document_parsers.parse_document("inventory.csv", b"Asset Name,Owner\n")
+    assert parsed.parse_status == ParseStatus.EMPTY
+
+
+def test_parse_csv_handles_invalid_utf8_gracefully(invalid_utf8_bytes: bytes) -> None:
+    content = b"Name,Note\n" + invalid_utf8_bytes.replace(b",", b";") + b"\n"
+    parsed = document_parsers.parse_document("weird.csv", content)
+    assert parsed.parse_status == ParseStatus.SUCCESS
+    assert parsed.parse_warnings  # latin-1 fallback warning, same convention as parse_plain_text
+
+
+def test_parse_csv_extension_with_binary_content_is_caught_by_content_sniffing() -> None:
+    binary_content = b"some header\x00\x01\x02binary garbage that is not real text"
+    parsed = document_parsers.parse_document("fake.csv", binary_content)
+    assert parsed.parse_status == ParseStatus.FAILED
+    assert any("does not match its .csv extension" in w for w in parsed.parse_warnings)

@@ -90,6 +90,34 @@ def test_ingest_markdown_document_uses_structure_aware_chunking(client: TestClie
     assert response.json()["chunk_count"] == 2
 
 
+def test_ingest_xlsx_document_end_to_end(client: TestClient, sample_xlsx_bytes: bytes) -> None:
+    response = client.post(
+        "/ingest",
+        files={
+            "file": (
+                "inventory.xlsx",
+                sample_xlsx_bytes,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+        },
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["parse_status"] == "success"
+    assert body["chunk_count"] >= 1
+
+
+def test_ingest_csv_document_end_to_end(client: TestClient, sample_csv_bytes: bytes) -> None:
+    response = client.post(
+        "/ingest",
+        files={"file": ("inventory.csv", sample_csv_bytes, "text/csv")},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["parse_status"] == "success"
+    assert body["chunk_count"] >= 1
+
+
 def test_ingest_scanned_pdf_returns_422(client: TestClient, scanned_like_pdf_bytes: bytes) -> None:
     response = client.post(
         "/ingest",

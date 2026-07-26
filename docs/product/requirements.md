@@ -6,7 +6,7 @@ Derived from `PROJECT_CHARTER.md` and `docs/product/prd.md`. Each functional req
 
 | ID | Requirement | Status | Traces to |
 |---|---|---|---|
-| FR-1 | System shall accept PDF, DOCX, TXT, and Markdown document uploads | Delivered | US-1.1 |
+| FR-1 | System shall accept PDF, DOCX, TXT, and Markdown document uploads (XLSX, CSV added Sprint 18, ADR-0041) | Delivered | US-1.1 |
 | FR-2 | System shall detect and reject scanned/image-only PDFs with a specific error, not a silent empty result | Delivered | US-1.2 |
 | FR-3 | System shall chunk documents preserving enough metadata to cite the original source of any extracted claim | Delivered | US-1.3 |
 | FR-4 | System shall generate embeddings for ingested content using only local computation | Delivered | ADR-0006 |

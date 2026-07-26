@@ -4,9 +4,9 @@ import type { ParseStatus } from '../api/types'
 
 // Sam (contributor persona): upload a document, nothing further — low
 // friction is the point (services/document_parsers.py accepts PDF/DOCX/
-// TXT/Markdown specifically so Sam never needs to learn a structured
-// format). Priya uses the same page, then copies the returned document_id
-// into an assessment's Evidence tab.
+// TXT/Markdown/XLSX/CSV specifically so Sam never needs to learn a
+// structured format). Priya uses the same page, then copies the
+// returned document_id into an assessment's Evidence tab.
 
 const parseStatusMessages: Record<ParseStatus, { tone: 'ok' | 'warn' | 'error'; message: string }> = {
   success: { tone: 'ok', message: 'Parsed successfully.' },
@@ -40,8 +40,8 @@ export default function UploadPage() {
     <div className="max-w-xl">
       <h1 className="text-xl font-semibold text-slate-900">Upload evidence document</h1>
       <p className="mt-1 text-sm text-slate-600">
-        PDF, DOCX, TXT, or Markdown. After ingestion, copy the document ID below into an
-        assessment&apos;s Evidence tab to link it to a practice.
+        PDF, DOCX, TXT, Markdown, XLSX, or CSV. After ingestion, copy the document ID below into
+        an assessment&apos;s Evidence tab to link it to a practice.
       </p>
 
       <form onSubmit={handleSubmit} className="mt-4 space-y-4">
@@ -52,7 +52,7 @@ export default function UploadPage() {
           <input
             id="file"
             type="file"
-            accept=".pdf,.docx,.txt,.md"
+            accept=".pdf,.docx,.txt,.md,.xlsx,.csv"
             onChange={(event) => setFile(event.target.files?.[0] ?? null)}
             className="mt-1 block w-full text-sm text-slate-700"
           />

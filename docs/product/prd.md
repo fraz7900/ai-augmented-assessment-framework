@@ -10,7 +10,7 @@ See `PROJECT_CHARTER.md` Section 2. In one line: compliance assessment in critic
 
 ## Goals (MVP)
 
-1. Ingest policy/evidence documents (PDF, DOCX, TXT, Markdown) and make them retrievable, locally, with no network calls (delivered, Sprint 1).
+1. Ingest policy/evidence documents (PDF, DOCX, TXT, Markdown, delivered Sprint 1; XLSX and CSV added Sprint 18, ADR-0041) and make them retrievable, locally, with no network calls.
 2. Track an assessment through a defined lifecycle (draft → in review → finalized) with an immutable audit trail (delivered, Sprint 2).
 3. Link evidence to specific framework practices with a mandatory citation back to ingested source material — no evidence link can point at a document that was never actually ingested (delivered, Sprint 2, `EvidenceDocumentNotIngestedError`).
 4. Represent C2M2 and NIST CSF 2.0 as structured, versioned data and use it to score assessment maturity (Sprint 3-4, not yet built).

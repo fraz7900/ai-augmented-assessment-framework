@@ -19,6 +19,8 @@ class FileType(StrEnum):
     DOCX = "docx"
     TXT = "txt"
     MARKDOWN = "md"
+    XLSX = "xlsx"
+    CSV = "csv"
 
 
 class ParseStatus(StrEnum):

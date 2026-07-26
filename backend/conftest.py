@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import io
 
+import openpyxl
 import pytest
 from docx import Document as DocxDocument
 from fpdf import FPDF
@@ -54,3 +55,25 @@ def scanned_like_pdf_bytes() -> bytes:
 @pytest.fixture
 def invalid_utf8_bytes() -> bytes:
     return b"Some text with an invalid byte: \xff\xfe more text after it"
+
+
+@pytest.fixture
+def sample_xlsx_bytes() -> bytes:
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Assets"
+    ws.append(["Asset Name", "Owner", "Criticality"])
+    ws.append(["Firewall-01", "NetOps", "High"])
+    ws.append(["Switch-12", "NetOps", "Medium"])
+    buffer = io.BytesIO()
+    wb.save(buffer)
+    return buffer.getvalue()
+
+
+@pytest.fixture
+def sample_csv_bytes() -> bytes:
+    return (
+        b"Asset Name,Owner,Criticality\n"
+        b"Firewall-01,NetOps,High\n"
+        b"Switch-12,NetOps,Medium\n"
+    )

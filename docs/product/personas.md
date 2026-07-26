@@ -22,7 +22,7 @@ Independently checks that a finalized assessment's scores are actually supported
 
 ## Contributor: Sam, OT Engineering Lead
 
-A control owner, not a compliance specialist. Submits evidence (a network segmentation diagram, an access review log) when asked, without wanting to learn the full C2M2 practice taxonomy. Needs the upload flow to be low-friction — this persona is why `services/document_parsers.py` accepts PDF/DOCX/TXT/Markdown rather than requiring a specific structured format.
+A control owner, not a compliance specialist. Submits evidence (a network segmentation diagram, an access review log) when asked, without wanting to learn the full C2M2 practice taxonomy. Needs the upload flow to be low-friction — this persona is why `services/document_parsers.py` accepts PDF/DOCX/TXT/Markdown/XLSX/CSV rather than requiring a specific structured format.
 
 **Primary flows:** upload a document via `/ingest`, nothing further — Sam does not create assessments or review mappings.
 
