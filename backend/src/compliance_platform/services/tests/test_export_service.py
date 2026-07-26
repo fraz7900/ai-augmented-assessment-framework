@@ -14,9 +14,11 @@ import io
 import openpyxl
 from pypdf import PdfReader
 
+from compliance_platform.models.assessment import EvidenceReviewStatus, PracticeFindingStatus
 from compliance_platform.models.report import (
     DashboardReport,
     DomainGapGroup,
+    EvidenceCitation,
     GapItem,
     OverallSummary,
     ResolutionItem,
@@ -156,3 +158,63 @@ def test_xlsx_resolution_sheet_ranks_items_in_order() -> None:
     assert data_rows[0][0] == 1  # rank
     assert data_rows[0][1] == "ACCESS"
     assert data_rows[0][3] == 26
+
+
+# --- Evidence citation on gaps (Sprint 18, ADR-0040) ---
+
+
+def _dashboard_with_finding_and_citation() -> DashboardReport:
+    dashboard = _dashboard()
+    gap = dashboard.complication[0].gaps[0]
+    updated_gap = gap.model_copy(
+        update={
+            "status": PracticeFindingStatus.NOT_SATISFIED,
+            "finding_rationale": "Shared service account credentials found in plaintext.",
+            "cited_evidence": [
+                EvidenceCitation(
+                    evidence_link_id="link-1",
+                    document_id="doc-incident-report",
+                    review_status=EvidenceReviewStatus.ACCEPTED,
+                )
+            ],
+        }
+    )
+    dashboard.complication[0].gaps[0] = updated_gap
+    return dashboard
+
+
+def test_pdf_report_renders_gap_status_rationale_and_evidence_citation() -> None:
+    pdf_bytes = build_pdf_report(_dashboard_with_finding_and_citation())
+    reader = PdfReader(io.BytesIO(pdf_bytes))
+    text = "\n".join(page.extract_text() for page in reader.pages)
+
+    assert "not satisfied" in text
+    assert "Shared service account credentials found in plaintext" in text
+    assert "doc-incident-report" in text
+    assert "accepted" in text
+
+
+def test_pdf_report_omits_status_line_for_a_gap_with_no_finding_at_all() -> None:
+    # The genuinely-no-evidence-reviewed-yet case (INSUFFICIENT_EVIDENCE,
+    # no rationale) shouldn't clutter every gap line with a redundant
+    # "Status: insufficient evidence" -- only a real finding or a
+    # non-empty rationale earns the extra line. ("Status:" alone isn't
+    # a safe check -- the report header already has an unrelated
+    # "Status: in_review" line for the assessment itself.)
+    pdf_bytes = build_pdf_report(_dashboard())  # default gaps: no status/rationale set
+    reader = PdfReader(io.BytesIO(pdf_bytes))
+    text = "\n".join(page.extract_text() for page in reader.pages)
+    assert "insufficient evidence" not in text
+    assert "Evidence:" not in text
+
+
+def test_xlsx_gaps_sheet_carries_status_rationale_and_cited_evidence() -> None:
+    xlsx_bytes = build_xlsx_report(_dashboard_with_finding_and_citation())
+    wb = openpyxl.load_workbook(io.BytesIO(xlsx_bytes))
+    ws = wb["Gaps"]
+    data_rows = list(ws.iter_rows(min_row=2, values_only=True))
+    first_row = next(row for row in data_rows if row[2] == "ACCESS-1d")
+    assert first_row[6] == "not satisfied"
+    assert "plaintext" in first_row[7]
+    assert "doc-incident-report" in first_row[8]
+    assert "accepted" in first_row[8]

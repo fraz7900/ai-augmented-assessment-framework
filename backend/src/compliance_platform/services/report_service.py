@@ -29,6 +29,7 @@ from compliance_platform.models.framework import Domain, FrameworkDefinition
 from compliance_platform.models.report import (
     DashboardReport,
     DomainGapGroup,
+    EvidenceCitation,
     GapItem,
     OverallSummary,
     ResolutionItem,
@@ -143,6 +144,7 @@ def _build_complication(
     pending_practice_ids: set[str],
     domain_scores: dict[str, float],
     findings_by_practice: dict[str, PracticeFinding],
+    evidence_links_by_practice: dict[str, list[EvidenceLink]],
 ) -> list[DomainGapGroup]:
     groups: list[DomainGapGroup] = []
     for domain in framework.domains:
@@ -168,6 +170,14 @@ def _build_complication(
                     has_pending_ai_proposal=p.id in pending_practice_ids,
                     status=finding.status if finding else PracticeFindingStatus.INSUFFICIENT_EVIDENCE,
                     finding_rationale=finding.rationale if finding else None,
+                    cited_evidence=[
+                        EvidenceCitation(
+                            evidence_link_id=link.id,
+                            document_id=link.document_id,
+                            review_status=link.review_status,
+                        )
+                        for link in evidence_links_by_practice.get(p.id, [])
+                    ],
                 )
             )
         if not gaps:
@@ -304,6 +314,9 @@ def build_dashboard(
         framework, performed_practice_ids, excluded_practice_ids
     )
     findings_by_practice = {f.practice_reference: f for f in findings}
+    evidence_links_by_practice: dict[str, list[EvidenceLink]] = {}
+    for link in evidence_links:
+        evidence_links_by_practice.setdefault(link.practice_reference, []).append(link)
     complication = _build_complication(
         framework,
         performed_practice_ids,
@@ -311,6 +324,7 @@ def build_dashboard(
         pending_practice_ids,
         domain_scores,
         findings_by_practice,
+        evidence_links_by_practice,
     )
     return DashboardReport(
         situation=_build_situation(assessment, framework, evidence_links),

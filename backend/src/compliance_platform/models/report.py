@@ -11,7 +11,26 @@ from __future__ import annotations
 
 from pydantic import BaseModel
 
-from compliance_platform.models.assessment import PracticeFindingStatus
+from compliance_platform.models.assessment import EvidenceReviewStatus, PracticeFindingStatus
+
+
+class EvidenceCitation(BaseModel):
+    """One evidence link cited by a GapItem (Sprint 18, ADR-0040) —
+    "which specific evidence was reviewed and found insufficient",
+    closing a real, confirmed gap: a gap previously referenced only a
+    practice, never the evidence trail behind its status/rationale.
+    Deliberately IDs and status only, never the link's own `note` (which
+    for an AI-proposed link embeds a quoted evidence-chunk snippet) or
+    any chunk text — the dashboard has never shown raw evidence text
+    anywhere else, and this citation shouldn't become the first place
+    it does, especially since it isn't covered by the sanitization
+    pipeline's redaction scope (ADR-0032 only ever touches
+    Situation.assessment_name and GapItem.finding_rationale).
+    """
+
+    evidence_link_id: str
+    document_id: str
+    review_status: EvidenceReviewStatus
 
 
 class GapItem(BaseModel):
@@ -28,6 +47,11 @@ class GapItem(BaseModel):
     # binary performed_practice_ids test could not express.
     status: PracticeFindingStatus = PracticeFindingStatus.INSUFFICIENT_EVIDENCE
     finding_rationale: str | None = None
+    # ADR-0040: every evidence link ever submitted for this practice
+    # (any review status — a REJECTED link is still meaningful context
+    # for why the gap exists), not just the ones that happened to be
+    # accepted. Empty for the genuinely no-evidence-at-all case.
+    cited_evidence: list[EvidenceCitation] = []
 
 
 class DomainGapGroup(BaseModel):

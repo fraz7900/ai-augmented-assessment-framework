@@ -20,7 +20,8 @@ from openpyxl import Workbook
 from openpyxl.styles import Font as XlsxFont
 from openpyxl.worksheet.worksheet import Worksheet
 
-from compliance_platform.models.report import DashboardReport
+from compliance_platform.models.assessment import PracticeFindingStatus
+from compliance_platform.models.report import DashboardReport, EvidenceCitation
 
 # fpdf2's core fonts (Helvetica/Times/Courier) only reliably encode
 # Latin-1. This project's framework source text is transcribed verbatim
@@ -49,6 +50,16 @@ def _pdf_safe(text: str) -> str:
 
 def _mil_label(mil: int | None) -> str:
     return f"MIL{mil}" if mil is not None else "n/a"
+
+
+def _status_label(status: PracticeFindingStatus) -> str:
+    return status.value.replace("_", " ")
+
+
+def _evidence_citation_summary(citations: list[EvidenceCitation]) -> str:
+    # IDs/status only, per EvidenceCitation's own docstring -- never the
+    # underlying evidence text.
+    return "; ".join(f"{c.document_id} ({c.review_status.value})" for c in citations)
 
 
 def _line(pdf: FPDF, height: float, text: str) -> None:
@@ -134,6 +145,22 @@ def build_pdf_report(dashboard: DashboardReport) -> bytes:
                 5,
                 f"  - {gap.practice_id} ({_mil_label(gap.mil)}): {gap.practice_text}{flag}",
             )
+            # ADR-0040: a gap's status/rationale/evidence trail — the
+            # actual finding behind it, not just the bare unmet practice —
+            # previously computed (ADR-0030) but never rendered anywhere
+            # in the export, a real gap found while wiring evidence
+            # citation in. finding_rationale is human-authored free text,
+            # so it goes through _pdf_safe like every other free-text
+            # field this renderer handles.
+            if gap.status != PracticeFindingStatus.INSUFFICIENT_EVIDENCE or gap.finding_rationale:
+                rationale = f" - {_pdf_safe(gap.finding_rationale)}" if gap.finding_rationale else ""
+                _line(pdf, 5, f"      Status: {_status_label(gap.status)}{rationale}")
+            if gap.cited_evidence:
+                _line(
+                    pdf,
+                    5,
+                    f"      Evidence: {_evidence_citation_summary(gap.cited_evidence)}",
+                )
         pdf.ln(2)
     pdf.ln(2)
 
@@ -210,6 +237,9 @@ def build_xlsx_report(dashboard: DashboardReport) -> bytes:
             "MIL",
             "Practice Text",
             "AI-Proposed Pending Review",
+            "Status",
+            "Finding Rationale",
+            "Cited Evidence (document id, review status)",
         ],
     )
     for group in dashboard.complication:
@@ -222,9 +252,14 @@ def build_xlsx_report(dashboard: DashboardReport) -> bytes:
                     _mil_label(gap.mil),
                     gap.practice_text,
                     "Yes" if gap.has_pending_ai_proposal else "No",
+                    _status_label(gap.status),
+                    gap.finding_rationale or "",
+                    _evidence_citation_summary(gap.cited_evidence),
                 )
             )
-    for col, width in zip("ABCDEF", (12, 32, 14, 8, 80, 24), strict=True):
+    for col, width in zip(
+        "ABCDEFGHI", (12, 32, 14, 8, 80, 24, 20, 60, 50), strict=True
+    ):
         gaps_ws.column_dimensions[col].width = width
 
     resolution_ws = wb.create_sheet("Resolution")

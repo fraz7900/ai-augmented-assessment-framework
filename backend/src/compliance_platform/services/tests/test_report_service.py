@@ -183,3 +183,63 @@ def test_every_complication_group_has_a_so_what_sentence() -> None:
     report = build_dashboard(_assessment(), framework, [])
     assert report.complication[0].so_what
     assert report.complication[0].domain_full_name in report.complication[0].so_what
+
+
+# --- Evidence citation on gaps (Sprint 18, ADR-0040) ---
+
+
+def test_gap_with_no_evidence_at_all_has_no_cited_evidence() -> None:
+    domain = _domain("D1", [_practice("D1-1a")])
+    framework = _framework([domain])
+    report = build_dashboard(_assessment(), framework, [])
+    assert report.complication[0].gaps[0].cited_evidence == []
+
+
+def test_gap_cites_the_specific_evidence_link_reviewed_and_found_insufficient() -> None:
+    # A REJECTED link still produces a gap (it never counted as
+    # "performed") but the gap should still cite it -- that link IS the
+    # reason the gap exists, not something to hide once rejected.
+    domain = _domain("D1", [_practice("D1-1a")])
+    framework = _framework([domain])
+    link = _evidence("D1-1a", EvidenceReviewStatus.REJECTED)
+    report = build_dashboard(_assessment(), framework, [link])
+
+    gap = report.complication[0].gaps[0]
+    assert len(gap.cited_evidence) == 1
+    assert gap.cited_evidence[0].evidence_link_id == link.id
+    assert gap.cited_evidence[0].document_id == "d1"
+    assert gap.cited_evidence[0].review_status == EvidenceReviewStatus.REJECTED
+
+
+def test_gap_cites_multiple_evidence_links_for_the_same_practice() -> None:
+    domain = _domain("D1", [_practice("D1-1a")])
+    framework = _framework([domain])
+    links = [
+        _evidence("D1-1a", EvidenceReviewStatus.REJECTED),
+        _evidence("D1-1a", EvidenceReviewStatus.PENDING),
+    ]
+    report = build_dashboard(_assessment(), framework, links)
+
+    gap = report.complication[0].gaps[0]
+    assert len(gap.cited_evidence) == 2
+    assert {c.review_status for c in gap.cited_evidence} == {
+        EvidenceReviewStatus.REJECTED,
+        EvidenceReviewStatus.PENDING,
+    }
+
+
+def test_cited_evidence_never_includes_a_satisfied_practices_links() -> None:
+    # A practice with an ACCEPTED link is performed -- no gap at all --
+    # so there is nothing to cite it against; confirms cited_evidence
+    # is scoped per-gap, not a blanket dump of every evidence link.
+    domain = _domain("D1", [_practice("D1-1a"), _practice("D1-1b")])
+    framework = _framework([domain])
+    links = [
+        _evidence("D1-1a", EvidenceReviewStatus.ACCEPTED),  # performed, not a gap
+        _evidence("D1-1b", EvidenceReviewStatus.REJECTED),  # a gap
+    ]
+    report = build_dashboard(_assessment(), framework, links)
+
+    gaps_by_practice = {g.practice_id: g for g in report.complication[0].gaps}
+    assert "D1-1a" not in gaps_by_practice
+    assert len(gaps_by_practice["D1-1b"].cited_evidence) == 1

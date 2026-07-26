@@ -297,6 +297,10 @@ def test_golden_path_evidence_to_dashboard_and_export(client: TestClient) -> Non
     pdf_text = "\n".join(page.extract_text() for page in reader.pages)
     assert "ACCESS-1b" in pdf_text  # the specific gap citation, not just an aggregate score
     assert "ACCESS-1d" in pdf_text
+    # ADR-0040: the finding's rationale and the specific evidence link it
+    # cites now actually render in the export, not just the practice ID.
+    assert "plaintext" in pdf_text
+    assert incident_report_txt_id in pdf_text
 
     xlsx_response = client.get(f"/assessments/{assessment_id}/report/xlsx")
     assert xlsx_response.status_code == 200
@@ -309,6 +313,8 @@ def test_golden_path_evidence_to_dashboard_and_export(client: TestClient) -> Non
         if cell.value is not None
     )
     assert "ACCESS-1b" in xlsx_text
+    assert "plaintext" in xlsx_text
+    assert incident_report_txt_id in xlsx_text
     assert "Northfield Municipal Power & Light" in pdf_text  # unsanitized -- real org name present
 
     # 9. SANITIZE -- preview the redaction/pseudonymization diff, approve
