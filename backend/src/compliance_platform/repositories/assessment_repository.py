@@ -19,6 +19,7 @@ from compliance_platform.models.assessment import (
     Assessment,
     AssessmentStatus,
     AssessmentStatusChange,
+    Document,
     EvidenceLink,
     EvidenceReviewStatus,
     PracticeFinding,
@@ -286,4 +287,25 @@ class AssessmentRepository:
                 .order_by(text("rowid desc"))
                 .limit(1)
             )
+            return session.exec(statement).first()
+
+    def create_document(self, document: Document) -> Document:
+        with Session(self._engine) as session:
+            session.add(document)
+            session.commit()
+            session.refresh(document)
+            return document
+
+    def get_document(self, document_id: str) -> Document | None:
+        with Session(self._engine) as session:
+            return session.get(Document, document_id)
+
+    def document_superseded_by(self, document_id: str) -> Document | None:
+        """The document (if any) that explicitly declared it supersedes
+        document_id — the reverse lookup a reviewer needs to answer "is
+        the document THIS evidence link points to now out of date?"
+        without having to scan every Document row themselves.
+        """
+        with Session(self._engine) as session:
+            statement = select(Document).where(Document.supersedes_document_id == document_id)
             return session.exec(statement).first()

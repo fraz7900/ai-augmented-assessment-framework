@@ -20,6 +20,7 @@ from compliance_platform.models.assessment import (
     Assessment,
     AssessmentStatus,
     AssessmentStatusChange,
+    Document,
     EvidenceLink,
     EvidenceReviewStatus,
     EvidenceSource,
@@ -32,6 +33,7 @@ from compliance_platform.models.chat import ChatResponse, ChatResult
 from compliance_platform.models.framework import FrameworkDefinition
 from compliance_platform.models.report import DashboardReport
 from compliance_platform.models.sanitization import SanitizationPreview
+from compliance_platform.models.schemas import DocumentDetail
 from compliance_platform.services.chat_service import answer_question
 from compliance_platform.services.export_service import build_pdf_report, build_xlsx_report
 from compliance_platform.services.mapping_service import find_mapping_candidates
@@ -78,6 +80,12 @@ class AssessmentNotFoundError(Exception):
     def __init__(self, assessment_id: str) -> None:
         self.assessment_id = assessment_id
         super().__init__(f"Assessment '{assessment_id}' not found.")
+
+
+class DocumentNotFoundError(Exception):
+    def __init__(self, document_id: str) -> None:
+        self.document_id = document_id
+        super().__init__(f"Document '{document_id}' not found.")
 
 
 class InvalidStatusTransitionError(Exception):
@@ -259,6 +267,8 @@ class AssessmentRepositoryProtocol(Protocol):
         self, approval: SanitizationApproval
     ) -> SanitizationApproval: ...
     def latest_sanitization_approval(self, assessment_id: str) -> SanitizationApproval | None: ...
+    def get_document(self, document_id: str) -> Document | None: ...
+    def document_superseded_by(self, document_id: str) -> Document | None: ...
 
 
 class VectorRepositoryProtocol(Protocol):
@@ -320,6 +330,29 @@ class AssessmentService:
 
     def list_assessments(self) -> list[Assessment]:
         return self._assessments.list_assessments()
+
+    def get_document_detail(self, document_id: str) -> DocumentDetail:
+        """Document versioning (ADR-0039): the durable Document record
+        plus the reverse "has this been superseded" lookup, so a
+        reviewer can check whether the document an EvidenceLink points
+        to is now out of date — the actual pain point Section A #3 of
+        the controlled-pilot readiness audit named ("a re-upload gets a
+        fresh, unlinked document_id").
+        """
+        document = self._assessments.get_document(document_id)
+        if document is None:
+            raise DocumentNotFoundError(document_id)
+        superseded_by = self._assessments.document_superseded_by(document_id)
+        return DocumentDetail(
+            id=document.id,
+            filename=document.filename,
+            file_type=document.file_type,
+            content_hash=document.content_hash,
+            submitter=document.submitter,
+            uploaded_at=document.uploaded_at,
+            supersedes_document_id=document.supersedes_document_id,
+            superseded_by_document_id=superseded_by.id if superseded_by is not None else None,
+        )
 
     def transition_status(
         self, assessment_id: str, new_status: AssessmentStatus, note: str | None = None

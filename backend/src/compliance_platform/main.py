@@ -9,7 +9,7 @@ from __future__ import annotations
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from compliance_platform.api import assessments, frameworks, health, ingestion
+from compliance_platform.api import assessments, documents, frameworks, health, ingestion
 from compliance_platform.api.error_handlers import register_exception_handlers
 from compliance_platform.core.config import get_settings
 from compliance_platform.core.logging_config import configure_logging
@@ -47,3 +47,4 @@ app.include_router(health.router)
 app.include_router(ingestion.router)
 app.include_router(assessments.router)
 app.include_router(frameworks.router)
+app.include_router(documents.router)

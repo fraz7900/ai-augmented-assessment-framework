@@ -29,6 +29,7 @@ from compliance_platform.services.assessment_service import (
     AssessmentFinalizedError,
     AssessmentNotFoundError,
     ChatEngineUnavailableError,
+    DocumentNotFoundError,
     EvidenceAlreadyReviewedError,
     EvidenceDocumentNotIngestedError,
     EvidenceLinkNotFoundError,
@@ -44,6 +45,7 @@ from compliance_platform.services.assessment_service import (
 
 _STATUS_CODE_BY_EXCEPTION: dict[type[Exception], int] = {
     AssessmentNotFoundError: 404,
+    DocumentNotFoundError: 404,
     EvidenceLinkNotFoundError: 404,
     AssessmentFinalizedError: 409,
     EvidenceAlreadyReviewedError: 409,

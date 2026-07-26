@@ -15,6 +15,7 @@ from pathlib import Path
 from sqlalchemy import create_engine
 
 from compliance_platform.models.assessment import (
+    Document,
     EvidenceLink,
     EvidenceReviewStatus,
     EvidenceSource,
@@ -186,3 +187,43 @@ def test_practice_findings_for_assessment_isolated_per_assessment(tmp_path: Path
     assert (
         repo.practice_findings_for_assessment(a2.id)[0].status == PracticeFindingStatus.NOT_APPLICABLE
     )
+
+
+# --- Document versioning (Sprint 18, ADR-0039) ---
+
+
+def _document(doc_id: str, supersedes: str | None = None) -> Document:
+    return Document(
+        id=doc_id,
+        filename=f"{doc_id}.txt",
+        file_type="txt",
+        content_hash="deadbeef",
+        supersedes_document_id=supersedes,
+    )
+
+
+def test_create_and_get_document_round_trip(tmp_path: Path) -> None:
+    repo = _repo(tmp_path)
+    repo.create_document(_document("doc-1"))
+    fetched = repo.get_document("doc-1")
+    assert fetched is not None
+    assert fetched.filename == "doc-1.txt"
+    assert fetched.supersedes_document_id is None
+
+
+def test_get_document_returns_none_for_unknown_id(tmp_path: Path) -> None:
+    repo = _repo(tmp_path)
+    assert repo.get_document("does-not-exist") is None
+
+
+def test_document_superseded_by_reverse_lookup(tmp_path: Path) -> None:
+    repo = _repo(tmp_path)
+    repo.create_document(_document("doc-v1"))
+    repo.create_document(_document("doc-v2", supersedes="doc-v1"))
+
+    superseded_by = repo.document_superseded_by("doc-v1")
+    assert superseded_by is not None
+    assert superseded_by.id == "doc-v2"
+
+    # v2 itself has not (yet) been superseded by anything.
+    assert repo.document_superseded_by("doc-v2") is None

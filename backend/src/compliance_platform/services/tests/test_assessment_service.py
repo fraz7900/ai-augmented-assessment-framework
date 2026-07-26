@@ -14,6 +14,7 @@ from compliance_platform.models.assessment import (
     Assessment,
     AssessmentStatus,
     AssessmentStatusChange,
+    Document,
     EvidenceLink,
     EvidenceReviewStatus,
     EvidenceSource,
@@ -34,6 +35,7 @@ from compliance_platform.services.assessment_service import (
     AssessmentNotFoundError,
     AssessmentService,
     ChatEngineUnavailableError,
+    DocumentNotFoundError,
     EvidenceAlreadyReviewedError,
     EvidenceDocumentNotIngestedError,
     EvidenceLinkNotFoundError,
@@ -56,6 +58,7 @@ class _FakeAssessmentRepository:
         self._findings: dict[tuple[str, str], PracticeFinding] = {}
         self._finding_history: dict[str, list[PracticeFindingChange]] = {}
         self._sanitization_approvals: dict[str, list[SanitizationApproval]] = {}
+        self._documents: dict[str, Document] = {}
 
     def create_assessment(
         self, name: str, framework_name: str, framework_version: str | None = None
@@ -181,6 +184,21 @@ class _FakeAssessmentRepository:
     def latest_sanitization_approval(self, assessment_id: str) -> SanitizationApproval | None:
         approvals = self._sanitization_approvals.get(assessment_id, [])
         return approvals[-1] if approvals else None
+
+    def add_document(self, document: Document) -> None:
+        # Test-only seeding helper: production Document rows are created
+        # via IngestionService, not AssessmentService, so nothing in
+        # AssessmentService's own public API creates one to seed with.
+        self._documents[document.id] = document
+
+    def get_document(self, document_id: str) -> Document | None:
+        return self._documents.get(document_id)
+
+    def document_superseded_by(self, document_id: str) -> Document | None:
+        for document in self._documents.values():
+            if document.supersedes_document_id == document_id:
+                return document
+        return None
 
 
 class _FakeVectorRepository:
@@ -1052,3 +1070,44 @@ def test_unsanitized_export_is_unaffected_by_sanitization_feature() -> None:
     assessment = service.create_assessment("Contact ops@example-utility.com", "C2M2")
     pdf_bytes = service.generate_dashboard_pdf(assessment.id)  # sanitized=False, the default
     assert pdf_bytes[:4] == b"%PDF"
+
+
+# --- Document versioning (Sprint 18, ADR-0039) ---
+
+
+def test_get_document_detail_raises_for_unknown_document() -> None:
+    service, _, _ = _make_service()
+    with pytest.raises(DocumentNotFoundError):
+        service.get_document_detail("does-not-exist")
+
+
+def test_get_document_detail_with_no_supersession_relationship() -> None:
+    service, assessment_repo, _ = _make_service()
+    assessment_repo.add_document(Document(id="doc-1", filename="a.txt", file_type="txt", content_hash="h"))
+
+    detail = service.get_document_detail("doc-1")
+    assert detail.id == "doc-1"
+    assert detail.supersedes_document_id is None
+    assert detail.superseded_by_document_id is None
+
+
+def test_get_document_detail_surfaces_forward_and_reverse_supersession() -> None:
+    service, assessment_repo, _ = _make_service()
+    assessment_repo.add_document(Document(id="doc-v1", filename="a.txt", file_type="txt", content_hash="h1"))
+    assessment_repo.add_document(
+        Document(
+            id="doc-v2",
+            filename="a.txt",
+            file_type="txt",
+            content_hash="h2",
+            supersedes_document_id="doc-v1",
+        )
+    )
+
+    v1_detail = service.get_document_detail("doc-v1")
+    assert v1_detail.supersedes_document_id is None
+    assert v1_detail.superseded_by_document_id == "doc-v2"  # the reviewer-facing signal
+
+    v2_detail = service.get_document_detail("doc-v2")
+    assert v2_detail.supersedes_document_id == "doc-v1"
+    assert v2_detail.superseded_by_document_id is None

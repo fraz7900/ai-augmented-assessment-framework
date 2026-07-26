@@ -59,6 +59,7 @@ def get_ingestion_service() -> IngestionService:
         settings=get_cached_settings(),
         vector_repository=get_cached_vector_repository(),
         embedder=get_cached_embedder(),
+        document_repository=get_cached_assessment_repository(),
     )
 
 

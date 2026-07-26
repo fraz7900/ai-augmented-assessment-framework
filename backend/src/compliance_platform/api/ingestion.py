@@ -11,6 +11,7 @@ from compliance_platform.api.dependencies import get_ingestion_service
 from compliance_platform.models.schemas import IngestionResult
 from compliance_platform.services.ingestion_service import (
     IngestionService,
+    UnknownSupersededDocumentError,
     UnsupportedDocumentError,
 )
 
@@ -21,6 +22,9 @@ router = APIRouter(prefix="/ingest", tags=["ingestion"])
 async def ingest_document(
     file: UploadFile = File(...),
     submitter: str | None = Form(default=None),
+    # Document versioning (ADR-0039): explicit, human-declared only —
+    # never inferred from filename/content similarity.
+    supersedes_document_id: str | None = Form(default=None),
     service: IngestionService = Depends(get_ingestion_service),
 ) -> IngestionResult:
     if file.filename is None:
@@ -29,7 +33,12 @@ async def ingest_document(
     content = await file.read()
 
     try:
-        return service.ingest(filename=file.filename, content=content, submitter=submitter)
+        return service.ingest(
+            filename=file.filename,
+            content=content,
+            submitter=submitter,
+            supersedes_document_id=supersedes_document_id,
+        )
     except UnsupportedDocumentError as exc:
         # Expected outcome (scanned PDF, empty doc, encoding failure) —
         # a client error, not a server error. See document-parsing skill.
@@ -37,5 +46,7 @@ async def ingest_document(
             status_code=422,
             detail={"status": exc.status.value, "warnings": exc.warnings},
         ) from exc
+    except UnknownSupersededDocumentError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

@@ -21,7 +21,17 @@ from compliance_platform.main import app
 
 @pytest.fixture
 def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
-    test_settings = Settings(vector_store_dir=tmp_path / "lancedb")
+    test_settings = Settings(
+        vector_store_dir=tmp_path / "lancedb",
+        # Document versioning (ADR-0039) wired IngestionService to
+        # AssessmentRepository -- without also isolating
+        # assessments_db_path/get_cached_assessment_repository here, an
+        # uncleared cache would resolve to Settings' default path and
+        # write real Document rows into the live project database this
+        # test suite is never supposed to touch. Confirmed as a real,
+        # not hypothetical, risk before this fix landed.
+        assessments_db_path=tmp_path / "assessments.db",
+    )
 
     # get_cached_embedder is deliberately NOT cleared per-test (Sprint
     # 9, R-13) — see the matching comment in
@@ -29,6 +39,7 @@ def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClie
     # the whole test session is both safe and measurably faster.
     dependencies.get_cached_settings.cache_clear()
     dependencies.get_cached_vector_repository.cache_clear()
+    dependencies.get_cached_assessment_repository.cache_clear()
     monkeypatch.setattr(dependencies, "get_settings", lambda: test_settings)
 
     with TestClient(app) as test_client:
@@ -36,6 +47,7 @@ def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClie
 
     dependencies.get_cached_settings.cache_clear()
     dependencies.get_cached_vector_repository.cache_clear()
+    dependencies.get_cached_assessment_repository.cache_clear()
 
 
 def test_health_endpoint(client: TestClient) -> None:
@@ -111,3 +123,57 @@ def test_two_independent_ingestions_are_retrievable_from_the_same_store(
 
     repo = dependencies.get_cached_vector_repository()
     assert repo.count() >= 2
+
+
+# --- Document versioning (Sprint 18, ADR-0039) ---
+
+
+def test_ingested_document_is_retrievable_via_documents_endpoint(client: TestClient) -> None:
+    response = client.post(
+        "/ingest",
+        files={"file": ("policy.txt", b"Multi factor authentication is required.", "text/plain")},
+        data={"submitter": "test-suite"},
+    )
+    document_id = response.json()["document_id"]
+
+    detail = client.get(f"/documents/{document_id}")
+    assert detail.status_code == 200
+    body = detail.json()
+    assert body["filename"] == "policy.txt"
+    assert body["submitter"] == "test-suite"
+    assert body["supersedes_document_id"] is None
+    assert body["superseded_by_document_id"] is None
+
+
+def test_unknown_document_returns_404(client: TestClient) -> None:
+    assert client.get("/documents/does-not-exist").status_code == 404
+
+
+def test_supersedes_relationship_is_recorded_and_visible_both_directions(
+    client: TestClient,
+) -> None:
+    v1 = client.post(
+        "/ingest",
+        files={"file": ("policy_v1.txt", b"Passwords must be at least eight characters.", "text/plain")},
+    ).json()["document_id"]
+
+    v2 = client.post(
+        "/ingest",
+        files={"file": ("policy_v2.txt", b"Passwords must be at least twelve characters.", "text/plain")},
+        data={"supersedes_document_id": v1},
+    ).json()["document_id"]
+
+    v1_detail = client.get(f"/documents/{v1}").json()
+    assert v1_detail["superseded_by_document_id"] == v2
+
+    v2_detail = client.get(f"/documents/{v2}").json()
+    assert v2_detail["supersedes_document_id"] == v1
+
+
+def test_ingest_rejects_supersedes_reference_to_unknown_document(client: TestClient) -> None:
+    response = client.post(
+        "/ingest",
+        files={"file": ("policy.txt", b"Some real synthetic policy content here.", "text/plain")},
+        data={"supersedes_document_id": "does-not-exist"},
+    )
+    assert response.status_code == 422

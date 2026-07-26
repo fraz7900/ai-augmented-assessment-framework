@@ -10,9 +10,11 @@ from __future__ import annotations
 import pytest
 
 from compliance_platform.core.config import Settings
+from compliance_platform.models.assessment import Document
 from compliance_platform.models.schemas import EvidenceChunk, ParseStatus
 from compliance_platform.services.ingestion_service import (
     IngestionService,
+    UnknownSupersededDocumentError,
     UnsupportedDocumentError,
 )
 
@@ -25,14 +27,32 @@ class _FakeEmbedder:
 
 
 class _FakeVectorRepository:
-    def __init__(self) -> None:
+    def __init__(self, known_document_ids: set[str] | None = None) -> None:
         self.added: list[tuple[list[EvidenceChunk], list[list[float]]]] = []
+        self._known_document_ids = known_document_ids or set()
 
     def add_chunks(self, chunks: list[EvidenceChunk], vectors: list[list[float]]) -> None:
         self.added.append((chunks, vectors))
 
+    def chunks_for_document(self, document_id: str) -> list[dict]:
+        return [{"chunk_id": "c1"}] if document_id in self._known_document_ids else []
 
-def _make_service(**settings_overrides: object) -> tuple[IngestionService, _FakeVectorRepository]:
+
+class _FakeDocumentRepository:
+    def __init__(self) -> None:
+        self.documents: dict[str, Document] = {}
+
+    def create_document(self, document: Document) -> Document:
+        self.documents[document.id] = document
+        return document
+
+    def get_document(self, document_id: str) -> Document | None:
+        return self.documents.get(document_id)
+
+
+def _make_service(
+    known_document_ids: set[str] | None = None, **settings_overrides: object
+) -> tuple[IngestionService, _FakeVectorRepository, _FakeDocumentRepository]:
     defaults: dict[str, object] = {
         "chunk_target_chars": 1000,
         "chunk_overlap_chars": 50,
@@ -40,13 +60,19 @@ def _make_service(**settings_overrides: object) -> tuple[IngestionService, _Fake
     }
     defaults.update(settings_overrides)
     settings = Settings(**defaults)  # type: ignore[arg-type]
-    repo = _FakeVectorRepository()
-    svc = IngestionService(settings=settings, vector_repository=repo, embedder=_FakeEmbedder())
-    return svc, repo
+    vector_repo = _FakeVectorRepository(known_document_ids)
+    document_repo = _FakeDocumentRepository()
+    svc = IngestionService(
+        settings=settings,
+        vector_repository=vector_repo,
+        embedder=_FakeEmbedder(),
+        document_repository=document_repo,
+    )
+    return svc, vector_repo, document_repo
 
 
 def test_ingest_success_stores_chunks_and_returns_result() -> None:
-    svc, repo = _make_service()
+    svc, repo, _ = _make_service()
     result = svc.ingest(
         "notes.txt", b"This is a real synthetic evidence document with enough content to chunk."
     )
@@ -59,13 +85,13 @@ def test_ingest_success_stores_chunks_and_returns_result() -> None:
 
 
 def test_ingest_rejects_oversized_upload() -> None:
-    svc, _ = _make_service(max_upload_bytes=10)
+    svc, _, _ = _make_service(max_upload_bytes=10)
     with pytest.raises(ValueError):
         svc.ingest("big.txt", b"more than ten bytes of content")
 
 
 def test_ingest_raises_for_empty_document() -> None:
-    svc, repo = _make_service()
+    svc, repo, _ = _make_service()
     with pytest.raises(UnsupportedDocumentError) as exc_info:
         svc.ingest("empty.txt", b"   ")
     assert exc_info.value.status == ParseStatus.EMPTY
@@ -73,7 +99,7 @@ def test_ingest_raises_for_empty_document() -> None:
 
 
 def test_ingest_raises_for_unsupported_scanned_pdf(scanned_like_pdf_bytes: bytes) -> None:
-    svc, repo = _make_service()
+    svc, repo, _ = _make_service()
     with pytest.raises(UnsupportedDocumentError) as exc_info:
         svc.ingest("scanned.pdf", scanned_like_pdf_bytes)
     assert exc_info.value.status == ParseStatus.UNSUPPORTED_SCANNED
@@ -85,9 +111,48 @@ def test_ingest_rejects_extracted_text_beyond_the_decompression_bomb_ceiling() -
     # ceiling on EXTRACTED text, applied after parsing, distinct from
     # document_parsers.py's DOCX-specific pre-extraction ZIP check --
     # this one covers every format uniformly, including PDF/TXT/MD.
-    svc, repo = _make_service(max_extracted_text_chars=50)
+    svc, repo, _ = _make_service(max_extracted_text_chars=50)
     with pytest.raises(UnsupportedDocumentError) as exc_info:
         svc.ingest("notes.txt", b"This document's extracted text is well over fifty characters long.")
     assert exc_info.value.status == ParseStatus.FAILED
     assert any("decompression-bomb" in w for w in exc_info.value.warnings)
     assert repo.added == []
+
+
+# --- Document versioning (Sprint 18, ADR-0039) ---
+
+
+def test_ingest_persists_a_document_record_on_success() -> None:
+    svc, _, documents = _make_service()
+    result = svc.ingest("notes.txt", b"Real synthetic evidence content for versioning tests.")
+    stored = documents.get_document(result.document_id)
+    assert stored is not None
+    assert stored.filename == "notes.txt"
+    assert stored.supersedes_document_id is None
+
+
+def test_ingest_records_an_explicit_supersedes_declaration() -> None:
+    svc, _, documents = _make_service(known_document_ids={"old-doc-id"})
+    result = svc.ingest(
+        "notes_v2.txt",
+        b"Real synthetic evidence content for versioning tests, v2.",
+        supersedes_document_id="old-doc-id",
+    )
+    stored = documents.get_document(result.document_id)
+    assert stored is not None
+    assert stored.supersedes_document_id == "old-doc-id"
+
+
+def test_ingest_rejects_a_supersedes_reference_to_an_unknown_document() -> None:
+    # supersedes_document_id is explicit and human-declared, but it must
+    # still refer to a real, previously-ingested document -- fail closed
+    # rather than silently accepting a bogus reference.
+    svc, _, documents = _make_service()  # no known_document_ids -- nothing exists yet
+    with pytest.raises(UnknownSupersededDocumentError) as exc_info:
+        svc.ingest(
+            "notes.txt",
+            b"Real synthetic evidence content for versioning tests.",
+            supersedes_document_id="does-not-exist",
+        )
+    assert exc_info.value.document_id == "does-not-exist"
+    assert documents.documents == {}  # nothing persisted for a rejected ingest

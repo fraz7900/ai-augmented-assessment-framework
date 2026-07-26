@@ -222,3 +222,38 @@ class SanitizationApproval(SQLModel, table=True):
     custom_terms_json: str
     approved_by: str
     approved_at: datetime = Field(default_factory=_utcnow)
+
+
+class Document(SQLModel, table=True):
+    """A durable record of one ingested document (Sprint 18, ADR-0039).
+
+    Before this, no such record existed anywhere: SourceDocumentMetadata
+    (models/schemas.py) is computed at parse time and returned in the
+    ingestion API response, but nothing durable persisted filename/
+    content_hash/submitter past that single response — only each
+    chunk's bare document_id survived, in the vector store. This closes
+    a real, confirmed gap (controlled-pilot readiness audit §A.3): "no
+    document_version (a re-upload gets a fresh, unlinked document_id)".
+
+    id matches the document_id already used by the vector store (see
+    services/document_parsers.py._new_document_id) and every
+    EvidenceLink.document_id that already references it — the same
+    identifier, now also durably recorded here, not a second ID scheme.
+
+    supersedes_document_id is explicit and human-declared at upload
+    time, never inferred from filename or content similarity — the same
+    "verified over fabricated" discipline every human-in-the-loop
+    decision in this project already follows (PracticeFinding,
+    SanitizationApproval): silently guessing which upload replaces which
+    risks marking an evidence trail stale on a false positive, or
+    missing a real supersession on a false negative. None until an
+    uploader explicitly names the document_id this one replaces.
+    """
+
+    id: str = Field(primary_key=True)
+    filename: str
+    file_type: str
+    content_hash: str
+    submitter: str | None = None
+    uploaded_at: datetime = Field(default_factory=_utcnow)
+    supersedes_document_id: str | None = Field(default=None, index=True)

@@ -81,3 +81,21 @@ class IngestionResult(BaseModel):
     parse_warnings: list[str] = Field(default_factory=list)
     chunk_count: int
     embedding_backend: str
+
+
+class DocumentDetail(BaseModel):
+    """Document versioning (Sprint 18, ADR-0039): the durable record of
+    one ingested document, plus the reverse lookup a reviewer actually
+    needs -- "has this document since been superseded by a newer
+    upload?" -- computed at read time, not stored (only the forward
+    supersedes_document_id declaration is stored, on the newer document).
+    """
+
+    id: str
+    filename: str
+    file_type: str
+    content_hash: str
+    submitter: str | None = None
+    uploaded_at: datetime
+    supersedes_document_id: str | None = None
+    superseded_by_document_id: str | None = None
