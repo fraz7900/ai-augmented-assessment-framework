@@ -139,17 +139,49 @@ class IngestionService:
         vectors = self._embedder.embed([chunk.text for chunk in chunks])
         self._vector_repository.add_chunks(chunks, vectors)
 
-        self._documents.create_document(
-            Document(
-                id=parsed.metadata.document_id,
-                filename=parsed.metadata.filename,
-                file_type=parsed.metadata.file_type.value,
-                content_hash=parsed.metadata.content_hash,
-                submitter=submitter,
-                supersedes_document_id=supersedes_document_id,
-                parser_version=parsed.metadata.parser_version,
+        # Compensating action (ADR-0046): a real, reproduced gap ADR-0044's
+        # failure-injection tests found and left disclosed-not-fixed —
+        # there is no cross-store transaction spanning LanceDB and SQLite,
+        # so a Document-registry write failure here, AFTER the chunks
+        # already landed above, used to leave them permanently orphaned
+        # (functional for evidence linking, but absent from
+        # GET /documents/{id}). Best-effort, not a real distributed
+        # transaction: if the compensating delete ITSELF also fails, the
+        # original orphaning can still occur — a residual, disclosed risk
+        # (see ADR-0046), not claimed as fully eliminated.
+        try:
+            self._documents.create_document(
+                Document(
+                    id=parsed.metadata.document_id,
+                    filename=parsed.metadata.filename,
+                    file_type=parsed.metadata.file_type.value,
+                    content_hash=parsed.metadata.content_hash,
+                    submitter=submitter,
+                    supersedes_document_id=supersedes_document_id,
+                    parser_version=parsed.metadata.parser_version,
+                )
             )
-        )
+        except Exception:
+            _logger.error(
+                "document registry write failed after chunks were written; "
+                "compensating by deleting the orphaned chunks id=%s",
+                parsed.metadata.document_id,
+            )
+            # The compensating delete's own failure must never replace the
+            # ORIGINAL exception (a bare `except Exception: ... ; raise`
+            # outside this inner try would let a delete-side exception
+            # overwrite the real cause) -- caught and logged separately so
+            # the caller always sees the create_document() failure that
+            # actually happened, even in the disclosed residual-risk case
+            # where the delete also fails and the chunks remain orphaned.
+            try:
+                self._vector_repository.delete_chunks_for_document(parsed.metadata.document_id)
+            except Exception:
+                _logger.error(
+                    "compensating delete also failed; chunks remain orphaned id=%s",
+                    parsed.metadata.document_id,
+                )
+            raise
 
         _logger.info(
             "document ingested id=%s filename=%s file_type=%s chunk_count=%d supersedes=%s "

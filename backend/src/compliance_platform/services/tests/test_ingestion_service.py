@@ -47,15 +47,32 @@ class _FakeEmbedder:
 
 
 class _FakeVectorRepository:
-    def __init__(self, known_document_ids: set[str] | None = None, fail_add_chunks: bool = False) -> None:
+    def __init__(
+        self,
+        known_document_ids: set[str] | None = None,
+        fail_add_chunks: bool = False,
+        fail_delete: bool = False,
+    ) -> None:
         self.added: list[tuple[list[EvidenceChunk], list[list[float]]]] = []
+        self.deleted_document_ids: list[str] = []
         self._known_document_ids = known_document_ids or set()
         self._fail_add_chunks = fail_add_chunks
+        self._fail_delete = fail_delete
 
     def add_chunks(self, chunks: list[EvidenceChunk], vectors: list[list[float]]) -> None:
         if self._fail_add_chunks:
             raise _VectorStoreFailure("simulated vector store write failure")
         self.added.append((chunks, vectors))
+
+    def delete_chunks_for_document(self, document_id: str) -> None:
+        if self._fail_delete:
+            raise _VectorStoreFailure("simulated vector store delete failure")
+        self.deleted_document_ids.append(document_id)
+        self.added = [
+            (chunks, vectors)
+            for chunks, vectors in self.added
+            if not chunks or chunks[0].document_id != document_id
+        ]
 
     def chunks_for_document(self, document_id: str) -> list[dict]:
         return [{"chunk_id": "c1"}] if document_id in self._known_document_ids else []
@@ -81,6 +98,7 @@ def _make_service(
     fail_embed: bool = False,
     fail_add_chunks: bool = False,
     fail_create_document: bool = False,
+    fail_delete: bool = False,
     **settings_overrides: object,
 ) -> tuple[IngestionService, _FakeVectorRepository, _FakeDocumentRepository]:
     defaults: dict[str, object] = {
@@ -90,7 +108,9 @@ def _make_service(
     }
     defaults.update(settings_overrides)
     settings = Settings(**defaults)  # type: ignore[arg-type]
-    vector_repo = _FakeVectorRepository(known_document_ids, fail_add_chunks=fail_add_chunks)
+    vector_repo = _FakeVectorRepository(
+        known_document_ids, fail_add_chunks=fail_add_chunks, fail_delete=fail_delete
+    )
     document_repo = _FakeDocumentRepository(fail_create_document=fail_create_document)
     svc = IngestionService(
         settings=settings,
@@ -230,22 +250,36 @@ def test_vector_store_write_failure_leaves_no_document_persisted() -> None:
     assert documents.documents == {}
 
 
-def test_document_registry_write_failure_leaves_orphaned_chunks_in_the_vector_store() -> None:
-    """A real, confirmed limitation, not a hypothetical one: ingest()
-    writes chunks to the vector store BEFORE persisting the Document
-    registry row (ADR-0039). If the registry write fails after the
-    vector-store write already succeeded, the chunks are NOT rolled
-    back -- there is no cross-store transaction spanning LanceDB and
-    SQLite. The chunks remain fully functional for evidence linking
-    (existence is checked against the vector store directly, per
-    ADR-0039's own design, not the Document table), but GET
-    /documents/{id} would 404 for a document that otherwise works.
-    Documented here via a real, reproduced test, not fixed -- see
-    ADR-0044's Consequences for why this is disclosed rather than
-    addressed this sprint.
+def test_document_registry_write_failure_is_compensated_by_deleting_the_written_chunks() -> None:
+    """ADR-0044 found and reproduced a real gap: ingest() writes chunks
+    to the vector store BEFORE persisting the Document registry row
+    (ADR-0039), and a registry-write failure after a successful
+    vector-store write used to leave those chunks permanently orphaned
+    (functional for evidence linking, but invisible to
+    GET /documents/{id}). ADR-0046 closes it with a compensating delete:
+    on a create_document() failure, ingest() deletes the chunks it just
+    wrote before re-raising, so a failed ingest leaves NEITHER store
+    holding partial state for that document.
     """
     svc, vector_repo, documents = _make_service(fail_create_document=True)
     with pytest.raises(_DocumentStoreFailure):
         svc.ingest("notes.txt", b"Real synthetic evidence content for failure injection tests.")
-    assert len(vector_repo.added) == 1  # the chunks WERE written...
-    assert documents.documents == {}  # ...but no Document registry row exists for them
+    assert vector_repo.added == []  # compensating delete removed the chunks that were written
+    assert vector_repo.deleted_document_ids  # the delete genuinely ran, not just coincidentally empty
+    assert documents.documents == {}
+
+
+def test_document_registry_write_failure_when_the_compensating_delete_also_fails() -> None:
+    """The compensating delete (ADR-0046) is best-effort, not a real
+    distributed transaction -- if it ALSO fails (e.g. both stores are
+    having problems simultaneously), the original orphaning can still
+    occur. A real, disclosed residual risk, not silently assumed away:
+    this test proves the ORIGINAL create_document failure still
+    propagates to the caller (never swallowed by the delete's own
+    failure), even though the chunks remain orphaned in this case.
+    """
+    svc, vector_repo, documents = _make_service(fail_create_document=True, fail_delete=True)
+    with pytest.raises(_DocumentStoreFailure):
+        svc.ingest("notes.txt", b"Real synthetic evidence content for failure injection tests.")
+    assert len(vector_repo.added) == 1  # the compensating delete itself failed -- chunks remain
+    assert documents.documents == {}

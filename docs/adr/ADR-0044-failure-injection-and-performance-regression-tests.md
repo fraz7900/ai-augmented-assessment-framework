@@ -1,6 +1,7 @@
 # ADR-0044: Failure-injection tests and complexity-scaling performance-regression tests
 
-**Status:** Accepted
+**Status:** Accepted — the orphaned-chunks finding below (Decision #3) was fixed in ADR-0046 (Sprint
+18 follow-up); read ADR-0046 for the compensating-delete fix and its own disclosed residual risk.
 **Sprint:** 18 (controlled-pilot readiness pass, follow-up to ADR-0033 through ADR-0043)
 **Deciders:** Fraz Ahmed (project-owner directive: "dig into testing-infrastructure item," Section
 A #13 of `docs/architecture/02-controlled-pilot-readiness-audit.md`)

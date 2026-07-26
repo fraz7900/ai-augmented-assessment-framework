@@ -135,6 +135,21 @@ class VectorRepository:
         ]
         table.add(rows)
 
+    def delete_chunks_for_document(self, document_id: str) -> None:
+        """Deletes every chunk belonging to one document. A compensating
+        action for services/ingestion_service.py.ingest() (ADR-0046): if
+        the Document registry write fails AFTER chunks were already
+        written here, this removes them so the failed ingest doesn't
+        leave orphaned-but-functional chunks behind with no Document row
+        — see ADR-0044's originally-disclosed finding and ADR-0046 for
+        the fix. Not used on any other path. A no-op if the table
+        doesn't exist yet or the document has no chunks (LanceDB's
+        delete on a predicate matching zero rows).
+        """
+        table = self._ensure_table()
+        escaped_id = document_id.replace("'", "''")
+        table.delete(f"document_id = '{escaped_id}'")
+
     def count(self) -> int:
         table = self._open_existing_table()
         return table.count_rows() if table is not None else 0
