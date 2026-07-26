@@ -11,6 +11,10 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from compliance_platform.api import assessments, frameworks, health, ingestion
 from compliance_platform.api.error_handlers import register_exception_handlers
+from compliance_platform.core.config import get_settings
+from compliance_platform.core.logging_config import configure_logging
+
+configure_logging(get_settings())
 
 app = FastAPI(
     title="AI-Augmented Compliance Assessment Platform",

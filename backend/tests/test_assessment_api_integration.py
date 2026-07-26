@@ -130,6 +130,18 @@ def test_get_unknown_assessment_returns_404(client: TestClient) -> None:
     assert response.status_code == 404
 
 
+def test_handled_domain_exceptions_are_logged(
+    client: TestClient, caplog: pytest.LogCaptureFixture
+) -> None:
+    # Security hardening (controlled-pilot readiness audit §A.12): every
+    # handled domain exception used to vanish into a JSON response with
+    # zero server-side record.
+    with caplog.at_level("WARNING", logger="compliance_platform.api.error_handlers"):
+        response = client.get("/assessments/does-not-exist")
+    assert response.status_code == 404
+    assert any("does-not-exist" in record.message for record in caplog.records)
+
+
 def test_list_assessments_returns_created_assessments(client: TestClient) -> None:
     client.post("/assessments", json={"name": "One", "framework_name": "C2M2"})
     client.post("/assessments", json={"name": "Two", "framework_name": "NIST CSF 2.0"})

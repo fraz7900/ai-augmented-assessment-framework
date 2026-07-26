@@ -78,3 +78,16 @@ def test_ingest_raises_for_unsupported_scanned_pdf(scanned_like_pdf_bytes: bytes
         svc.ingest("scanned.pdf", scanned_like_pdf_bytes)
     assert exc_info.value.status == ParseStatus.UNSUPPORTED_SCANNED
     assert repo.added == []
+
+
+def test_ingest_rejects_extracted_text_beyond_the_decompression_bomb_ceiling() -> None:
+    # Security hardening (controlled-pilot readiness audit §A.12): a
+    # ceiling on EXTRACTED text, applied after parsing, distinct from
+    # document_parsers.py's DOCX-specific pre-extraction ZIP check --
+    # this one covers every format uniformly, including PDF/TXT/MD.
+    svc, repo = _make_service(max_extracted_text_chars=50)
+    with pytest.raises(UnsupportedDocumentError) as exc_info:
+        svc.ingest("notes.txt", b"This document's extracted text is well over fifty characters long.")
+    assert exc_info.value.status == ParseStatus.FAILED
+    assert any("decompression-bomb" in w for w in exc_info.value.warnings)
+    assert repo.added == []

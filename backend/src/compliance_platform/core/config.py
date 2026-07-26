@@ -26,6 +26,10 @@ class Settings(BaseSettings):
 
     model_config = SettingsConfigDict(env_prefix="COMPLIANCE_PLATFORM_", env_file=".env")
 
+    # Structured logging (see core/logging_config.py). Stdout only, no
+    # file/rotation policy — this is a local-first, single-process app.
+    log_level: str = "INFO"
+
     repo_root: Path = _REPO_ROOT
     data_raw_dir: Path = _REPO_ROOT / "data" / "raw"
     data_processed_dir: Path = _REPO_ROOT / "data" / "processed"
@@ -40,6 +44,14 @@ class Settings(BaseSettings):
     # Ingestion validation (see services/document_parsers.py).
     max_upload_bytes: int = 25 * 1024 * 1024  # 25 MB
     allowed_extensions: tuple[str, ...] = (".pdf", ".docx", ".txt", ".md")
+    # Decompression-bomb ceiling (controlled-pilot readiness audit §A.12,
+    # security hardening): applies to EXTRACTED text, after parsing —
+    # complements document_parsers.py's DOCX-specific pre-check (which
+    # rejects before extraction) by catching the same failure mode for
+    # any format, including PDF's internal stream compression, which has
+    # no equivalent cheap pre-check the way a ZIP's central directory
+    # does. 20M characters is far beyond any real policy document.
+    max_extracted_text_chars: int = 20_000_000
 
     # Embeddings (see ai/embeddings.py, ADR-0006, and ADR-0008).
     embedding_backend: str = "semantic_local_onnx"

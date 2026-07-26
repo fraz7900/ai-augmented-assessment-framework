@@ -9,11 +9,15 @@ real vector store (a fake VectorRepository / Embedder is enough).
 
 from __future__ import annotations
 
+import logging
+
 from compliance_platform.ai.embeddings import Embedder
 from compliance_platform.core.config import Settings
 from compliance_platform.models.schemas import IngestionResult, ParseStatus
 from compliance_platform.repositories.vector_repository import VectorRepository
 from compliance_platform.services import chunking, document_parsers
+
+_logger = logging.getLogger(__name__)
 
 
 class UnsupportedDocumentError(Exception):
@@ -55,7 +59,30 @@ class IngestionService:
         if parsed.parse_status != ParseStatus.SUCCESS:
             # A failed/unsupported/empty parse is a real, expected outcome
             # per the document-parsing skill — never silently continue past it.
+            _logger.warning(
+                "ingestion rejected filename=%s status=%s", filename, parsed.parse_status
+            )
             raise UnsupportedDocumentError(parsed.parse_status, parsed.parse_warnings)
+
+        # Decompression-bomb ceiling on EXTRACTED text (security hardening,
+        # controlled-pilot readiness audit §A.12). Complements
+        # document_parsers.py's DOCX-specific pre-check: this one applies
+        # uniformly to every format, including PDF, whose internal stream
+        # compression has no equivalent cheap pre-extraction check.
+        if len(parsed.raw_text) > self._settings.max_extracted_text_chars:
+            _logger.warning(
+                "ingestion rejected filename=%s reason=decompression_bomb_ceiling extracted_chars=%d",
+                filename,
+                len(parsed.raw_text),
+            )
+            raise UnsupportedDocumentError(
+                ParseStatus.FAILED,
+                [
+                    f"Extracted text is {len(parsed.raw_text)} characters, exceeding the "
+                    f"{self._settings.max_extracted_text_chars}-character safety ceiling. "
+                    "Rejected to guard against a decompression-bomb-style malformed document."
+                ],
+            )
 
         chunks = chunking.chunk_document(
             document_id=parsed.metadata.document_id,
@@ -72,6 +99,13 @@ class IngestionService:
         vectors = self._embedder.embed([chunk.text for chunk in chunks])
         self._vector_repository.add_chunks(chunks, vectors)
 
+        _logger.info(
+            "document ingested id=%s filename=%s file_type=%s chunk_count=%d",
+            parsed.metadata.document_id,
+            filename,
+            parsed.metadata.file_type,
+            len(chunks),
+        )
         return IngestionResult(
             document_id=parsed.metadata.document_id,
             filename=parsed.metadata.filename,

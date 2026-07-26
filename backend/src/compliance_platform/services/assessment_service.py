@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 from typing import Protocol
 
 from compliance_platform.ai.embeddings import Embedder
@@ -40,6 +41,13 @@ from compliance_platform.services.report_service import (
 )
 from compliance_platform.services.sanitization_service import sanitize_dashboard_report
 from compliance_platform.services.scoring_service import compute_assessment_domain_scores
+
+# Security hardening (controlled-pilot readiness audit §A.12): every log
+# call below logs IDs, counts, and statuses only -- never evidence text,
+# finding rationale, or sanitization custom_terms, the same fields this
+# project's own sanitization design already treats as the sensitive
+# surface (models/sanitization.py).
+_logger = logging.getLogger(__name__)
 
 
 def _sanitized_report_hash(report: DashboardReport) -> str:
@@ -291,11 +299,18 @@ class AssessmentService:
         documents for unrecognized framework names, not an error here.
         """
         framework = self._frameworks.get(framework_name) if self._frameworks else None
-        return self._assessments.create_assessment(
+        created = self._assessments.create_assessment(
             name=name,
             framework_name=framework_name,
             framework_version=framework.version if framework is not None else None,
         )
+        _logger.info(
+            "assessment created id=%s framework=%s framework_version=%s",
+            created.id,
+            framework_name,
+            created.framework_version,
+        )
+        return created
 
     def get_assessment(self, assessment_id: str) -> Assessment:
         assessment = self._assessments.get_assessment(assessment_id)
@@ -316,6 +331,9 @@ class AssessmentService:
         updated = self._assessments.update_status(assessment_id, new_status, note=note)
         if updated is None:  # pragma: no cover - existence already checked above
             raise AssessmentNotFoundError(assessment_id)
+        _logger.info(
+            "assessment status transition id=%s %s -> %s", assessment_id, assessment.status, new_status
+        )
         return updated
 
     def status_history(self, assessment_id: str) -> list[AssessmentStatusChange]:
@@ -362,7 +380,15 @@ class AssessmentService:
             source=source,
             review_status=review_status,
         )
-        return self._assessments.add_evidence_link(link)
+        created = self._assessments.add_evidence_link(link)
+        _logger.info(
+            "evidence linked assessment=%s document=%s practice=%s source=%s",
+            assessment_id,
+            document_id,
+            practice_reference,
+            source,
+        )
+        return created
 
     def evidence_for_assessment(self, assessment_id: str) -> list[EvidenceLink]:
         self.get_assessment(assessment_id)  # raises AssessmentNotFoundError if missing
@@ -467,7 +493,18 @@ class AssessmentService:
             custom_terms_json=json.dumps(custom_terms or []),
             approved_by=approved_by,
         )
-        return self._assessments.create_sanitization_approval(approval)
+        created = self._assessments.create_sanitization_approval(approval)
+        # custom_terms is deliberately never logged -- it is precisely
+        # the sensitive organizational identifiers (facility/vendor/
+        # employee names) this whole feature exists to keep out of an
+        # export; logging it here would defeat that purpose.
+        _logger.info(
+            "sanitization approved assessment=%s approved_by=%s custom_term_count=%d",
+            assessment_id,
+            approved_by,
+            len(custom_terms or []),
+        )
+        return created
 
     def _approved_sanitized_report(self, assessment_id: str) -> DashboardReport:
         approval = self._assessments.latest_sanitization_approval(assessment_id)
@@ -569,6 +606,12 @@ class AssessmentService:
         )
         if updated is None:  # pragma: no cover - existence already checked above
             raise EvidenceLinkNotFoundError(evidence_link_id)
+        _logger.info(
+            "evidence reviewed assessment=%s link=%s decision=%s",
+            assessment_id,
+            evidence_link_id,
+            decision,
+        )
         return updated
 
     def set_practice_finding(
@@ -598,13 +641,24 @@ class AssessmentService:
             if framework is not None and practice_reference not in framework.all_practice_ids():
                 raise InvalidPracticeReferenceError(practice_reference, assessment.framework_name)
 
-        return self._assessments.set_practice_finding(
+        finding = self._assessments.set_practice_finding(
             assessment_id=assessment_id,
             practice_reference=practice_reference,
             status=status,
             rationale=rationale,
             set_by=set_by,
         )
+        # rationale is deliberately never logged -- human-authored free
+        # text is exactly the class of content this project's own
+        # sanitization design treats as potentially sensitive.
+        _logger.info(
+            "practice finding set assessment=%s practice=%s status=%s set_by=%s",
+            assessment_id,
+            practice_reference,
+            status,
+            set_by,
+        )
+        return finding
 
     def practice_findings_for_assessment(self, assessment_id: str) -> list[PracticeFinding]:
         self.get_assessment(assessment_id)  # raises AssessmentNotFoundError if missing
@@ -669,4 +723,10 @@ class AssessmentService:
                 confidence=proposal.confidence,
             )
             created.append(self._assessments.add_evidence_link(link))
+        _logger.info(
+            "propose-mappings assessment=%s documents=%d proposals_created=%d",
+            assessment_id,
+            len(document_ids),
+            len(created),
+        )
         return created

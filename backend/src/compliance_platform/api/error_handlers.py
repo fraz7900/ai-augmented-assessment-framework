@@ -20,6 +20,8 @@ corrected_practice_reference) still catches it locally.
 
 from __future__ import annotations
 
+import logging
+
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
@@ -58,12 +60,28 @@ _STATUS_CODE_BY_EXCEPTION: dict[type[Exception], int] = {
 }
 
 
+_logger = logging.getLogger(__name__)
+
+
 def register_exception_handlers(app: FastAPI) -> None:
     for exception_type, status_code in _STATUS_CODE_BY_EXCEPTION.items():
 
         def handler(
             request: Request, exc: Exception, status_code: int = status_code
         ) -> JSONResponse:
+            # Every domain exception handled here used to vanish into a
+            # JSON response with zero server-side record (security
+            # hardening, controlled-pilot readiness audit §A.12: "zero
+            # logging anywhere in the backend"). WARNING, not ERROR —
+            # these are expected 4xx outcomes of normal operation
+            # (a not-found ID, a finalized-assessment mutation attempt),
+            # not application bugs. Never logs exc's full message body
+            # if a future exception type embeds evidence/rationale text —
+            # today's exception __str__ values are all IDs/status names,
+            # not free text, so this is safe as written.
+            _logger.warning(
+                "%s -> %s %s: %s", request.method, status_code, request.url.path, exc
+            )
             return JSONResponse(status_code=status_code, content={"detail": str(exc)})
 
         app.add_exception_handler(exception_type, handler)

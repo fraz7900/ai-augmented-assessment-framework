@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import io
+import zipfile
 
 import pytest
 from docx import Document as DocxDocument
@@ -101,3 +102,56 @@ def test_parse_docx_with_only_whitespace_paragraphs_is_empty() -> None:
     doc.save(buffer)
     parsed = document_parsers.parse_document("blank.docx", buffer.getvalue())
     assert parsed.parse_status == ParseStatus.EMPTY
+
+
+# --- Security hardening (controlled-pilot readiness audit §A.12):
+# content-sniffing (a renamed file must not reach a parser expecting
+# content it doesn't actually contain) and a decompression-bomb ceiling
+# on DOCX (a ZIP archive whose central directory claims a huge
+# uncompressed size, checked without decompressing a single byte). ---
+
+
+def test_parse_pdf_extension_with_plain_text_content_is_caught_by_content_sniffing() -> None:
+    parsed = document_parsers.parse_document("fake.pdf", b"Just plain text, not a PDF at all.")
+    assert parsed.parse_status == ParseStatus.FAILED
+    assert any("does not match its .pdf extension" in w for w in parsed.parse_warnings)
+
+
+def test_parse_docx_extension_with_plain_text_content_is_caught_by_content_sniffing() -> None:
+    parsed = document_parsers.parse_document("fake.docx", b"Just plain text, not a docx zip.")
+    assert parsed.parse_status == ParseStatus.FAILED
+    assert any("does not match its .docx extension" in w for w in parsed.parse_warnings)
+
+
+def test_parse_txt_extension_with_binary_content_is_caught_by_content_sniffing() -> None:
+    binary_content = b"some header\x00\x01\x02binary garbage that is not real text"
+    parsed = document_parsers.parse_document("fake.txt", binary_content)
+    assert parsed.parse_status == ParseStatus.FAILED
+    assert any("does not match its .txt extension" in w for w in parsed.parse_warnings)
+
+
+def test_parse_pdf_with_correct_signature_but_invalid_body_fails_in_the_parser_not_sniffing() -> None:
+    # Passes the magic-byte check (proves sniffing and parser-level
+    # failure are genuinely distinct code paths, not the same check
+    # under two names) but is not a real, structurally valid PDF.
+    parsed = document_parsers.parse_document(
+        "fake2.pdf", b"%PDF-1.4\ngarbage body, not real PDF structure at all, no xref table"
+    )
+    assert parsed.parse_status == ParseStatus.FAILED
+    assert not any("does not match its" in w for w in parsed.parse_warnings)
+    assert any("Could not open PDF" in w for w in parsed.parse_warnings)
+
+
+def test_parse_docx_rejects_a_zip_bomb_style_archive_before_decompressing() -> None:
+    # A real ZIP with a genuinely high compression ratio (250MB of zero
+    # bytes compresses to under 1MB) -- exactly the shape a decompression
+    # bomb takes, not a synthetic/fabricated ZipInfo. The ceiling check
+    # reads only the central directory's file_size metadata, so this
+    # must reject in well under a second, never decompressing the payload.
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr("word/document.xml", b"\x00" * (250 * 1024 * 1024))
+
+    parsed = document_parsers.parse_document("bomb.docx", buffer.getvalue())
+    assert parsed.parse_status == ParseStatus.FAILED
+    assert any("decompression-bomb" in w for w in parsed.parse_warnings)

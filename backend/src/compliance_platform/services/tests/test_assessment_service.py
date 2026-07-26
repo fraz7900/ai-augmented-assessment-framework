@@ -322,6 +322,15 @@ def test_create_assessment_starts_in_draft_with_history_entry() -> None:
     assert history[0].to_status == AssessmentStatus.DRAFT
 
 
+def test_create_assessment_logs_the_new_assessment_id(caplog: pytest.LogCaptureFixture) -> None:
+    # Security hardening (controlled-pilot readiness audit §A.12): "zero
+    # logging anywhere in the backend" -- this is the audit trail fix.
+    service, _, _ = _make_service()
+    with caplog.at_level("INFO", logger="compliance_platform.services.assessment_service"):
+        assessment = service.create_assessment("Test Assessment", "C2M2")
+    assert any(assessment.id in record.message for record in caplog.records)
+
+
 def test_create_assessment_pins_framework_version_when_schema_is_loaded() -> None:
     """ADR-0031: the assessment's own record of what version it was
     created against, independent of whatever framework_mapping/*.yaml

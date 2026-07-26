@@ -11,6 +11,7 @@ from __future__ import annotations
 import hashlib
 import io
 import uuid
+import zipfile
 
 from docx import Document as DocxDocument
 from pypdf import PdfReader
@@ -27,6 +28,48 @@ from compliance_platform.models.schemas import (
 # a few stray characters (e.g. a running header), not real text. OCR is
 # explicitly out of scope for the MVP (see PROJECT_CHARTER.md MVP scope).
 _MIN_CHARS_PER_PAGE = 20
+
+# Content-sniffing (controlled-pilot readiness audit §A.12, security
+# hardening): file-type validation was extension-only before this —
+# a file renamed to a different extension went straight to that
+# extension's parser regardless of its real content. Checked against
+# real magic bytes / a binary-content heuristic before any format-specific
+# parser ever sees the bytes, not just trusted from the filename.
+_PDF_SIGNATURE = b"%PDF-"
+# DOCX (OOXML) is a ZIP archive; PK\x03\x04 is a normal non-empty
+# archive, PK\x05\x06 an empty one — both are genuine zip signatures.
+_ZIP_SIGNATURES = (b"PK\x03\x04", b"PK\x05\x06")
+_BINARY_SNIFF_BYTES = 8192
+
+
+def _looks_like_binary_content(content: bytes) -> bool:
+    # TXT/MD have no magic-byte signature to check; a NUL byte within the
+    # first few KB is a standard, low-false-positive signal that this is
+    # not real text content, however it got its .txt/.md extension. Real
+    # invalid-UTF-8 text (mojibake, stray high bytes) does not typically
+    # contain NUL bytes, so this does not fight the existing latin-1
+    # fallback path in parse_plain_text.
+    return b"\x00" in content[:_BINARY_SNIFF_BYTES]
+
+
+def _content_matches_file_type(content: bytes, file_type: FileType) -> bool:
+    if file_type == FileType.PDF:
+        return content.startswith(_PDF_SIGNATURE)
+    if file_type == FileType.DOCX:
+        return content.startswith(_ZIP_SIGNATURES)
+    if file_type in (FileType.TXT, FileType.MARKDOWN):
+        return not _looks_like_binary_content(content)
+    return True
+
+
+# Decompression-bomb ceiling (same audit finding): a DOCX is a ZIP
+# archive, and ZipInfo.file_size is real uncompressed-size metadata from
+# the archive's own central directory -- readable without decompressing
+# a single byte of entry content, so this check costs nothing close to
+# what an actual decompression would. 200MB is far beyond any real policy
+# document's extracted size but well below what a crafted archive could
+# claim to decompress to from a small uploaded file.
+_MAX_DOCX_UNCOMPRESSED_BYTES = 200 * 1024 * 1024
 
 
 def _content_hash(content: bytes) -> str:
@@ -72,6 +115,19 @@ def parse_pdf(content: bytes) -> tuple[str, ParseStatus, list[str]]:
 
 def parse_docx(content: bytes) -> tuple[str, ParseStatus, list[str]]:
     warnings: list[str] = []
+    try:
+        with zipfile.ZipFile(io.BytesIO(content)) as archive:
+            total_uncompressed_bytes = sum(info.file_size for info in archive.infolist())
+    except zipfile.BadZipFile as exc:
+        return "", ParseStatus.FAILED, [f"Could not open DOCX: {exc}"]
+
+    if total_uncompressed_bytes > _MAX_DOCX_UNCOMPRESSED_BYTES:
+        return "", ParseStatus.FAILED, [
+            f"DOCX would decompress to {total_uncompressed_bytes} bytes, exceeding the "
+            f"{_MAX_DOCX_UNCOMPRESSED_BYTES}-byte safety ceiling. Rejected before extraction "
+            "to guard against a decompression-bomb-style malformed file."
+        ]
+
     try:
         doc = DocxDocument(io.BytesIO(content))
     except Exception as exc:
@@ -149,8 +205,16 @@ def parse_document(
     it returns a status the caller must handle explicitly instead.
     """
     file_type = file_type_from_extension(filename)
-    parser = _PARSERS[file_type]
-    text, status, warnings = parser(content)
+
+    if not _content_matches_file_type(content, file_type):
+        text, status, warnings = "", ParseStatus.FAILED, [
+            f"File content does not match its .{filename.rsplit('.', 1)[-1].lower()} extension "
+            "(failed a magic-byte/binary-content check). Rejected before parsing, not passed to "
+            "a format-specific parser expecting content it doesn't actually contain."
+        ]
+    else:
+        parser = _PARSERS[file_type]
+        text, status, warnings = parser(content)
 
     metadata = SourceDocumentMetadata(
         document_id=_new_document_id(),
