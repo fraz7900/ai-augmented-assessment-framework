@@ -3,6 +3,7 @@ import { reportUrl, useDashboard } from '../../api/assessments'
 import ScoreHeadline from '../../components/ScoreHeadline'
 import GapGroup from '../../components/GapGroup'
 import ResolutionList from '../../components/ResolutionList'
+import SanitizationPanel from '../../components/SanitizationPanel'
 import type { AssessmentTabContext } from '../AssessmentDetailPage'
 
 // executive-reporting skill: lead with situation/complication/resolution,
@@ -10,8 +11,9 @@ import type { AssessmentTabContext } from '../AssessmentDetailPage'
 // DashboardReport's three sections verbatim, in that order, with no
 // client-side re-derivation of any number.
 export default function DashboardTab() {
-  const { assessmentId } = useOutletContext<AssessmentTabContext>()
+  const { assessmentId, assessment } = useOutletContext<AssessmentTabContext>()
   const { data: dashboard, isLoading, isError, error } = useDashboard(assessmentId)
+  const isFinalized = assessment.status === 'finalized'
 
   if (isLoading) return <p className="text-sm text-slate-500">Loading…</p>
   if (isError) return <p className="text-sm text-red-700">{error.message}</p>
@@ -38,6 +40,8 @@ export default function DashboardTab() {
           </a>
         </div>
       </div>
+
+      <SanitizationPanel assessmentId={assessmentId} />
 
       <div className="grid grid-cols-2 gap-3 rounded-lg border border-slate-200 bg-white p-4 text-sm sm:grid-cols-3">
         <div>
@@ -80,7 +84,12 @@ export default function DashboardTab() {
         ) : (
           <div className="mt-2 space-y-3">
             {complication.map((group) => (
-              <GapGroup key={group.domain_short_code} group={group} />
+              <GapGroup
+                key={group.domain_short_code}
+                group={group}
+                assessmentId={assessmentId}
+                isFinalized={isFinalized}
+              />
             ))}
           </div>
         )}

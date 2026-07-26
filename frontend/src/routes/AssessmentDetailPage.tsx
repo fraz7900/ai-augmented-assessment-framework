@@ -27,7 +27,12 @@ export default function AssessmentDetailPage() {
         <h1 className="text-xl font-semibold text-slate-900">{assessment.name}</h1>
         <StatusBadge status={assessment.status} />
       </div>
-      <p className="text-sm text-slate-500">{assessment.framework_name}</p>
+      <p className="text-sm text-slate-500">
+        {assessment.framework_name}
+        {assessment.framework_version && (
+          <span className="text-slate-400"> · v{assessment.framework_version}</span>
+        )}
+      </p>
 
       <nav className="mt-4 flex gap-1 border-b border-slate-200">
         <NavLink to="overview" className={tabLinkClass}>

@@ -187,7 +187,10 @@ export interface paths {
          * @description PDF rendering of the same dashboard GET /dashboard returns
          *     (Sprint 7) — see services/export_service.py and ADR-0013. Same
          *     error mapping as the dashboard endpoint, since both are built from
-         *     the same DashboardReport.
+         *     the same DashboardReport. sanitized=true (ADR-0032) requires a
+         *     current, matching PracticeFinding/evidence-state approval recorded
+         *     via POST .../sanitization/approve first — see
+         *     services/assessment_service.py.
          */
         get: operations["get_dashboard_pdf_assessments__assessment_id__report_pdf_get"];
         put?: never;
@@ -208,11 +211,63 @@ export interface paths {
         /**
          * Get Dashboard Xlsx
          * @description XLSX rendering of the same dashboard GET /dashboard returns
-         *     (Sprint 7) — see services/export_service.py and ADR-0013.
+         *     (Sprint 7) — see services/export_service.py and ADR-0013. See
+         *     get_dashboard_pdf's docstring for the sanitized=true behavior.
          */
         get: operations["get_dashboard_xlsx_assessments__assessment_id__report_xlsx_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/assessments/{assessment_id}/sanitization/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Preview Sanitization
+         * @description Read-only preview/diff of what a sanitized export would redact
+         *     or pseudonymize (ADR-0032) — never persisted, never itself
+         *     authorizes an export. custom_terms is the reviewer-supplied list of
+         *     organization-specific identifiers (names, facility/vendor/customer/
+         *     employee identifiers) to pseudonymize; see
+         *     services/sanitization_service.py for why those categories can't be
+         *     detected automatically without fabricating an NER capability this
+         *     project hasn't evaluated.
+         */
+        post: operations["preview_sanitization_assessments__assessment_id__sanitization_preview_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/assessments/{assessment_id}/sanitization/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve Sanitization
+         * @description Records explicit human approval of one specific sanitized report
+         *     (ADR-0032's "never silently publish an AI-sanitized report" rule).
+         *     Required before GET .../report/pdf|xlsx?sanitized=true will
+         *     succeed; a later change to the underlying report invalidates this
+         *     approval automatically (see SanitizationApprovalStaleError).
+         */
+        post: operations["approve_sanitization_assessments__assessment_id__sanitization_approve_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -238,6 +293,67 @@ export interface paths {
          *     handled globally, see api/error_handlers.py.
          */
         post: operations["review_evidence_assessments__assessment_id__evidence__evidence_link_id__review_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/assessments/{assessment_id}/practice-findings/{practice_reference}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set Practice Finding
+         * @description Records a reviewer's explicit compliance judgment for one
+         *     practice — SATISFIED, PARTIALLY_SATISFIED, NOT_SATISFIED,
+         *     INSUFFICIENT_EVIDENCE, or NOT_APPLICABLE (ADR-0030). PUT, not POST:
+         *     idempotent upsert of the single current finding for this
+         *     (assessment, practice) pair, not a growing list of independent
+         *     records — see services/assessment_service.py.set_practice_finding
+         *     and PracticeFindingChange for the append-only history this still
+         *     preserves underneath.
+         */
+        put: operations["set_practice_finding_assessments__assessment_id__practice_findings__practice_reference__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/assessments/{assessment_id}/practice-findings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Practice Findings */
+        get: operations["list_practice_findings_assessments__assessment_id__practice_findings_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/assessments/{assessment_id}/practice-findings/{practice_reference}/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Practice Finding History */
+        get: operations["get_practice_finding_history_assessments__assessment_id__practice_findings__practice_reference__history_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -312,6 +428,16 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** ApproveSanitizationRequest */
+        ApproveSanitizationRequest: {
+            /**
+             * Custom Terms
+             * @default []
+             */
+            custom_terms: string[];
+            /** Approved By */
+            approved_by: string;
+        };
         /**
          * Assessment
          * @description A single compliance assessment instance.
@@ -328,6 +454,8 @@ export interface components {
             name: string;
             /** Framework Name */
             framework_name: string;
+            /** Framework Version */
+            framework_version?: string | null;
             /** @default draft */
             status: components["schemas"]["AssessmentStatus"];
             /**
@@ -514,6 +642,8 @@ export interface components {
             chunk_id?: string | null;
             /** Practice Reference */
             practice_reference: string;
+            /** Original Practice Reference */
+            original_practice_reference?: string | null;
             /** Note */
             note?: string | null;
             /** @default manual */
@@ -588,6 +718,10 @@ export interface components {
              * @default false
              */
             has_pending_ai_proposal: boolean;
+            /** @default insufficient_evidence */
+            status: components["schemas"]["PracticeFindingStatus"];
+            /** Finding Rationale */
+            finding_rationale?: string | null;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -697,6 +831,105 @@ export interface components {
             applicability: string;
         };
         /**
+         * PracticeFinding
+         * @description A human reviewer's explicit, current compliance judgment for one
+         *     practice within one assessment (ADR-0030). At most one row per
+         *     (assessment_id, practice_reference) — repositories/
+         *     assessment_repository.py's set_practice_finding() upserts by that
+         *     pair and writes a PracticeFindingChange row on every transition, the
+         *     same append-only-history pattern AssessmentStatusChange already
+         *     established for assessment-level status.
+         *
+         *     Optional and additive: an assessment with zero PracticeFinding rows
+         *     scores and reports identically to how it did before this table
+         *     existed — see services/scoring_service.py's excluded_practice_ids
+         *     parameter and services/assessment_service.py.compute_scores.
+         */
+        PracticeFinding: {
+            /** Id */
+            id?: string;
+            /** Assessment Id */
+            assessment_id: string;
+            /** Practice Reference */
+            practice_reference: string;
+            status: components["schemas"]["PracticeFindingStatus"];
+            /** Rationale */
+            rationale: string;
+            /**
+             * Set By
+             * @default human
+             */
+            set_by: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at?: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at?: string;
+        };
+        /**
+         * PracticeFindingChange
+         * @description Append-only audit trail for PracticeFinding, mirroring
+         *     AssessmentStatusChange. Every set_practice_finding() call writes one
+         *     row here, including the very first (from_status=None) — so "what did
+         *     we used to think about this practice, and when did that change" is
+         *     always answerable, not just "what do we think now."
+         */
+        PracticeFindingChange: {
+            /** Id */
+            id?: string;
+            /** Assessment Id */
+            assessment_id: string;
+            /** Practice Reference */
+            practice_reference: string;
+            from_status?: components["schemas"]["PracticeFindingStatus"] | null;
+            to_status: components["schemas"]["PracticeFindingStatus"];
+            /** Rationale */
+            rationale: string;
+            /**
+             * Set By
+             * @default human
+             */
+            set_by: string;
+            /**
+             * Changed At
+             * Format: date-time
+             */
+            changed_at?: string;
+        };
+        /**
+         * PracticeFindingStatus
+         * @description A human reviewer's explicit compliance judgment for one practice,
+         *     distinct from EvidenceReviewStatus (which judges a single proposed
+         *     evidence-to-practice LINK, not the practice's overall compliance
+         *     state). Exists to close a real, confirmed scoring gap: without this,
+         *     "no evidence has been linked yet" and "evidence was reviewed and
+         *     shown the control is absent" both collapse to the same "not in
+         *     performed_practice_ids" outcome in services/scoring_service.py — see
+         *     ADR-0030.
+         * @enum {string}
+         */
+        PracticeFindingStatus: "satisfied" | "partially_satisfied" | "not_satisfied" | "insufficient_evidence" | "not_applicable";
+        /**
+         * RedactionMatch
+         * @description One specific redaction/pseudonymization applied during a
+         *     sanitization pass — the "diff" a human reviewer approves or
+         *     rejects, per the mission's "preview/diff, human approval" flow.
+         */
+        RedactionMatch: {
+            category: components["schemas"]["SensitivityCategory"];
+            /** Field Path */
+            field_path: string;
+            /** Original Text */
+            original_text: string;
+            /** Replacement */
+            replacement: string;
+        };
+        /**
          * ResolutionItem
          * @description One entry in the prioritized gap list. Prioritization is
          *     effort-based (fewest missing practices first within a tier), not a
@@ -721,6 +954,82 @@ export interface components {
             corrected_practice_reference?: string | null;
             /** Note */
             note?: string | null;
+        };
+        /**
+         * SanitizationApproval
+         * @description A human's explicit sign-off on one specific sanitized report
+         *     (ADR-0032) — "internal assessment -> sanitization -> preview/diff ->
+         *     human approval -> sanitized export", never a silent step.
+         *
+         *     sanitized_content_hash pins exactly what was approved: a SHA-256 of
+         *     the sanitized DashboardReport's own JSON content, recomputed fresh
+         *     every time a sanitized export is requested
+         *     (services/assessment_service.py.generate_dashboard_pdf/xlsx). If
+         *     anything the report is built from has changed since approval (a new
+         *     finding, an edited rationale, a newly accepted evidence link), the
+         *     freshly recomputed hash will not match this stored one, and export
+         *     is blocked (SanitizationApprovalStaleError) until re-approved —
+         *     approval is tied to specific content, not to "sanitization is on"
+         *     as a standing toggle that could authorize a materially different
+         *     report than what was actually reviewed.
+         */
+        SanitizationApproval: {
+            /** Id */
+            id?: string;
+            /** Assessment Id */
+            assessment_id: string;
+            /** Sanitized Content Hash */
+            sanitized_content_hash: string;
+            /** Custom Terms Json */
+            custom_terms_json: string;
+            /** Approved By */
+            approved_by: string;
+            /**
+             * Approved At
+             * Format: date-time
+             */
+            approved_at?: string;
+        };
+        /**
+         * SanitizationPreview
+         * @description Never persisted by itself — a preview is regenerated fresh on
+         *     every request (services/sanitization_service.py never trusts a
+         *     caller-supplied "already redacted" report). Only
+         *     SanitizationApproval (models/assessment.py), which stores a hash of
+         *     a specific sanitized_report content, is persisted — and only after
+         *     an explicit approval call.
+         */
+        SanitizationPreview: {
+            /** Matches */
+            matches: components["schemas"]["RedactionMatch"][];
+            sanitized_report: components["schemas"]["DashboardReport"];
+        };
+        /** SanitizationPreviewRequest */
+        SanitizationPreviewRequest: {
+            /**
+             * Custom Terms
+             * @default []
+             */
+            custom_terms: string[];
+        };
+        /**
+         * SensitivityCategory
+         * @description The mission-named categories this project can actually detect.
+         *     Names, facility/location names, and employee/account/vendor/customer
+         *     identifiers are NOT pattern-detectable without either a maintained
+         *     gazetteer this project doesn't have or a local NER model this
+         *     project has not evaluated (a decision of comparable weight to
+         *     ADR-0006/0008's embedding-backend choices, not made unilaterally
+         *     here) — those are handled via CUSTOM_TERM instead: an explicit,
+         *     reviewer-supplied list, never guessed. See ADR-0032.
+         * @enum {string}
+         */
+        SensitivityCategory: "email" | "phone" | "ip_address" | "hostname_or_url" | "custom_term";
+        /** SetPracticeFindingRequest */
+        SetPracticeFindingRequest: {
+            status: components["schemas"]["PracticeFindingStatus"];
+            /** Rationale */
+            rationale: string;
         };
         /** Situation */
         Situation: {
@@ -1112,7 +1421,9 @@ export interface operations {
     };
     get_dashboard_pdf_assessments__assessment_id__report_pdf_get: {
         parameters: {
-            query?: never;
+            query?: {
+                sanitized?: boolean;
+            };
             header?: never;
             path: {
                 assessment_id: string;
@@ -1143,7 +1454,9 @@ export interface operations {
     };
     get_dashboard_xlsx_assessments__assessment_id__report_xlsx_get: {
         parameters: {
-            query?: never;
+            query?: {
+                sanitized?: boolean;
+            };
             header?: never;
             path: {
                 assessment_id: string;
@@ -1159,6 +1472,76 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    preview_sanitization_assessments__assessment_id__sanitization_preview_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                assessment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SanitizationPreviewRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SanitizationPreview"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    approve_sanitization_assessments__assessment_id__sanitization_approve_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                assessment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApproveSanitizationRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SanitizationApproval"];
                 };
             };
             /** @description Validation Error */
@@ -1195,6 +1578,105 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EvidenceLink"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_practice_finding_assessments__assessment_id__practice_findings__practice_reference__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                assessment_id: string;
+                practice_reference: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetPracticeFindingRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PracticeFinding"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_practice_findings_assessments__assessment_id__practice_findings_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                assessment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PracticeFinding"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_practice_finding_history_assessments__assessment_id__practice_findings__practice_reference__history_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                assessment_id: string;
+                practice_reference: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PracticeFindingChange"][];
                 };
             };
             /** @description Validation Error */
