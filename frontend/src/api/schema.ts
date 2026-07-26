@@ -360,6 +360,71 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/assessments/{assessment_id}/practice-findings/{practice_reference}/evidence-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Request More Evidence
+         * @description Records a reviewer's explicit request that someone go find and
+         *     upload more evidence for this practice (ADR-0043) — a workflow
+         *     action distinct from set_practice_finding's compliance judgment;
+         *     the two can coexist for the same practice. POST, not PUT: each call
+         *     creates a new request, not an idempotent upsert of a single current
+         *     one — multiple open requests can exist for the same practice.
+         */
+        post: operations["request_more_evidence_assessments__assessment_id__practice_findings__practice_reference__evidence_requests_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/assessments/{assessment_id}/evidence-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Evidence Requests */
+        get: operations["list_evidence_requests_assessments__assessment_id__evidence_requests_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/assessments/{assessment_id}/evidence-requests/{request_id}/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resolve Evidence Request
+         * @description Marks an evidence request resolved. Always explicit -- never
+         *     inferred from a new evidence link being added, since linking
+         *     evidence doesn't guarantee it actually addresses what was
+         *     requested.
+         */
+        post: operations["resolve_evidence_request_assessments__assessment_id__evidence_requests__request_id__resolve_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/assessments/{assessment_id}/propose-mappings": {
         parameters: {
             query?: never;
@@ -416,6 +481,23 @@ export interface paths {
         };
         /** Get Framework */
         get: operations["get_framework_frameworks__name__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/documents/{document_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Document */
+        get: operations["get_document_documents__document_id__get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -502,6 +584,8 @@ export interface components {
             file: string;
             /** Submitter */
             submitter?: string | null;
+            /** Supersedes Document Id */
+            supersedes_document_id?: string | null;
         };
         /** ChatQuestionRequest */
         ChatQuestionRequest: {
@@ -547,6 +631,37 @@ export interface components {
             complication: components["schemas"]["DomainGapGroup"][];
             /** Resolution */
             resolution: components["schemas"]["ResolutionItem"][];
+        };
+        /**
+         * DocumentDetail
+         * @description Document versioning (Sprint 18, ADR-0039): the durable record of
+         *     one ingested document, plus the reverse lookup a reviewer actually
+         *     needs -- "has this document since been superseded by a newer
+         *     upload?" -- computed at read time, not stored (only the forward
+         *     supersedes_document_id declaration is stored, on the newer document).
+         */
+        DocumentDetail: {
+            /** Id */
+            id: string;
+            /** Filename */
+            filename: string;
+            /** File Type */
+            file_type: string;
+            /** Content Hash */
+            content_hash: string;
+            /** Submitter */
+            submitter?: string | null;
+            /**
+             * Uploaded At
+             * Format: date-time
+             */
+            uploaded_at: string;
+            /** Supersedes Document Id */
+            supersedes_document_id?: string | null;
+            /** Superseded By Document Id */
+            superseded_by_document_id?: string | null;
+            /** Parser Version */
+            parser_version: string;
         };
         /** Domain */
         Domain: {
@@ -618,6 +733,27 @@ export interface components {
             rationale: string;
         };
         /**
+         * EvidenceCitation
+         * @description One evidence link cited by a GapItem (Sprint 18, ADR-0040) —
+         *     "which specific evidence was reviewed and found insufficient",
+         *     closing a real, confirmed gap: a gap previously referenced only a
+         *     practice, never the evidence trail behind its status/rationale.
+         *     Deliberately IDs and status only, never the link's own `note` (which
+         *     for an AI-proposed link embeds a quoted evidence-chunk snippet) or
+         *     any chunk text — the dashboard has never shown raw evidence text
+         *     anywhere else, and this citation shouldn't become the first place
+         *     it does, especially since it isn't covered by the sanitization
+         *     pipeline's redaction scope (ADR-0032 only ever touches
+         *     Situation.assessment_name and GapItem.finding_rationale).
+         */
+        EvidenceCitation: {
+            /** Evidence Link Id */
+            evidence_link_id: string;
+            /** Document Id */
+            document_id: string;
+            review_status: components["schemas"]["EvidenceReviewStatus"];
+        };
+        /**
          * EvidenceLink
          * @description Associates an ingested document (Sprint 1, identified by
          *     document_id from the vector store) with an assessment and a practice
@@ -659,6 +795,56 @@ export interface components {
             created_at?: string;
             /** Reviewed At */
             reviewed_at?: string | null;
+        };
+        /**
+         * EvidenceRequest
+         * @description A reviewer's explicit request that someone go find and upload
+         *     MORE evidence for a specific practice (Sprint 18, ADR-0043) —
+         *     distinct from PracticeFindingStatus.INSUFFICIENT_EVIDENCE, which is
+         *     a compliance JUDGMENT (this project's own visible reading of the
+         *     evidence gathered so far). A request is a WORKFLOW action directed
+         *     at a person (frequently Sam, the OT engineering contributor persona
+         *     who submits evidence but doesn't judge compliance) — "please go get
+         *     X" — and can coexist with any PracticeFindingStatus, including
+         *     PARTIALLY_SATISFIED ("this is good enough to note partial credit,
+         *     but I still want more to fully confirm it").
+         *
+         *     Unlike PracticeFinding, no separate append-only history table:
+         *     a request's lifecycle is a simple open -> resolved transition, not
+         *     a repeatedly-mutating judgment, so resolved_at/resolved_by directly
+         *     on this row is itself the complete audit record. Multiple open
+         *     requests can exist for the same practice (no uniqueness constraint)
+         *     — a real, disclosed simplification, not an oversight: enforcing
+         *     "at most one open request per practice" would need to define what
+         *     happens to an already-open request when a second is filed, and
+         *     nothing in this feature's actual use case requires that.
+         *
+         *     Resolution is always explicit, never inferred from a new evidence
+         *     link being added — linking evidence doesn't guarantee it actually
+         *     addresses what was requested, the same "nothing silently automatic"
+         *     discipline every other human-in-the-loop decision in this project
+         *     already follows (PracticeFinding, SanitizationApproval).
+         */
+        EvidenceRequest: {
+            /** Id */
+            id?: string;
+            /** Assessment Id */
+            assessment_id: string;
+            /** Practice Reference */
+            practice_reference: string;
+            /** Note */
+            note: string;
+            /** Requested By */
+            requested_by: string;
+            /**
+             * Requested At
+             * Format: date-time
+             */
+            requested_at?: string;
+            /** Resolved At */
+            resolved_at?: string | null;
+            /** Resolved By */
+            resolved_by?: string | null;
         };
         /**
          * EvidenceReviewStatus
@@ -722,6 +908,11 @@ export interface components {
             status: components["schemas"]["PracticeFindingStatus"];
             /** Finding Rationale */
             finding_rationale?: string | null;
+            /**
+             * Cited Evidence
+             * @default []
+             */
+            cited_evidence: components["schemas"]["EvidenceCitation"][];
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -744,6 +935,8 @@ export interface components {
             chunk_count: number;
             /** Embedding Backend */
             embedding_backend: string;
+            /** Parser Version */
+            parser_version: string;
         };
         /** LinkEvidenceRequest */
         LinkEvidenceRequest: {
@@ -829,6 +1022,11 @@ export interface components {
              * @default
              */
             applicability: string;
+            /**
+             * Canonical Concepts
+             * @default []
+             */
+            canonical_concepts: string[];
         };
         /**
          * PracticeFinding
@@ -929,6 +1127,13 @@ export interface components {
             /** Replacement */
             replacement: string;
         };
+        /** RequestMoreEvidenceRequest */
+        RequestMoreEvidenceRequest: {
+            /** Note */
+            note: string;
+            /** Requested By */
+            requested_by: string;
+        };
         /**
          * ResolutionItem
          * @description One entry in the prioritized gap list. Prioritization is
@@ -946,6 +1151,11 @@ export interface components {
             missing_count: number;
             /** Rationale */
             rationale: string;
+        };
+        /** ResolveEvidenceRequestRequest */
+        ResolveEvidenceRequestRequest: {
+            /** Resolved By */
+            resolved_by: string;
         };
         /** ReviewEvidenceRequest */
         ReviewEvidenceRequest: {
@@ -1690,6 +1900,109 @@ export interface operations {
             };
         };
     };
+    request_more_evidence_assessments__assessment_id__practice_findings__practice_reference__evidence_requests_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                assessment_id: string;
+                practice_reference: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RequestMoreEvidenceRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EvidenceRequest"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_evidence_requests_assessments__assessment_id__evidence_requests_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                assessment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EvidenceRequest"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    resolve_evidence_request_assessments__assessment_id__evidence_requests__request_id__resolve_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                assessment_id: string;
+                request_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResolveEvidenceRequestRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EvidenceRequest"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     propose_mappings_assessments__assessment_id__propose_mappings_post: {
         parameters: {
             query?: never;
@@ -1774,6 +2087,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["FrameworkDefinition"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_document_documents__document_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                document_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentDetail"];
                 };
             };
             /** @description Validation Error */

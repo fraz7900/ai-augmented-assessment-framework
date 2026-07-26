@@ -969,6 +969,93 @@ def test_not_applicable_finding_excludes_practice_from_score_denominator(
     assert "ACCESS-1a" not in gap_ids
 
 
+# --- Evidence requests (Sprint 18, ADR-0043) ---
+
+
+def test_request_more_evidence_and_list_it(client: TestClient) -> None:
+    create_response = client.post("/assessments", json={"name": "Test", "framework_name": "C2M2"})
+    assessment_id = create_response.json()["id"]
+
+    request_response = client.post(
+        f"/assessments/{assessment_id}/practice-findings/ACCESS-1a/evidence-requests",
+        json={"note": "Please upload the current access provisioning policy.", "requested_by": "priya"},
+    )
+    assert request_response.status_code == 200
+    body = request_response.json()
+    assert body["practice_reference"] == "ACCESS-1a"
+    assert body["requested_by"] == "priya"
+    assert body["resolved_at"] is None
+
+    list_response = client.get(f"/assessments/{assessment_id}/evidence-requests")
+    assert list_response.status_code == 200
+    assert len(list_response.json()) == 1
+    assert list_response.json()[0]["id"] == body["id"]
+
+
+def test_resolve_evidence_request(client: TestClient) -> None:
+    create_response = client.post("/assessments", json={"name": "Test", "framework_name": "C2M2"})
+    assessment_id = create_response.json()["id"]
+    request_id = client.post(
+        f"/assessments/{assessment_id}/practice-findings/ACCESS-1a/evidence-requests",
+        json={"note": "need something", "requested_by": "priya"},
+    ).json()["id"]
+
+    resolve_response = client.post(
+        f"/assessments/{assessment_id}/evidence-requests/{request_id}/resolve",
+        json={"resolved_by": "sam"},
+    )
+    assert resolve_response.status_code == 200
+    body = resolve_response.json()
+    assert body["resolved_by"] == "sam"
+    assert body["resolved_at"] is not None
+
+
+def test_request_more_evidence_rejects_missing_note(client: TestClient) -> None:
+    create_response = client.post("/assessments", json={"name": "Test", "framework_name": "C2M2"})
+    assessment_id = create_response.json()["id"]
+
+    response = client.post(
+        f"/assessments/{assessment_id}/practice-findings/ACCESS-1a/evidence-requests",
+        json={"note": "", "requested_by": "priya"},
+    )
+    assert response.status_code == 400
+
+
+def test_request_more_evidence_rejects_unknown_practice_reference(client: TestClient) -> None:
+    create_response = client.post("/assessments", json={"name": "Test", "framework_name": "C2M2"})
+    assessment_id = create_response.json()["id"]
+
+    response = client.post(
+        f"/assessments/{assessment_id}/practice-findings/NOT-A-REAL-PRACTICE/evidence-requests",
+        json={"note": "need something", "requested_by": "priya"},
+    )
+    assert response.status_code == 422
+
+
+def test_request_more_evidence_blocked_on_finalized_assessment(client: TestClient) -> None:
+    create_response = client.post("/assessments", json={"name": "Test", "framework_name": "C2M2"})
+    assessment_id = create_response.json()["id"]
+    client.post(f"/assessments/{assessment_id}/status", json={"status": "in_review"})
+    client.post(f"/assessments/{assessment_id}/status", json={"status": "finalized"})
+
+    response = client.post(
+        f"/assessments/{assessment_id}/practice-findings/ACCESS-1a/evidence-requests",
+        json={"note": "need something", "requested_by": "priya"},
+    )
+    assert response.status_code == 409
+
+
+def test_resolve_evidence_request_returns_404_for_unknown_request(client: TestClient) -> None:
+    create_response = client.post("/assessments", json={"name": "Test", "framework_name": "C2M2"})
+    assessment_id = create_response.json()["id"]
+
+    response = client.post(
+        f"/assessments/{assessment_id}/evidence-requests/does-not-exist/resolve",
+        json={"resolved_by": "sam"},
+    )
+    assert response.status_code == 404
+
+
 # --- Sanitization (ADR-0032) ---
 
 

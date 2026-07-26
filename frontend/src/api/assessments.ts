@@ -7,6 +7,7 @@ import type {
   CreateAssessmentRequest,
   DashboardReport,
   EvidenceLink,
+  EvidenceRequest,
   LinkEvidenceRequest,
   PracticeFinding,
   PracticeFindingChange,
@@ -26,6 +27,7 @@ const keys = {
   practiceFindings: (id: string) => ['assessments', id, 'practice-findings'] as const,
   practiceFindingHistory: (id: string, practiceReference: string) =>
     ['assessments', id, 'practice-findings', practiceReference, 'history'] as const,
+  evidenceRequests: (id: string) => ['assessments', id, 'evidence-requests'] as const,
 }
 
 export function useAssessments() {
@@ -180,6 +182,51 @@ export function useSetPracticeFinding(assessmentId: string) {
       // findings feed directly into score/dashboard (ADR-0030)
       queryClient.invalidateQueries({ queryKey: keys.dashboard(assessmentId) })
     },
+  })
+}
+
+// --- Evidence requests (ADR-0043) ---
+
+export function useEvidenceRequests(assessmentId: string | undefined) {
+  return useQuery({
+    queryKey: keys.evidenceRequests(assessmentId ?? ''),
+    queryFn: () =>
+      apiClient.get<EvidenceRequest[]>(`/assessments/${assessmentId}/evidence-requests`),
+    enabled: !!assessmentId,
+  })
+}
+
+export function useRequestMoreEvidence(assessmentId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({
+      practiceReference,
+      note,
+      requestedBy,
+    }: {
+      practiceReference: string
+      note: string
+      requestedBy: string
+    }) =>
+      apiClient.post<EvidenceRequest>(
+        `/assessments/${assessmentId}/practice-findings/${practiceReference}/evidence-requests`,
+        { note, requested_by: requestedBy },
+      ),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: keys.evidenceRequests(assessmentId) }),
+  })
+}
+
+export function useResolveEvidenceRequest(assessmentId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ requestId, resolvedBy }: { requestId: string; resolvedBy: string }) =>
+      apiClient.post<EvidenceRequest>(
+        `/assessments/${assessmentId}/evidence-requests/${requestId}/resolve`,
+        { resolved_by: resolvedBy },
+      ),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: keys.evidenceRequests(assessmentId) }),
   })
 }
 

@@ -26,6 +26,7 @@ from compliance_platform.models.assessment import (
     AssessmentStatus,
     AssessmentStatusChange,
     EvidenceLink,
+    EvidenceRequest,
     EvidenceReviewStatus,
     EvidenceSource,
     PracticeFinding,
@@ -72,6 +73,15 @@ class ChatQuestionRequest(BaseModel):
 class SetPracticeFindingRequest(BaseModel):
     status: PracticeFindingStatus
     rationale: str
+
+
+class RequestMoreEvidenceRequest(BaseModel):
+    note: str
+    requested_by: str
+
+
+class ResolveEvidenceRequestRequest(BaseModel):
+    resolved_by: str
 
 
 @router.post("", response_model=Assessment)
@@ -336,6 +346,58 @@ def get_practice_finding_history(
     service: AssessmentService = Depends(get_assessment_service),
 ) -> list[PracticeFindingChange]:
     return service.practice_finding_history(assessment_id, practice_reference)
+
+
+@router.post(
+    "/{assessment_id}/practice-findings/{practice_reference}/evidence-requests",
+    response_model=EvidenceRequest,
+)
+def request_more_evidence(
+    assessment_id: str,
+    practice_reference: str,
+    request: RequestMoreEvidenceRequest,
+    service: AssessmentService = Depends(get_assessment_service),
+) -> EvidenceRequest:
+    """Records a reviewer's explicit request that someone go find and
+    upload more evidence for this practice (ADR-0043) — a workflow
+    action distinct from set_practice_finding's compliance judgment;
+    the two can coexist for the same practice. POST, not PUT: each call
+    creates a new request, not an idempotent upsert of a single current
+    one — multiple open requests can exist for the same practice.
+    """
+    return service.request_more_evidence(
+        assessment_id=assessment_id,
+        practice_reference=practice_reference,
+        note=request.note,
+        requested_by=request.requested_by,
+    )
+
+
+@router.get("/{assessment_id}/evidence-requests", response_model=list[EvidenceRequest])
+def list_evidence_requests(
+    assessment_id: str,
+    service: AssessmentService = Depends(get_assessment_service),
+) -> list[EvidenceRequest]:
+    return service.evidence_requests_for_assessment(assessment_id)
+
+
+@router.post(
+    "/{assessment_id}/evidence-requests/{request_id}/resolve", response_model=EvidenceRequest
+)
+def resolve_evidence_request(
+    assessment_id: str,
+    request_id: str,
+    request: ResolveEvidenceRequestRequest,
+    service: AssessmentService = Depends(get_assessment_service),
+) -> EvidenceRequest:
+    """Marks an evidence request resolved. Always explicit -- never
+    inferred from a new evidence link being added, since linking
+    evidence doesn't guarantee it actually addresses what was
+    requested.
+    """
+    return service.resolve_evidence_request(
+        assessment_id=assessment_id, request_id=request_id, resolved_by=request.resolved_by
+    )
 
 
 @router.post("/{assessment_id}/propose-mappings", response_model=list[EvidenceLink])

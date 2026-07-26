@@ -22,6 +22,7 @@ from compliance_platform.models.assessment import (
     AssessmentStatusChange,
     Document,
     EvidenceLink,
+    EvidenceRequest,
     EvidenceReviewStatus,
     EvidenceSource,
     PracticeFinding,
@@ -190,6 +191,21 @@ class MissingFindingRationaleError(Exception):
         )
 
 
+class MissingEvidenceRequestNoteError(Exception):
+    def __init__(self, practice_reference: str) -> None:
+        self.practice_reference = practice_reference
+        super().__init__(
+            f"A note describing what's needed is required when requesting more evidence for "
+            f"'{practice_reference}'."
+        )
+
+
+class EvidenceRequestNotFoundError(Exception):
+    def __init__(self, request_id: str) -> None:
+        self.request_id = request_id
+        super().__init__(f"Evidence request '{request_id}' not found on this assessment.")
+
+
 class SanitizationNotApprovedError(Exception):
     """Raised on a sanitized export request when no SanitizationApproval
     exists at all for this assessment yet — see
@@ -269,6 +285,12 @@ class AssessmentRepositoryProtocol(Protocol):
     def latest_sanitization_approval(self, assessment_id: str) -> SanitizationApproval | None: ...
     def get_document(self, document_id: str) -> Document | None: ...
     def document_superseded_by(self, document_id: str) -> Document | None: ...
+    def create_evidence_request(self, request: EvidenceRequest) -> EvidenceRequest: ...
+    def get_evidence_request(self, request_id: str) -> EvidenceRequest | None: ...
+    def evidence_requests_for_assessment(self, assessment_id: str) -> list[EvidenceRequest]: ...
+    def resolve_evidence_request(
+        self, request_id: str, resolved_by: str
+    ) -> EvidenceRequest | None: ...
 
 
 class VectorRepositoryProtocol(Protocol):
@@ -703,6 +725,80 @@ class AssessmentService:
     ) -> list[PracticeFindingChange]:
         self.get_assessment(assessment_id)  # raises AssessmentNotFoundError if missing
         return self._assessments.practice_finding_history(assessment_id, practice_reference)
+
+    def request_more_evidence(
+        self, assessment_id: str, practice_reference: str, note: str, requested_by: str
+    ) -> EvidenceRequest:
+        """Records a reviewer's explicit request that someone go find
+        and upload more evidence for a practice (Sprint 18, ADR-0043) —
+        a workflow action distinct from PracticeFindingStatus (a
+        compliance judgment); the two can coexist for the same practice.
+        Blocked on a finalized assessment for the same audit-immutability
+        reason link_evidence/review_evidence/set_practice_finding
+        already are.
+        """
+        assessment = self.get_assessment(assessment_id)
+        if assessment.status == AssessmentStatus.FINALIZED:
+            raise AssessmentFinalizedError(assessment_id)
+        if not note or not note.strip():
+            raise MissingEvidenceRequestNoteError(practice_reference)
+
+        if self._frameworks is not None:
+            framework = self._frameworks.get(assessment.framework_name)
+            if framework is not None and practice_reference not in framework.all_practice_ids():
+                raise InvalidPracticeReferenceError(practice_reference, assessment.framework_name)
+
+        request = self._assessments.create_evidence_request(
+            EvidenceRequest(
+                assessment_id=assessment_id,
+                practice_reference=practice_reference,
+                note=note,
+                requested_by=requested_by,
+            )
+        )
+        # note is deliberately never logged -- same free-text-is-
+        # potentially-sensitive discipline as set_practice_finding's
+        # rationale/approve_sanitization's custom_terms above.
+        _logger.info(
+            "evidence requested assessment=%s practice=%s requested_by=%s",
+            assessment_id,
+            practice_reference,
+            requested_by,
+        )
+        return request
+
+    def evidence_requests_for_assessment(self, assessment_id: str) -> list[EvidenceRequest]:
+        self.get_assessment(assessment_id)  # raises AssessmentNotFoundError if missing
+        return self._assessments.evidence_requests_for_assessment(assessment_id)
+
+    def resolve_evidence_request(
+        self, assessment_id: str, request_id: str, resolved_by: str
+    ) -> EvidenceRequest:
+        """Resolution is always explicit, never inferred from a new
+        evidence link being added -- linking evidence doesn't guarantee
+        it actually addresses what was requested. Blocked on a
+        finalized assessment for the same reason creation is: once
+        finalized, an unresolved request stays open forever as a real,
+        meaningful historical record, not silently closed out.
+        """
+        assessment = self.get_assessment(assessment_id)
+        if assessment.status == AssessmentStatus.FINALIZED:
+            raise AssessmentFinalizedError(assessment_id)
+
+        request = self._assessments.get_evidence_request(request_id)
+        if request is None or request.assessment_id != assessment_id:
+            raise EvidenceRequestNotFoundError(request_id)
+
+        resolved = self._assessments.resolve_evidence_request(request_id, resolved_by=resolved_by)
+        if resolved is None:  # pragma: no cover - existence already checked above
+            raise EvidenceRequestNotFoundError(request_id)
+        _logger.info(
+            "evidence request resolved assessment=%s request=%s resolved_by=%s",
+            assessment_id,
+            request_id,
+            resolved_by,
+        )
+        return resolved
 
     def propose_mappings(self, assessment_id: str) -> list[EvidenceLink]:
         """Runs the retrieval-based mapping engine

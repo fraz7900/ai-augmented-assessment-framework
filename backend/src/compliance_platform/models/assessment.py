@@ -265,3 +265,42 @@ class Document(SQLModel, table=True):
     # supplied by ingestion_service.py in practice); no pre-existing
     # Document row can lack it, since this table is new this same sprint.
     parser_version: str = ""
+
+
+class EvidenceRequest(SQLModel, table=True):
+    """A reviewer's explicit request that someone go find and upload
+    MORE evidence for a specific practice (Sprint 18, ADR-0043) —
+    distinct from PracticeFindingStatus.INSUFFICIENT_EVIDENCE, which is
+    a compliance JUDGMENT (this project's own visible reading of the
+    evidence gathered so far). A request is a WORKFLOW action directed
+    at a person (frequently Sam, the OT engineering contributor persona
+    who submits evidence but doesn't judge compliance) — "please go get
+    X" — and can coexist with any PracticeFindingStatus, including
+    PARTIALLY_SATISFIED ("this is good enough to note partial credit,
+    but I still want more to fully confirm it").
+
+    Unlike PracticeFinding, no separate append-only history table:
+    a request's lifecycle is a simple open -> resolved transition, not
+    a repeatedly-mutating judgment, so resolved_at/resolved_by directly
+    on this row is itself the complete audit record. Multiple open
+    requests can exist for the same practice (no uniqueness constraint)
+    — a real, disclosed simplification, not an oversight: enforcing
+    "at most one open request per practice" would need to define what
+    happens to an already-open request when a second is filed, and
+    nothing in this feature's actual use case requires that.
+
+    Resolution is always explicit, never inferred from a new evidence
+    link being added — linking evidence doesn't guarantee it actually
+    addresses what was requested, the same "nothing silently automatic"
+    discipline every other human-in-the-loop decision in this project
+    already follows (PracticeFinding, SanitizationApproval).
+    """
+
+    id: str = Field(default_factory=_new_id, primary_key=True)
+    assessment_id: str = Field(foreign_key="assessment.id", index=True)
+    practice_reference: str = Field(index=True)
+    note: str
+    requested_by: str
+    requested_at: datetime = Field(default_factory=_utcnow)
+    resolved_at: datetime | None = None
+    resolved_by: str | None = None

@@ -16,6 +16,7 @@ from compliance_platform.models.assessment import (
     AssessmentStatusChange,
     Document,
     EvidenceLink,
+    EvidenceRequest,
     EvidenceReviewStatus,
     EvidenceSource,
     PracticeFinding,
@@ -39,11 +40,13 @@ from compliance_platform.services.assessment_service import (
     EvidenceAlreadyReviewedError,
     EvidenceDocumentNotIngestedError,
     EvidenceLinkNotFoundError,
+    EvidenceRequestNotFoundError,
     FrameworkScoringUnavailableError,
     InvalidPracticeReferenceError,
     InvalidReviewDecisionError,
     InvalidStatusTransitionError,
     MappingEngineUnavailableError,
+    MissingEvidenceRequestNoteError,
     MissingFindingRationaleError,
     SanitizationApprovalStaleError,
     SanitizationNotApprovedError,
@@ -59,6 +62,7 @@ class _FakeAssessmentRepository:
         self._finding_history: dict[str, list[PracticeFindingChange]] = {}
         self._sanitization_approvals: dict[str, list[SanitizationApproval]] = {}
         self._documents: dict[str, Document] = {}
+        self._evidence_requests: dict[str, list[EvidenceRequest]] = {}
 
     def create_assessment(
         self, name: str, framework_name: str, framework_version: str | None = None
@@ -199,6 +203,30 @@ class _FakeAssessmentRepository:
             if document.supersedes_document_id == document_id:
                 return document
         return None
+
+    def create_evidence_request(self, request: EvidenceRequest) -> EvidenceRequest:
+        self._evidence_requests.setdefault(request.assessment_id, []).append(request)
+        return request
+
+    def get_evidence_request(self, request_id: str) -> EvidenceRequest | None:
+        for requests in self._evidence_requests.values():
+            for request in requests:
+                if request.id == request_id:
+                    return request
+        return None
+
+    def evidence_requests_for_assessment(self, assessment_id: str) -> list[EvidenceRequest]:
+        return list(self._evidence_requests.get(assessment_id, []))
+
+    def resolve_evidence_request(
+        self, request_id: str, resolved_by: str
+    ) -> EvidenceRequest | None:
+        request = self.get_evidence_request(request_id)
+        if request is None:
+            return None
+        request.resolved_at = datetime.now(UTC)
+        request.resolved_by = resolved_by
+        return request
 
 
 class _FakeVectorRepository:
@@ -982,6 +1010,95 @@ def test_set_practice_finding_upsert_preserves_history_via_repository() -> None:
     current = service.practice_findings_for_assessment(assessment.id)
     assert len(current) == 1  # upserted, not accumulated as separate rows
     assert current[0].status == PracticeFindingStatus.NOT_SATISFIED
+
+
+# --- Evidence requests (Sprint 18, ADR-0043) ---
+
+
+def test_request_more_evidence_requires_a_note() -> None:
+    service, _, _ = _make_service()
+    assessment = service.create_assessment("A", "C2M2")
+    with pytest.raises(MissingEvidenceRequestNoteError):
+        service.request_more_evidence(assessment.id, "TEST-1a", "", "priya")
+
+
+def test_request_more_evidence_rejects_unknown_practice_reference() -> None:
+    framework = _tiny_framework()
+    service, _, _ = _make_service(framework_registry=_FakeFrameworkRegistry({"C2M2": framework}))
+    assessment = service.create_assessment("A", "C2M2")
+    with pytest.raises(InvalidPracticeReferenceError):
+        service.request_more_evidence(
+            assessment.id, "NOT-A-REAL-PRACTICE", "need something", "priya"
+        )
+
+
+def test_request_more_evidence_blocked_on_finalized_assessment() -> None:
+    service, _, _ = _make_service()
+    assessment = service.create_assessment("A", "C2M2")
+    service.transition_status(assessment.id, AssessmentStatus.IN_REVIEW)
+    service.transition_status(assessment.id, AssessmentStatus.FINALIZED)
+    with pytest.raises(AssessmentFinalizedError):
+        service.request_more_evidence(assessment.id, "TEST-1a", "need something", "priya")
+
+
+def test_request_more_evidence_creates_an_open_request() -> None:
+    service, _, _ = _make_service()
+    assessment = service.create_assessment("A", "C2M2")
+    request = service.request_more_evidence(
+        assessment.id, "TEST-1a", "Please provide the current asset inventory.", "priya"
+    )
+    assert request.practice_reference == "TEST-1a"
+    assert request.requested_by == "priya"
+    assert request.resolved_at is None
+    assert request.resolved_by is None
+
+    listed = service.evidence_requests_for_assessment(assessment.id)
+    assert len(listed) == 1
+    assert listed[0].id == request.id
+
+
+def test_multiple_open_requests_can_coexist_for_the_same_practice() -> None:
+    service, _, _ = _make_service()
+    assessment = service.create_assessment("A", "C2M2")
+    service.request_more_evidence(assessment.id, "TEST-1a", "first ask", "priya")
+    service.request_more_evidence(assessment.id, "TEST-1a", "second ask", "marcus")
+    assert len(service.evidence_requests_for_assessment(assessment.id)) == 2
+
+
+def test_resolve_evidence_request_sets_resolved_fields() -> None:
+    service, _, _ = _make_service()
+    assessment = service.create_assessment("A", "C2M2")
+    created = service.request_more_evidence(assessment.id, "TEST-1a", "need X", "priya")
+
+    resolved = service.resolve_evidence_request(assessment.id, created.id, resolved_by="sam")
+    assert resolved.resolved_by == "sam"
+    assert resolved.resolved_at is not None
+
+
+def test_resolve_evidence_request_raises_for_unknown_request_id() -> None:
+    service, _, _ = _make_service()
+    assessment = service.create_assessment("A", "C2M2")
+    with pytest.raises(EvidenceRequestNotFoundError):
+        service.resolve_evidence_request(assessment.id, "does-not-exist", resolved_by="sam")
+
+
+def test_resolve_evidence_request_raises_when_request_belongs_to_a_different_assessment() -> None:
+    service, _, _ = _make_service()
+    a1 = service.create_assessment("A1", "C2M2")
+    a2 = service.create_assessment("A2", "C2M2")
+    created = service.request_more_evidence(a1.id, "TEST-1a", "need X", "priya")
+    with pytest.raises(EvidenceRequestNotFoundError):
+        service.resolve_evidence_request(a2.id, created.id, resolved_by="sam")
+
+
+def test_resolve_evidence_request_blocked_on_finalized_assessment() -> None:
+    service, _, _ = _make_service()
+    assessment = service.create_assessment("A", "C2M2")
+    created = service.request_more_evidence(assessment.id, "TEST-1a", "need X", "priya")
+    service.transition_status(assessment.id, AssessmentStatus.IN_REVIEW)
+    service.transition_status(assessment.id, AssessmentStatus.FINALIZED)
+    with pytest.raises(AssessmentFinalizedError):
+        service.resolve_evidence_request(assessment.id, created.id, resolved_by="sam")
 
 
 # --- Sanitization (ADR-0032) ---

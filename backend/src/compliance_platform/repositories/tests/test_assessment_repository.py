@@ -17,6 +17,7 @@ from sqlalchemy import create_engine
 from compliance_platform.models.assessment import (
     Document,
     EvidenceLink,
+    EvidenceRequest,
     EvidenceReviewStatus,
     EvidenceSource,
     PracticeFindingStatus,
@@ -227,3 +228,98 @@ def test_document_superseded_by_reverse_lookup(tmp_path: Path) -> None:
 
     # v2 itself has not (yet) been superseded by anything.
     assert repo.document_superseded_by("doc-v2") is None
+
+
+# --- Evidence requests (Sprint 18, ADR-0043) ---
+
+
+def test_create_and_get_evidence_request_round_trip(tmp_path: Path) -> None:
+    repo = _repo(tmp_path)
+    assessment = repo.create_assessment(name="A1", framework_name="C2M2")
+    created = repo.create_evidence_request(
+        EvidenceRequest(
+            assessment_id=assessment.id,
+            practice_reference="AM-1a",
+            note="Please provide the current asset inventory spreadsheet.",
+            requested_by="priya",
+        )
+    )
+    fetched = repo.get_evidence_request(created.id)
+    assert fetched is not None
+    assert fetched.practice_reference == "AM-1a"
+    assert fetched.resolved_at is None
+    assert fetched.resolved_by is None
+
+
+def test_get_evidence_request_returns_none_for_unknown_id(tmp_path: Path) -> None:
+    repo = _repo(tmp_path)
+    assert repo.get_evidence_request("does-not-exist") is None
+
+
+def test_evidence_requests_for_assessment_isolated_per_assessment(tmp_path: Path) -> None:
+    repo = _repo(tmp_path)
+    a1 = repo.create_assessment(name="A1", framework_name="C2M2")
+    a2 = repo.create_assessment(name="A2", framework_name="C2M2")
+    repo.create_evidence_request(
+        EvidenceRequest(
+            assessment_id=a1.id, practice_reference="AM-1a", note="need X", requested_by="priya"
+        )
+    )
+    repo.create_evidence_request(
+        EvidenceRequest(
+            assessment_id=a2.id, practice_reference="AM-1a", note="need Y", requested_by="priya"
+        )
+    )
+    assert len(repo.evidence_requests_for_assessment(a1.id)) == 1
+    assert len(repo.evidence_requests_for_assessment(a2.id)) == 1
+    assert repo.evidence_requests_for_assessment(a1.id)[0].note == "need X"
+
+
+def test_multiple_open_requests_can_exist_for_the_same_practice(tmp_path: Path) -> None:
+    repo = _repo(tmp_path)
+    assessment = repo.create_assessment(name="A1", framework_name="C2M2")
+    repo.create_evidence_request(
+        EvidenceRequest(
+            assessment_id=assessment.id,
+            practice_reference="AM-1a",
+            note="first request",
+            requested_by="priya",
+        )
+    )
+    repo.create_evidence_request(
+        EvidenceRequest(
+            assessment_id=assessment.id,
+            practice_reference="AM-1a",
+            note="second request",
+            requested_by="marcus",
+        )
+    )
+    requests = repo.evidence_requests_for_assessment(assessment.id)
+    assert len(requests) == 2
+    assert {r.note for r in requests} == {"first request", "second request"}
+
+
+def test_resolve_evidence_request_sets_resolved_fields(tmp_path: Path) -> None:
+    repo = _repo(tmp_path)
+    assessment = repo.create_assessment(name="A1", framework_name="C2M2")
+    created = repo.create_evidence_request(
+        EvidenceRequest(
+            assessment_id=assessment.id,
+            practice_reference="AM-1a",
+            note="need X",
+            requested_by="priya",
+        )
+    )
+    resolved = repo.resolve_evidence_request(created.id, resolved_by="sam")
+    assert resolved is not None
+    assert resolved.resolved_by == "sam"
+    assert resolved.resolved_at is not None
+
+    refetched = repo.get_evidence_request(created.id)
+    assert refetched is not None
+    assert refetched.resolved_by == "sam"
+
+
+def test_resolve_evidence_request_returns_none_for_unknown_id(tmp_path: Path) -> None:
+    repo = _repo(tmp_path)
+    assert repo.resolve_evidence_request("does-not-exist", resolved_by="sam") is None

@@ -21,6 +21,7 @@ from compliance_platform.models.assessment import (
     AssessmentStatusChange,
     Document,
     EvidenceLink,
+    EvidenceRequest,
     EvidenceReviewStatus,
     PracticeFinding,
     PracticeFindingChange,
@@ -309,3 +310,40 @@ class AssessmentRepository:
         with Session(self._engine) as session:
             statement = select(Document).where(Document.supersedes_document_id == document_id)
             return session.exec(statement).first()
+
+    def create_evidence_request(self, request: EvidenceRequest) -> EvidenceRequest:
+        with Session(self._engine) as session:
+            session.add(request)
+            session.commit()
+            session.refresh(request)
+            return request
+
+    def get_evidence_request(self, request_id: str) -> EvidenceRequest | None:
+        with Session(self._engine) as session:
+            return session.get(EvidenceRequest, request_id)
+
+    def evidence_requests_for_assessment(self, assessment_id: str) -> list[EvidenceRequest]:
+        # Ordered by rowid, same reliable-ordering reasoning as
+        # status_history/evidence_for_assessment above -- oldest
+        # requests first, matching a worklist's natural reading order.
+        with Session(self._engine) as session:
+            statement = (
+                select(EvidenceRequest)
+                .where(EvidenceRequest.assessment_id == assessment_id)
+                .order_by(text("rowid"))
+            )
+            return list(session.exec(statement).all())
+
+    def resolve_evidence_request(
+        self, request_id: str, resolved_by: str
+    ) -> EvidenceRequest | None:
+        with Session(self._engine) as session:
+            request = session.get(EvidenceRequest, request_id)
+            if request is None:
+                return None
+            request.resolved_at = datetime.now(UTC)
+            request.resolved_by = resolved_by
+            session.add(request)
+            session.commit()
+            session.refresh(request)
+            return request

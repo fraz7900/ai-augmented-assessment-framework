@@ -1,7 +1,14 @@
-import { useSetPracticeFinding } from '../api/assessments'
+import {
+  useEvidenceRequests,
+  useRequestMoreEvidence,
+  useResolveEvidenceRequest,
+  useSetPracticeFinding,
+} from '../api/assessments'
 import type { DomainGapGroup } from '../api/types'
 import PracticeFindingStatusBadge from './PracticeFindingStatusBadge'
 import PracticeFindingControls from './PracticeFindingControls'
+import EvidenceRequestControls from './EvidenceRequestControls'
+import EvidenceRequestBadge from './EvidenceRequestBadge'
 
 // executive-reporting skill: "every number needs a so-what" — total_practices
 // and met_practices never render without the server-computed so_what
@@ -16,6 +23,9 @@ export default function GapGroup({
   isFinalized: boolean
 }) {
   const setFinding = useSetPracticeFinding(assessmentId)
+  const { data: evidenceRequests } = useEvidenceRequests(assessmentId)
+  const requestMoreEvidence = useRequestMoreEvidence(assessmentId)
+  const resolveEvidenceRequest = useResolveEvidenceRequest(assessmentId)
 
   return (
     <div className="rounded-lg border border-slate-200 bg-white p-4">
@@ -45,13 +55,39 @@ export default function GapGroup({
               {gap.finding_rationale && (
                 <p className="mt-1 text-xs text-slate-500">{gap.finding_rationale}</p>
               )}
-              <PracticeFindingControls
-                isDisabled={isFinalized}
-                isSubmitting={setFinding.isPending}
-                onSubmit={(status, rationale) =>
-                  setFinding.mutate({ practiceReference: gap.practice_id, status, rationale })
-                }
-              />
+              {evidenceRequests
+                ?.filter((r) => r.practice_reference === gap.practice_id && !r.resolved_at)
+                .map((request) => (
+                  <EvidenceRequestBadge
+                    key={request.id}
+                    request={request}
+                    isDisabled={isFinalized}
+                    isSubmitting={resolveEvidenceRequest.isPending}
+                    onResolve={(resolvedBy) =>
+                      resolveEvidenceRequest.mutate({ requestId: request.id, resolvedBy })
+                    }
+                  />
+                ))}
+              <div className="mt-2 flex flex-wrap items-center gap-3">
+                <PracticeFindingControls
+                  isDisabled={isFinalized}
+                  isSubmitting={setFinding.isPending}
+                  onSubmit={(status, rationale) =>
+                    setFinding.mutate({ practiceReference: gap.practice_id, status, rationale })
+                  }
+                />
+                <EvidenceRequestControls
+                  isDisabled={isFinalized}
+                  isSubmitting={requestMoreEvidence.isPending}
+                  onSubmit={(note, requestedBy) =>
+                    requestMoreEvidence.mutate({
+                      practiceReference: gap.practice_id,
+                      note,
+                      requestedBy,
+                    })
+                  }
+                />
+              </div>
             </li>
           ))}
         </ul>
