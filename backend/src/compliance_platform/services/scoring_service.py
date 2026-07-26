@@ -23,7 +23,11 @@ from __future__ import annotations
 from compliance_platform.models.framework import Domain, FrameworkDefinition
 
 
-def compute_domain_mil(domain: Domain, performed_practice_ids: set[str]) -> int:
+def compute_domain_mil(
+    domain: Domain,
+    performed_practice_ids: set[str],
+    excluded_practice_ids: frozenset[str] = frozenset(),
+) -> int:
     """Highest MIL (0-3) for which every practice at that level, and
     every preceding level, in this domain is in performed_practice_ids.
 
@@ -32,12 +36,22 @@ def compute_domain_mil(domain: Domain, performed_practice_ids: set[str]) -> int:
     always scores MIL0 — there is nothing to evaluate against, and
     reporting anything else would overstate what this domain's schema
     can currently support.
+
+    excluded_practice_ids (ADR-0030): practices with an explicit
+    NOT_APPLICABLE PracticeFinding are removed from the MIL requirement
+    entirely for this assessment, not counted as either performed or
+    missing — the same "don't penalize for a control that doesn't apply
+    to this organization" principle compute_domain_coverage applies to
+    its denominator. Defaults to empty, so a caller that never passes it
+    (any pre-ADR-0030 call site) gets byte-identical behavior to before.
     """
     if not domain.practices_populated or not domain.objectives:
         return 0
 
     practices_by_mil: dict[int, set[str]] = {1: set(), 2: set(), 3: set()}
     for practice in domain.all_practices():
+        if practice.id in excluded_practice_ids:
+            continue
         if practice.mil is None:
             continue  # not expected for a cumulative_mil-scored framework; skip defensively
         practices_by_mil[practice.mil].add(practice.id)
@@ -51,15 +65,26 @@ def compute_domain_mil(domain: Domain, performed_practice_ids: set[str]) -> int:
     return achieved
 
 
-def compute_domain_coverage(domain: Domain, performed_practice_ids: set[str]) -> float:
+def compute_domain_coverage(
+    domain: Domain,
+    performed_practice_ids: set[str],
+    excluded_practice_ids: frozenset[str] = frozenset(),
+) -> float:
     """Fraction (0.0-1.0) of this domain's practices with evidence in
     performed_practice_ids. An unpopulated domain reports 0.0, same
     honesty rule as compute_domain_mil's MIL0 fallback.
+
+    excluded_practice_ids (ADR-0030): practices with an explicit
+    NOT_APPLICABLE PracticeFinding are removed from both numerator and
+    denominator, so marking a practice not-applicable can only ever
+    raise or hold a domain's coverage fraction, never lower it as a side
+    effect of shrinking the denominator under the numerator. Defaults to
+    empty (unchanged behavior for any pre-ADR-0030 caller).
     """
     if not domain.practices_populated or not domain.objectives:
         return 0.0
 
-    all_ids = domain.practice_ids()
+    all_ids = domain.practice_ids() - excluded_practice_ids
     if not all_ids:
         return 0.0
     covered = all_ids & performed_practice_ids
@@ -67,13 +92,17 @@ def compute_domain_coverage(domain: Domain, performed_practice_ids: set[str]) ->
 
 
 def compute_assessment_domain_scores(
-    framework: FrameworkDefinition, performed_practice_ids: set[str]
+    framework: FrameworkDefinition,
+    performed_practice_ids: set[str],
+    excluded_practice_ids: frozenset[str] = frozenset(),
 ) -> dict[str, float]:
     """Score per domain in the framework, given the set of practice IDs
     considered "performed" for this assessment. See
     services/assessment_service.py for what counts as performed
     (currently: any EvidenceLink whose review_status is accepted or
-    edited — not pending or rejected).
+    edited, plus any practice with an explicit SATISFIED PracticeFinding
+    — ADR-0030 — minus one with an explicit NOT_SATISFIED or
+    INSUFFICIENT_EVIDENCE finding overriding stale accepted evidence).
 
     Return type is uniformly dict[str, float] across scoring models so
     API callers have one shape to handle, but the two models' numbers
@@ -84,10 +113,14 @@ def compute_assessment_domain_scores(
     """
     if framework.scoring_model == "cumulative_mil":
         return {
-            domain.short_code: float(compute_domain_mil(domain, performed_practice_ids))
+            domain.short_code: float(
+                compute_domain_mil(domain, performed_practice_ids, excluded_practice_ids)
+            )
             for domain in framework.domains
         }
     return {
-        domain.short_code: compute_domain_coverage(domain, performed_practice_ids)
+        domain.short_code: compute_domain_coverage(
+            domain, performed_practice_ids, excluded_practice_ids
+        )
         for domain in framework.domains
     }

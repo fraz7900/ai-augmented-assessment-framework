@@ -20,6 +20,9 @@ from compliance_platform.models.assessment import (
     EvidenceLink,
     EvidenceReviewStatus,
     EvidenceSource,
+    PracticeFinding,
+    PracticeFindingChange,
+    PracticeFindingStatus,
 )
 from compliance_platform.models.chat import ChatResponse, ChatResult
 from compliance_platform.models.framework import FrameworkDefinition
@@ -27,7 +30,10 @@ from compliance_platform.models.report import DashboardReport
 from compliance_platform.services.chat_service import answer_question
 from compliance_platform.services.export_service import build_pdf_report, build_xlsx_report
 from compliance_platform.services.mapping_service import find_mapping_candidates
-from compliance_platform.services.report_service import build_dashboard
+from compliance_platform.services.report_service import (
+    build_dashboard,
+    performed_and_excluded_practice_ids,
+)
 from compliance_platform.services.scoring_service import compute_assessment_domain_scores
 
 _REVIEW_DECISIONS = (
@@ -142,6 +148,15 @@ class InvalidReviewDecisionError(Exception):
         )
 
 
+class MissingFindingRationaleError(Exception):
+    def __init__(self, practice_reference: str) -> None:
+        self.practice_reference = practice_reference
+        super().__init__(
+            f"A rationale is required when setting a practice finding for "
+            f"'{practice_reference}'."
+        )
+
+
 class MappingEngineUnavailableError(Exception):
     def __init__(self) -> None:
         super().__init__("No embedder configured; cannot propose evidence mappings.")
@@ -153,7 +168,9 @@ class ChatEngineUnavailableError(Exception):
 
 
 class AssessmentRepositoryProtocol(Protocol):
-    def create_assessment(self, name: str, framework_name: str) -> Assessment: ...
+    def create_assessment(
+        self, name: str, framework_name: str, framework_version: str | None = None
+    ) -> Assessment: ...
     def get_assessment(self, assessment_id: str) -> Assessment | None: ...
     def list_assessments(self) -> list[Assessment]: ...
     def update_status(
@@ -170,6 +187,18 @@ class AssessmentRepositoryProtocol(Protocol):
         practice_reference: str | None = None,
         note: str | None = None,
     ) -> EvidenceLink | None: ...
+    def set_practice_finding(
+        self,
+        assessment_id: str,
+        practice_reference: str,
+        status: PracticeFindingStatus,
+        rationale: str,
+        set_by: str = "human",
+    ) -> PracticeFinding: ...
+    def practice_findings_for_assessment(self, assessment_id: str) -> list[PracticeFinding]: ...
+    def practice_finding_history(
+        self, assessment_id: str, practice_reference: str
+    ) -> list[PracticeFindingChange]: ...
 
 
 class VectorRepositoryProtocol(Protocol):
@@ -201,7 +230,20 @@ class AssessmentService:
         self._chat_result_limit = chat_result_limit
 
     def create_assessment(self, name: str, framework_name: str) -> Assessment:
-        return self._assessments.create_assessment(name=name, framework_name=framework_name)
+        """Pins FrameworkDefinition.version at creation time (ADR-0031),
+        so this assessment's own record of what it was scored against
+        survives a later framework_mapping/*.yaml content change.
+        framework_version stays None if framework_name isn't a
+        recognized/loaded schema at creation time — the same graceful
+        fallback InvalidPracticeReferenceError's docstring already
+        documents for unrecognized framework names, not an error here.
+        """
+        framework = self._frameworks.get(framework_name) if self._frameworks else None
+        return self._assessments.create_assessment(
+            name=name,
+            framework_name=framework_name,
+            framework_version=framework.version if framework is not None else None,
+        )
 
     def get_assessment(self, assessment_id: str) -> Assessment:
         assessment = self._assessments.get_assessment(assessment_id)
@@ -281,26 +323,13 @@ class AssessmentService:
         services/scoring_service.py. Evidence links still pending or
         rejected review do not count as performed — only accepted or
         edited ones do, per the assessment-generation skill's
-        human-in-the-loop invariant.
-        """
-        assessment = self.get_assessment(assessment_id)
-        framework = self._frameworks.get(assessment.framework_name) if self._frameworks else None
-        if framework is None:
-            raise FrameworkScoringUnavailableError(assessment.framework_name)
-
-        performed_practice_ids = {
-            link.practice_reference
-            for link in self._assessments.evidence_for_assessment(assessment_id)
-            if link.review_status in (EvidenceReviewStatus.ACCEPTED, EvidenceReviewStatus.EDITED)
-        }
-        return compute_assessment_domain_scores(framework, performed_practice_ids)
-
-    def build_dashboard(self, assessment_id: str) -> DashboardReport:
-        """Executive dashboard for this assessment (Sprint 6): situation,
-        MECE gap analysis by domain, and a prioritized resolution list —
-        see services/report_service.py. Same framework-availability and
-        existence checks as compute_scores, since the dashboard is built
-        from the same two inputs (framework schema, evidence links).
+        human-in-the-loop invariant. A practice with an explicit
+        PracticeFinding (ADR-0030) is scored per that finding instead:
+        SATISFIED counts as performed regardless of evidence-link state,
+        NOT_SATISFIED/INSUFFICIENT_EVIDENCE/PARTIALLY_SATISFIED never
+        count as performed even with accepted evidence, and
+        NOT_APPLICABLE removes the practice from scoring entirely
+        (neither performed nor a gap).
         """
         assessment = self.get_assessment(assessment_id)
         framework = self._frameworks.get(assessment.framework_name) if self._frameworks else None
@@ -308,7 +337,30 @@ class AssessmentService:
             raise FrameworkScoringUnavailableError(assessment.framework_name)
 
         evidence_links = self._assessments.evidence_for_assessment(assessment_id)
-        return build_dashboard(assessment, framework, evidence_links)
+        findings = self._assessments.practice_findings_for_assessment(assessment_id)
+        performed_practice_ids, excluded_practice_ids = performed_and_excluded_practice_ids(
+            evidence_links, findings
+        )
+        return compute_assessment_domain_scores(
+            framework, performed_practice_ids, excluded_practice_ids
+        )
+
+    def build_dashboard(self, assessment_id: str) -> DashboardReport:
+        """Executive dashboard for this assessment (Sprint 6): situation,
+        MECE gap analysis by domain, and a prioritized resolution list —
+        see services/report_service.py. Same framework-availability and
+        existence checks as compute_scores, since the dashboard is built
+        from the same inputs (framework schema, evidence links, and now
+        practice findings — ADR-0030).
+        """
+        assessment = self.get_assessment(assessment_id)
+        framework = self._frameworks.get(assessment.framework_name) if self._frameworks else None
+        if framework is None:
+            raise FrameworkScoringUnavailableError(assessment.framework_name)
+
+        evidence_links = self._assessments.evidence_for_assessment(assessment_id)
+        findings = self._assessments.practice_findings_for_assessment(assessment_id)
+        return build_dashboard(assessment, framework, evidence_links, findings)
 
     def generate_dashboard_pdf(self, assessment_id: str) -> bytes:
         """PDF rendering of the same DashboardReport build_dashboard
@@ -416,6 +468,51 @@ class AssessmentService:
         if updated is None:  # pragma: no cover - existence already checked above
             raise EvidenceLinkNotFoundError(evidence_link_id)
         return updated
+
+    def set_practice_finding(
+        self,
+        assessment_id: str,
+        practice_reference: str,
+        status: PracticeFindingStatus,
+        rationale: str,
+        set_by: str = "human",
+    ) -> PracticeFinding:
+        """Records (or updates) a reviewer's explicit compliance
+        judgment for one practice — ADR-0030. Distinct from
+        review_evidence: that method judges one proposed evidence-to-
+        practice LINK; this one judges the PRACTICE itself, independent
+        of how many evidence links (if any) it has. Blocked on a
+        finalized assessment for the same audit-immutability reason
+        link_evidence/review_evidence already are.
+        """
+        assessment = self.get_assessment(assessment_id)
+        if assessment.status == AssessmentStatus.FINALIZED:
+            raise AssessmentFinalizedError(assessment_id)
+        if not rationale or not rationale.strip():
+            raise MissingFindingRationaleError(practice_reference)
+
+        if self._frameworks is not None:
+            framework = self._frameworks.get(assessment.framework_name)
+            if framework is not None and practice_reference not in framework.all_practice_ids():
+                raise InvalidPracticeReferenceError(practice_reference, assessment.framework_name)
+
+        return self._assessments.set_practice_finding(
+            assessment_id=assessment_id,
+            practice_reference=practice_reference,
+            status=status,
+            rationale=rationale,
+            set_by=set_by,
+        )
+
+    def practice_findings_for_assessment(self, assessment_id: str) -> list[PracticeFinding]:
+        self.get_assessment(assessment_id)  # raises AssessmentNotFoundError if missing
+        return self._assessments.practice_findings_for_assessment(assessment_id)
+
+    def practice_finding_history(
+        self, assessment_id: str, practice_reference: str
+    ) -> list[PracticeFindingChange]:
+        self.get_assessment(assessment_id)  # raises AssessmentNotFoundError if missing
+        return self._assessments.practice_finding_history(assessment_id, practice_reference)
 
     def propose_mappings(self, assessment_id: str) -> list[EvidenceLink]:
         """Runs the retrieval-based mapping engine

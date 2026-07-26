@@ -18,8 +18,14 @@ at all; see ADR-0011).
 
 from __future__ import annotations
 
-from compliance_platform.models.assessment import Assessment, EvidenceLink, EvidenceReviewStatus
-from compliance_platform.models.framework import FrameworkDefinition
+from compliance_platform.models.assessment import (
+    Assessment,
+    EvidenceLink,
+    EvidenceReviewStatus,
+    PracticeFinding,
+    PracticeFindingStatus,
+)
+from compliance_platform.models.framework import Domain, FrameworkDefinition
 from compliance_platform.models.report import (
     DashboardReport,
     DomainGapGroup,
@@ -29,6 +35,54 @@ from compliance_platform.models.report import (
     Situation,
 )
 from compliance_platform.services.scoring_service import compute_assessment_domain_scores
+
+# Findings that override an unmet practice back to "not a gap" if it has
+# accepted/edited evidence. PARTIALLY_SATISFIED and NOT_SATISFIED never
+# count as performed even with accepted evidence — a reviewer's explicit
+# "this isn't (fully) met" judgment overrides a possibly-stale acceptance.
+_NEVER_PERFORMED_STATUSES = (
+    PracticeFindingStatus.NOT_SATISFIED,
+    PracticeFindingStatus.INSUFFICIENT_EVIDENCE,
+    PracticeFindingStatus.PARTIALLY_SATISFIED,
+)
+
+
+def performed_and_excluded_practice_ids(
+    evidence_links: list[EvidenceLink], findings: list[PracticeFinding]
+) -> tuple[set[str], frozenset[str]]:
+    """Folds explicit PracticeFinding overrides (ADR-0030) on top of the
+    evidence-link-derived "performed" set. A practice with no
+    PracticeFinding row behaves exactly as before ADR-0030 (evidence
+    alone decides it) — additive, not a breaking change to existing
+    assessments. Findings are authoritative where present: SATISFIED
+    counts a practice as performed even with no accepted evidence link
+    (e.g. a documented compensating control); NOT_SATISFIED,
+    INSUFFICIENT_EVIDENCE, or PARTIALLY_SATISFIED removes a practice
+    from "performed" even if evidence was once accepted, so a
+    reviewer's considered judgment always wins over an earlier,
+    possibly-superseded evidence acceptance. NOT_APPLICABLE practices
+    are returned separately, for exclusion from scoring denominators
+    entirely rather than counting as either performed or a gap.
+
+    Shared by services/assessment_service.py.compute_scores and
+    build_dashboard below, so scores and the dashboard's gap list can
+    never disagree about which practices are "performed" for a given
+    assessment.
+    """
+    performed_practice_ids = {
+        link.practice_reference
+        for link in evidence_links
+        if link.review_status in (EvidenceReviewStatus.ACCEPTED, EvidenceReviewStatus.EDITED)
+    }
+    excluded_practice_ids: set[str] = set()
+    for finding in findings:
+        if finding.status == PracticeFindingStatus.SATISFIED:
+            performed_practice_ids.add(finding.practice_reference)
+        elif finding.status in _NEVER_PERFORMED_STATUSES:
+            performed_practice_ids.discard(finding.practice_reference)
+        if finding.status == PracticeFindingStatus.NOT_APPLICABLE:
+            excluded_practice_ids.add(finding.practice_reference)
+    return performed_practice_ids, frozenset(excluded_practice_ids)
 
 
 def _build_situation(
@@ -85,25 +139,37 @@ def _domain_so_what(
 def _build_complication(
     framework: FrameworkDefinition,
     performed_practice_ids: set[str],
+    excluded_practice_ids: frozenset[str],
     pending_practice_ids: set[str],
     domain_scores: dict[str, float],
+    findings_by_practice: dict[str, PracticeFinding],
 ) -> list[DomainGapGroup]:
     groups: list[DomainGapGroup] = []
     for domain in framework.domains:
         if not domain.practices_populated:
             continue
-        all_practices = domain.all_practices()
-        total = len(all_practices)
-        gaps = [
-            GapItem(
-                practice_id=p.id,
-                practice_text=p.text,
-                mil=p.mil,
-                has_pending_ai_proposal=p.id in pending_practice_ids,
-            )
-            for p in all_practices
-            if p.id not in performed_practice_ids
+        # NOT_APPLICABLE practices (ADR-0030) are excluded entirely —
+        # neither a gap nor counted toward this domain's total, the same
+        # denominator scoring_service.py's compute_domain_coverage uses.
+        applicable_practices = [
+            p for p in domain.all_practices() if p.id not in excluded_practice_ids
         ]
+        total = len(applicable_practices)
+        gaps = []
+        for p in applicable_practices:
+            if p.id in performed_practice_ids:
+                continue
+            finding = findings_by_practice.get(p.id)
+            gaps.append(
+                GapItem(
+                    practice_id=p.id,
+                    practice_text=p.text,
+                    mil=p.mil,
+                    has_pending_ai_proposal=p.id in pending_practice_ids,
+                    status=finding.status if finding else PracticeFindingStatus.INSUFFICIENT_EVIDENCE,
+                    finding_rationale=finding.rationale if finding else None,
+                )
+            )
         if not gaps:
             continue
         gaps.sort(key=lambda g: (g.mil is None, g.mil if g.mil is not None else 0))
@@ -159,7 +225,9 @@ def _build_resolution(complication: list[DomainGapGroup]) -> list[ResolutionItem
 
 
 def _build_overall_summary(
-    framework: FrameworkDefinition, domain_scores: dict[str, float]
+    framework: FrameworkDefinition,
+    domain_scores: dict[str, float],
+    excluded_practice_ids: frozenset[str],
 ) -> OverallSummary:
     populated_domains = [d for d in framework.domains if d.practices_populated]
     populated_count = len(populated_domains)
@@ -185,12 +253,19 @@ def _build_overall_summary(
             domains_at_mil1_or_above=at_mil1_plus,
         )
 
-    total_practices = sum(len(d.practice_ids()) for d in populated_domains)
+    # ADR-0030: weight each domain by its applicable (non-NOT_APPLICABLE)
+    # practice count, the same denominator compute_domain_coverage used
+    # to produce domain_scores — otherwise this weighted average would
+    # silently disagree with the per-domain numbers it's built from.
+    def _applicable_count(d: Domain) -> int:
+        return len(d.practice_ids() - excluded_practice_ids)
+
+    total_practices = sum(_applicable_count(d) for d in populated_domains)
     if total_practices == 0:
         fraction = 0.0
     else:
         covered = sum(
-            round(domain_scores[d.short_code] * len(d.practice_ids())) for d in populated_domains
+            round(domain_scores[d.short_code] * _applicable_count(d)) for d in populated_domains
         )
         fraction = covered / total_practices
     unpopulated_note = (
@@ -214,25 +289,33 @@ def build_dashboard(
     assessment: Assessment,
     framework: FrameworkDefinition,
     evidence_links: list[EvidenceLink],
+    findings: list[PracticeFinding] | None = None,
 ) -> DashboardReport:
-    performed_practice_ids = {
-        link.practice_reference
-        for link in evidence_links
-        if link.review_status in (EvidenceReviewStatus.ACCEPTED, EvidenceReviewStatus.EDITED)
-    }
+    findings = findings if findings is not None else []
+    performed_practice_ids, excluded_practice_ids = performed_and_excluded_practice_ids(
+        evidence_links, findings
+    )
     pending_practice_ids = {
         link.practice_reference
         for link in evidence_links
         if link.review_status == EvidenceReviewStatus.PENDING
     }
-    domain_scores = compute_assessment_domain_scores(framework, performed_practice_ids)
+    domain_scores = compute_assessment_domain_scores(
+        framework, performed_practice_ids, excluded_practice_ids
+    )
+    findings_by_practice = {f.practice_reference: f for f in findings}
     complication = _build_complication(
-        framework, performed_practice_ids, pending_practice_ids, domain_scores
+        framework,
+        performed_practice_ids,
+        excluded_practice_ids,
+        pending_practice_ids,
+        domain_scores,
+        findings_by_practice,
     )
     return DashboardReport(
         situation=_build_situation(assessment, framework, evidence_links),
         domain_scores=domain_scores,
-        overall=_build_overall_summary(framework, domain_scores),
+        overall=_build_overall_summary(framework, domain_scores, excluded_practice_ids),
         complication=complication,
         resolution=_build_resolution(complication),
     )

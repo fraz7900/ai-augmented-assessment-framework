@@ -11,12 +11,23 @@ from __future__ import annotations
 
 from pydantic import BaseModel
 
+from compliance_platform.models.assessment import PracticeFindingStatus
+
 
 class GapItem(BaseModel):
     practice_id: str
     practice_text: str
     mil: int | None = None
     has_pending_ai_proposal: bool = False
+    # ADR-0030: distinguishes "no evidence has been reviewed for this
+    # practice at all" (INSUFFICIENT_EVIDENCE, the default for any gap
+    # with no explicit PracticeFinding) from "a reviewer explicitly
+    # examined this and determined the control is not met"
+    # (NOT_SATISFIED) or partially met (PARTIALLY_SATISFIED) — the exact
+    # distinction compute_domain_mil/compute_domain_coverage's prior
+    # binary performed_practice_ids test could not express.
+    status: PracticeFindingStatus = PracticeFindingStatus.INSUFFICIENT_EVIDENCE
+    finding_rationale: str | None = None
 
 
 class DomainGapGroup(BaseModel):

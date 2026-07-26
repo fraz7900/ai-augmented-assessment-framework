@@ -21,7 +21,31 @@ from compliance_platform.models.assessment import (
     AssessmentStatusChange,
     EvidenceLink,
     EvidenceReviewStatus,
+    PracticeFinding,
+    PracticeFindingChange,
+    PracticeFindingStatus,
 )
+
+
+def _add_missing_columns(engine, table: str, columns: dict[str, str]) -> None:
+    """SQLModel.metadata.create_all only creates missing TABLES, not
+    missing COLUMNS on a table that already exists on disk (ADR-0007
+    has no Alembic-style migration tool — a deliberate choice for a
+    local-first, single-file-SQLite product, not an oversight). A new
+    nullable column added to an existing model (e.g.
+    EvidenceLink.original_practice_reference, ADR-0030) would otherwise
+    silently be absent from any pre-existing local assessments.db,
+    turning every read into a schema-mismatch error. This runs once per
+    engine construction, is a no-op on a fresh database (create_all
+    already created the column), and only ever ADDs — it never drops or
+    alters existing data.
+    """
+    with engine.connect() as conn:
+        existing = {row[1] for row in conn.exec_driver_sql(f"PRAGMA table_info({table})")}
+        for column, sql_type in columns.items():
+            if column not in existing:
+                conn.exec_driver_sql(f"ALTER TABLE {table} ADD COLUMN {column} {sql_type}")
+        conn.commit()
 
 
 class AssessmentRepository:
@@ -29,9 +53,17 @@ class AssessmentRepository:
         db_path.parent.mkdir(parents=True, exist_ok=True)
         self._engine = create_engine(f"sqlite:///{db_path}")
         SQLModel.metadata.create_all(self._engine)
+        _add_missing_columns(
+            self._engine, "evidencelink", {"original_practice_reference": "TEXT"}
+        )
+        _add_missing_columns(self._engine, "assessment", {"framework_version": "TEXT"})
 
-    def create_assessment(self, name: str, framework_name: str) -> Assessment:
-        assessment = Assessment(name=name, framework_name=framework_name)
+    def create_assessment(
+        self, name: str, framework_name: str, framework_version: str | None = None
+    ) -> Assessment:
+        assessment = Assessment(
+            name=name, framework_name=framework_name, framework_version=framework_version
+        )
         with Session(self._engine) as session:
             session.add(assessment)
             session.add(
@@ -143,6 +175,14 @@ class AssessmentRepository:
             link.review_status = review_status
             link.reviewed_at = datetime.now(UTC)
             if practice_reference is not None:
+                # Preserve whatever practice_reference this link had
+                # *before* this edit — captured only on the first edit
+                # (None check), so a second correction doesn't overwrite
+                # the true original with an intermediate value. See
+                # models/assessment.py's EvidenceLink.original_practice_reference
+                # and ADR-0030.
+                if link.original_practice_reference is None:
+                    link.original_practice_reference = link.practice_reference
                 link.practice_reference = practice_reference
             if note is not None:
                 link.note = note
@@ -150,3 +190,78 @@ class AssessmentRepository:
             session.commit()
             session.refresh(link)
             return link
+
+    def set_practice_finding(
+        self,
+        assessment_id: str,
+        practice_reference: str,
+        status: PracticeFindingStatus,
+        rationale: str,
+        set_by: str = "human",
+    ) -> PracticeFinding:
+        """Upserts the single PracticeFinding row for this
+        (assessment_id, practice_reference) pair and records the
+        transition in PracticeFindingChange — see models/assessment.py
+        and ADR-0030.
+        """
+        with Session(self._engine) as session:
+            statement = select(PracticeFinding).where(
+                PracticeFinding.assessment_id == assessment_id,
+                PracticeFinding.practice_reference == practice_reference,
+            )
+            existing = session.exec(statement).first()
+            from_status = existing.status if existing is not None else None
+
+            if existing is not None:
+                existing.status = status
+                existing.rationale = rationale
+                existing.set_by = set_by
+                existing.updated_at = datetime.now(UTC)
+                finding = existing
+            else:
+                finding = PracticeFinding(
+                    assessment_id=assessment_id,
+                    practice_reference=practice_reference,
+                    status=status,
+                    rationale=rationale,
+                    set_by=set_by,
+                )
+            session.add(finding)
+            session.add(
+                PracticeFindingChange(
+                    assessment_id=assessment_id,
+                    practice_reference=practice_reference,
+                    from_status=from_status,
+                    to_status=status,
+                    rationale=rationale,
+                    set_by=set_by,
+                )
+            )
+            session.commit()
+            session.refresh(finding)
+            return finding
+
+    def practice_findings_for_assessment(self, assessment_id: str) -> list[PracticeFinding]:
+        with Session(self._engine) as session:
+            statement = (
+                select(PracticeFinding)
+                .where(PracticeFinding.assessment_id == assessment_id)
+                .order_by(text("rowid"))
+            )
+            return list(session.exec(statement).all())
+
+    def practice_finding_history(
+        self, assessment_id: str, practice_reference: str
+    ) -> list[PracticeFindingChange]:
+        # Ordered by rowid, same reliable-ordering reasoning as
+        # status_history/evidence_for_assessment above.
+        with Session(self._engine) as session:
+            statement = (
+                select(PracticeFindingChange)
+                .where(
+                    PracticeFindingChange.assessment_id == assessment_id,
+                    PracticeFindingChange.practice_reference == practice_reference,
+                )
+                .order_by(text("rowid"))
+            )
+            return list(session.exec(statement).all())

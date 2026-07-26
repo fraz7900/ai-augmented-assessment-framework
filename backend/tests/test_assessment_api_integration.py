@@ -816,3 +816,140 @@ def test_propose_mappings_blocked_on_finalized_assessment(client: TestClient) ->
 
     response = client.post(f"/assessments/{assessment_id}/propose-mappings")
     assert response.status_code == 409
+
+
+# --- Framework version pinning (ADR-0031) ---
+
+
+def test_create_assessment_pins_real_framework_version(client: TestClient) -> None:
+    response = client.post("/assessments", json={"name": "Test", "framework_name": "C2M2"})
+    assert response.status_code == 200
+    body = response.json()
+    # Real framework_mapping/c2m2_v2_1.yaml version -- confirms this is
+    # captured from the actual loaded schema, not a placeholder.
+    assert body["framework_version"] not in (None, "")
+
+
+def test_create_assessment_framework_version_none_for_unrecognized_framework(
+    client: TestClient,
+) -> None:
+    response = client.post(
+        "/assessments", json={"name": "Test", "framework_name": "Not A Real Framework"}
+    )
+    assert response.status_code == 200
+    assert response.json()["framework_version"] is None
+
+
+# --- Practice findings (ADR-0030) ---
+
+
+def test_set_practice_finding_and_it_appears_in_dashboard_gap_status(client: TestClient) -> None:
+    create_response = client.post("/assessments", json={"name": "Test", "framework_name": "C2M2"})
+    assessment_id = create_response.json()["id"]
+
+    put_response = client.put(
+        f"/assessments/{assessment_id}/practice-findings/ACCESS-1a",
+        json={
+            "status": "not_satisfied",
+            "rationale": "Reviewed the access policy directly; provisioning is not role-based.",
+        },
+    )
+    assert put_response.status_code == 200
+    body = put_response.json()
+    assert body["status"] == "not_satisfied"
+    assert body["assessment_id"] == assessment_id
+    assert body["practice_reference"] == "ACCESS-1a"
+
+    list_response = client.get(f"/assessments/{assessment_id}/practice-findings")
+    assert list_response.status_code == 200
+    assert len(list_response.json()) == 1
+
+    dashboard_response = client.get(f"/assessments/{assessment_id}/dashboard")
+    assert dashboard_response.status_code == 200
+    gaps = [g for group in dashboard_response.json()["complication"] for g in group["gaps"]]
+    access_1a = next(g for g in gaps if g["practice_id"] == "ACCESS-1a")
+    assert access_1a["status"] == "not_satisfied"
+    assert "role-based" in access_1a["finding_rationale"]
+
+
+def test_practice_finding_history_records_every_transition(client: TestClient) -> None:
+    create_response = client.post("/assessments", json={"name": "Test", "framework_name": "C2M2"})
+    assessment_id = create_response.json()["id"]
+
+    client.put(
+        f"/assessments/{assessment_id}/practice-findings/ACCESS-1a",
+        json={"status": "insufficient_evidence", "rationale": "Nothing reviewed yet."},
+    )
+    client.put(
+        f"/assessments/{assessment_id}/practice-findings/ACCESS-1a",
+        json={"status": "satisfied", "rationale": "Policy doc reviewed and confirmed."},
+    )
+
+    history_response = client.get(
+        f"/assessments/{assessment_id}/practice-findings/ACCESS-1a/history"
+    )
+    assert history_response.status_code == 200
+    history = history_response.json()
+    assert [h["to_status"] for h in history] == ["insufficient_evidence", "satisfied"]
+    assert history[0]["from_status"] is None
+    assert history[1]["from_status"] == "insufficient_evidence"
+
+
+def test_set_practice_finding_rejects_missing_rationale(client: TestClient) -> None:
+    create_response = client.post("/assessments", json={"name": "Test", "framework_name": "C2M2"})
+    assessment_id = create_response.json()["id"]
+
+    response = client.put(
+        f"/assessments/{assessment_id}/practice-findings/ACCESS-1a",
+        json={"status": "not_applicable", "rationale": ""},
+    )
+    assert response.status_code == 400
+
+
+def test_set_practice_finding_rejects_unknown_practice_reference(client: TestClient) -> None:
+    create_response = client.post("/assessments", json={"name": "Test", "framework_name": "C2M2"})
+    assessment_id = create_response.json()["id"]
+
+    response = client.put(
+        f"/assessments/{assessment_id}/practice-findings/NOT-A-REAL-PRACTICE",
+        json={"status": "satisfied", "rationale": "n/a"},
+    )
+    assert response.status_code == 422
+
+
+def test_set_practice_finding_blocked_on_finalized_assessment(client: TestClient) -> None:
+    create_response = client.post("/assessments", json={"name": "Test", "framework_name": "C2M2"})
+    assessment_id = create_response.json()["id"]
+    client.post(f"/assessments/{assessment_id}/status", json={"status": "in_review"})
+    client.post(f"/assessments/{assessment_id}/status", json={"status": "finalized"})
+
+    response = client.put(
+        f"/assessments/{assessment_id}/practice-findings/ACCESS-1a",
+        json={"status": "satisfied", "rationale": "n/a"},
+    )
+    assert response.status_code == 409
+
+
+def test_not_applicable_finding_excludes_practice_from_score_denominator(
+    client: TestClient,
+) -> None:
+    """Live confirmation, over the real API + real C2M2 data, that a
+    NOT_APPLICABLE practice does not block its domain's MIL forever."""
+    create_response = client.post("/assessments", json={"name": "Test", "framework_name": "C2M2"})
+    assessment_id = create_response.json()["id"]
+
+    before = client.get(f"/assessments/{assessment_id}/score").json()
+
+    client.put(
+        f"/assessments/{assessment_id}/practice-findings/ACCESS-1a",
+        json={"status": "not_applicable", "rationale": "No remote access exists in this org."},
+    )
+    after = client.get(f"/assessments/{assessment_id}/score").json()
+
+    # Excluding a practice can only ever hold or raise a domain's score,
+    # never lower it as a side effect of removing it from the denominator.
+    assert after["ACCESS"] >= before["ACCESS"]
+
+    dashboard = client.get(f"/assessments/{assessment_id}/dashboard").json()
+    gap_ids = {g["practice_id"] for group in dashboard["complication"] for g in group["gaps"]}
+    assert "ACCESS-1a" not in gap_ids

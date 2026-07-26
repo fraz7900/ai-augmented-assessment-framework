@@ -1,0 +1,188 @@
+"""Unit tests for AssessmentRepository against a real SQLite database at
+tmp_path (ADR-0007) — no dedicated test file existed for this repository
+before; it was only exercised indirectly through the assessment_service
+unit tests (which use a fake, per services/README.md's boundary) and the
+API integration tests. This file exists specifically to cover two pieces
+of real, non-trivial SQL logic a fake cannot exercise honestly: the
+schema-migration helper (ADR-0030) and PracticeFinding's upsert +
+append-only-history behavior.
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+from sqlalchemy import create_engine
+
+from compliance_platform.models.assessment import (
+    EvidenceLink,
+    EvidenceReviewStatus,
+    EvidenceSource,
+    PracticeFindingStatus,
+)
+from compliance_platform.repositories.assessment_repository import AssessmentRepository
+
+
+def _repo(tmp_path: Path) -> AssessmentRepository:
+    return AssessmentRepository(tmp_path / "assessments.db")
+
+
+def test_fresh_database_has_evidencelink_original_practice_reference_column(
+    tmp_path: Path,
+) -> None:
+    repo = _repo(tmp_path)
+    with repo._engine.connect() as conn:  # noqa: SLF001 - direct schema inspection, test-only
+        columns = {row[1] for row in conn.exec_driver_sql("PRAGMA table_info(evidencelink)")}
+    assert "original_practice_reference" in columns
+
+
+def test_fresh_database_has_assessment_framework_version_column(tmp_path: Path) -> None:
+    repo = _repo(tmp_path)
+    with repo._engine.connect() as conn:  # noqa: SLF001
+        columns = {row[1] for row in conn.exec_driver_sql("PRAGMA table_info(assessment)")}
+    assert "framework_version" in columns
+
+
+def test_create_assessment_persists_framework_version(tmp_path: Path) -> None:
+    repo = _repo(tmp_path)
+    created = repo.create_assessment(
+        name="Test", framework_name="PCI DSS", framework_version="4.0.1"
+    )
+    assert created.framework_version == "4.0.1"
+
+    reloaded = repo.get_assessment(created.id)
+    assert reloaded is not None
+    assert reloaded.framework_version == "4.0.1"
+
+
+def test_migration_adds_missing_column_to_a_pre_adr_0030_database_without_data_loss(
+    tmp_path: Path,
+) -> None:
+    """Simulates a database created before ADR-0030 (no
+    original_practice_reference column) that already has a real row in
+    it, then constructs AssessmentRepository against that same file and
+    confirms the column is added and the pre-existing row survives
+    untouched — the exact scenario _add_missing_columns exists for.
+    """
+    db_path = tmp_path / "legacy.db"
+    legacy_engine = create_engine(f"sqlite:///{db_path}")
+    with legacy_engine.connect() as conn:
+        conn.exec_driver_sql(
+            "CREATE TABLE evidencelink ("
+            "id TEXT PRIMARY KEY, assessment_id TEXT, document_id TEXT, "
+            "chunk_id TEXT, practice_reference TEXT, note TEXT, source TEXT, "
+            "review_status TEXT, confidence REAL, created_at TEXT, reviewed_at TEXT)"
+        )
+        conn.exec_driver_sql(
+            "INSERT INTO evidencelink (id, assessment_id, document_id, practice_reference, "
+            "source, review_status, created_at) VALUES "
+            "('link-1', 'assess-1', 'doc-1', 'AM-1a', 'manual', 'accepted', '2026-01-01')"
+        )
+        conn.commit()
+    legacy_engine.dispose()
+
+    repo = AssessmentRepository(db_path)  # runs the migration on an existing file
+
+    with repo._engine.connect() as conn:  # noqa: SLF001
+        columns = {row[1] for row in conn.exec_driver_sql("PRAGMA table_info(evidencelink)")}
+        assert "original_practice_reference" in columns
+        row = conn.exec_driver_sql(
+            "SELECT id, practice_reference, original_practice_reference FROM evidencelink"
+        ).fetchone()
+        assert row == ("link-1", "AM-1a", None)
+
+
+def test_update_evidence_link_review_preserves_original_practice_reference_only_on_first_edit(
+    tmp_path: Path,
+) -> None:
+    repo = _repo(tmp_path)
+    assessment = repo.create_assessment(name="Test", framework_name="C2M2")
+    link = repo.add_evidence_link(
+        EvidenceLink(
+            assessment_id=assessment.id,
+            document_id="doc-1",
+            practice_reference="AM-1a",
+            source=EvidenceSource.AI_PROPOSED,
+            review_status=EvidenceReviewStatus.PENDING,
+        )
+    )
+    assert link.original_practice_reference is None
+
+    first_edit = repo.update_evidence_link_review(
+        link.id, review_status=EvidenceReviewStatus.EDITED, practice_reference="AM-1b"
+    )
+    assert first_edit is not None
+    assert first_edit.practice_reference == "AM-1b"
+    assert first_edit.original_practice_reference == "AM-1a"  # the AI's real original proposal
+
+    # A hypothetical second correction (re-opening review isn't allowed by
+    # the service layer today, but the repository method itself should
+    # still never clobber the true original if ever called again).
+    second_edit = repo.update_evidence_link_review(
+        link.id, review_status=EvidenceReviewStatus.EDITED, practice_reference="AM-1c"
+    )
+    assert second_edit is not None
+    assert second_edit.practice_reference == "AM-1c"
+    assert second_edit.original_practice_reference == "AM-1a"  # unchanged, not overwritten
+
+
+def test_set_practice_finding_creates_row_and_history_entry(tmp_path: Path) -> None:
+    repo = _repo(tmp_path)
+    assessment = repo.create_assessment(name="Test", framework_name="C2M2")
+
+    finding = repo.set_practice_finding(
+        assessment.id, "AM-1a", PracticeFindingStatus.NOT_SATISFIED, "No asset inventory exists."
+    )
+    assert finding.status == PracticeFindingStatus.NOT_SATISFIED
+    assert finding.rationale == "No asset inventory exists."
+
+    findings = repo.practice_findings_for_assessment(assessment.id)
+    assert len(findings) == 1
+    assert findings[0].id == finding.id
+
+    history = repo.practice_finding_history(assessment.id, "AM-1a")
+    assert len(history) == 1
+    assert history[0].from_status is None
+    assert history[0].to_status == PracticeFindingStatus.NOT_SATISFIED
+
+
+def test_set_practice_finding_upserts_and_records_transition_in_history(tmp_path: Path) -> None:
+    repo = _repo(tmp_path)
+    assessment = repo.create_assessment(name="Test", framework_name="C2M2")
+
+    repo.set_practice_finding(
+        assessment.id, "AM-1a", PracticeFindingStatus.INSUFFICIENT_EVIDENCE, "Nothing uploaded yet."
+    )
+    updated = repo.set_practice_finding(
+        assessment.id, "AM-1a", PracticeFindingStatus.SATISFIED, "Inventory doc now reviewed."
+    )
+
+    # Upsert, not a second row.
+    findings = repo.practice_findings_for_assessment(assessment.id)
+    assert len(findings) == 1
+    assert findings[0].id == updated.id
+    assert findings[0].status == PracticeFindingStatus.SATISFIED
+
+    # But the full transition is preserved in history.
+    history = repo.practice_finding_history(assessment.id, "AM-1a")
+    assert [c.to_status for c in history] == [
+        PracticeFindingStatus.INSUFFICIENT_EVIDENCE,
+        PracticeFindingStatus.SATISFIED,
+    ]
+    assert history[1].from_status == PracticeFindingStatus.INSUFFICIENT_EVIDENCE
+
+
+def test_practice_findings_for_assessment_isolated_per_assessment(tmp_path: Path) -> None:
+    repo = _repo(tmp_path)
+    a1 = repo.create_assessment(name="A1", framework_name="C2M2")
+    a2 = repo.create_assessment(name="A2", framework_name="C2M2")
+
+    repo.set_practice_finding(a1.id, "AM-1a", PracticeFindingStatus.SATISFIED, "ok")
+    repo.set_practice_finding(a2.id, "AM-1a", PracticeFindingStatus.NOT_APPLICABLE, "n/a for a2")
+
+    assert len(repo.practice_findings_for_assessment(a1.id)) == 1
+    assert len(repo.practice_findings_for_assessment(a2.id)) == 1
+    assert repo.practice_findings_for_assessment(a1.id)[0].status == PracticeFindingStatus.SATISFIED
+    assert (
+        repo.practice_findings_for_assessment(a2.id)[0].status == PracticeFindingStatus.NOT_APPLICABLE
+    )

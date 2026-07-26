@@ -28,6 +28,9 @@ from compliance_platform.models.assessment import (
     EvidenceLink,
     EvidenceReviewStatus,
     EvidenceSource,
+    PracticeFinding,
+    PracticeFindingChange,
+    PracticeFindingStatus,
 )
 from compliance_platform.models.chat import ChatResponse
 from compliance_platform.models.report import DashboardReport
@@ -62,6 +65,11 @@ class ReviewEvidenceRequest(BaseModel):
 
 class ChatQuestionRequest(BaseModel):
     question: str
+
+
+class SetPracticeFindingRequest(BaseModel):
+    status: PracticeFindingStatus
+    rationale: str
 
 
 @router.post("", response_model=Assessment)
@@ -228,6 +236,52 @@ def review_evidence(
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.put(
+    "/{assessment_id}/practice-findings/{practice_reference}", response_model=PracticeFinding
+)
+def set_practice_finding(
+    assessment_id: str,
+    practice_reference: str,
+    request: SetPracticeFindingRequest,
+    service: AssessmentService = Depends(get_assessment_service),
+) -> PracticeFinding:
+    """Records a reviewer's explicit compliance judgment for one
+    practice — SATISFIED, PARTIALLY_SATISFIED, NOT_SATISFIED,
+    INSUFFICIENT_EVIDENCE, or NOT_APPLICABLE (ADR-0030). PUT, not POST:
+    idempotent upsert of the single current finding for this
+    (assessment, practice) pair, not a growing list of independent
+    records — see services/assessment_service.py.set_practice_finding
+    and PracticeFindingChange for the append-only history this still
+    preserves underneath.
+    """
+    return service.set_practice_finding(
+        assessment_id=assessment_id,
+        practice_reference=practice_reference,
+        status=request.status,
+        rationale=request.rationale,
+    )
+
+
+@router.get("/{assessment_id}/practice-findings", response_model=list[PracticeFinding])
+def list_practice_findings(
+    assessment_id: str,
+    service: AssessmentService = Depends(get_assessment_service),
+) -> list[PracticeFinding]:
+    return service.practice_findings_for_assessment(assessment_id)
+
+
+@router.get(
+    "/{assessment_id}/practice-findings/{practice_reference}/history",
+    response_model=list[PracticeFindingChange],
+)
+def get_practice_finding_history(
+    assessment_id: str,
+    practice_reference: str,
+    service: AssessmentService = Depends(get_assessment_service),
+) -> list[PracticeFindingChange]:
+    return service.practice_finding_history(assessment_id, practice_reference)
 
 
 @router.post("/{assessment_id}/propose-mappings", response_model=list[EvidenceLink])

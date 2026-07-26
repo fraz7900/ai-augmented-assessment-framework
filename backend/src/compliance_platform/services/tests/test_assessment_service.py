@@ -17,6 +17,9 @@ from compliance_platform.models.assessment import (
     EvidenceLink,
     EvidenceReviewStatus,
     EvidenceSource,
+    PracticeFinding,
+    PracticeFindingChange,
+    PracticeFindingStatus,
 )
 from compliance_platform.models.framework import (
     Domain,
@@ -38,6 +41,7 @@ from compliance_platform.services.assessment_service import (
     InvalidReviewDecisionError,
     InvalidStatusTransitionError,
     MappingEngineUnavailableError,
+    MissingFindingRationaleError,
 )
 
 
@@ -46,9 +50,15 @@ class _FakeAssessmentRepository:
         self._assessments: dict[str, Assessment] = {}
         self._history: dict[str, list[AssessmentStatusChange]] = {}
         self._evidence: dict[str, list[EvidenceLink]] = {}
+        self._findings: dict[tuple[str, str], PracticeFinding] = {}
+        self._finding_history: dict[str, list[PracticeFindingChange]] = {}
 
-    def create_assessment(self, name: str, framework_name: str) -> Assessment:
-        assessment = Assessment(name=name, framework_name=framework_name)
+    def create_assessment(
+        self, name: str, framework_name: str, framework_version: str | None = None
+    ) -> Assessment:
+        assessment = Assessment(
+            name=name, framework_name=framework_name, framework_version=framework_version
+        )
         self._assessments[assessment.id] = assessment
         self._history[assessment.id] = [
             AssessmentStatusChange(
@@ -113,6 +123,52 @@ class _FakeAssessmentRepository:
         if note is not None:
             link.note = note
         return link
+
+    def set_practice_finding(
+        self,
+        assessment_id: str,
+        practice_reference: str,
+        status: PracticeFindingStatus,
+        rationale: str,
+        set_by: str = "human",
+    ) -> PracticeFinding:
+        key = (assessment_id, practice_reference)
+        existing = self._findings.get(key)
+        from_status = existing.status if existing is not None else None
+        finding_kwargs = dict(
+            assessment_id=assessment_id,
+            practice_reference=practice_reference,
+            status=status,
+            rationale=rationale,
+            set_by=set_by,
+        )
+        if existing is not None:
+            finding_kwargs["id"] = existing.id
+        finding = PracticeFinding(**finding_kwargs)
+        self._findings[key] = finding
+        self._finding_history.setdefault(assessment_id, []).append(
+            PracticeFindingChange(
+                assessment_id=assessment_id,
+                practice_reference=practice_reference,
+                from_status=from_status,
+                to_status=status,
+                rationale=rationale,
+                set_by=set_by,
+            )
+        )
+        return finding
+
+    def practice_findings_for_assessment(self, assessment_id: str) -> list[PracticeFinding]:
+        return [f for (aid, _), f in self._findings.items() if aid == assessment_id]
+
+    def practice_finding_history(
+        self, assessment_id: str, practice_reference: str
+    ) -> list[PracticeFindingChange]:
+        return [
+            c
+            for c in self._finding_history.get(assessment_id, [])
+            if c.practice_reference == practice_reference
+        ]
 
 
 class _FakeVectorRepository:
@@ -252,6 +308,26 @@ def test_create_assessment_starts_in_draft_with_history_entry() -> None:
     assert len(history) == 1
     assert history[0].from_status is None
     assert history[0].to_status == AssessmentStatus.DRAFT
+
+
+def test_create_assessment_pins_framework_version_when_schema_is_loaded() -> None:
+    """ADR-0031: the assessment's own record of what version it was
+    created against, independent of whatever framework_mapping/*.yaml
+    later contains."""
+    framework = _tiny_framework()
+    assert framework.version == "0"
+    service, _, _ = _make_service(framework_registry=_FakeFrameworkRegistry({"C2M2": framework}))
+    assessment = service.create_assessment("Test Assessment", "C2M2")
+    assert assessment.framework_version == "0"
+
+
+def test_create_assessment_framework_version_is_none_for_an_unrecognized_framework() -> None:
+    """No schema loaded for this framework_name at creation time -- the
+    same graceful "free text, not yet validated" fallback
+    InvalidPracticeReferenceError's docstring documents, not an error."""
+    service, _, _ = _make_service()  # no framework_registry configured
+    assessment = service.create_assessment("Test Assessment", "Unrecognized Framework")
+    assert assessment.framework_version is None
 
 
 def test_get_assessment_raises_for_unknown_id() -> None:
@@ -680,3 +756,190 @@ def test_answer_question_returns_ranked_hits_from_reviewed_evidence_only() -> No
     assert result.chunk_id == "chunk-mfa"
     assert result.chunk_text == "multi-factor authentication is required"
     assert result.similarity == 1.0
+
+
+# --- Practice findings (ADR-0030) ---
+#
+# The core bug ADR-0030 fixes: before this, "no evidence linked yet for
+# TEST-1a" and "evidence was reviewed and shows TEST-1a is NOT actually
+# implemented" were indistinguishable — both simply left TEST-1a absent
+# from performed_practice_ids, scoring identically. These tests assert
+# that gap, directly.
+
+
+def test_practice_with_zero_evidence_and_practice_with_confirmed_non_compliance_score_identically_without_a_finding() -> (
+    None
+):
+    """Documents the pre-ADR-0030 collapse this feature closes: with NO
+    PracticeFinding recorded, a practice with zero evidence and a
+    practice whose only evidence was reviewed and REJECTED score
+    exactly the same (both simply absent from performed_practice_ids).
+    This is the base case the next test's explicit NOT_SATISFIED finding
+    is contrasted against — not a bug in this test, but the documented,
+    now-escapable default.
+    """
+    framework = _tiny_framework()
+    service, _, _ = _make_service(
+        known_documents={"doc-1": ["chunk-1"]},
+        framework_registry=_FakeFrameworkRegistry({"C2M2": framework}),
+    )
+    no_evidence_assessment = service.create_assessment("No evidence", "C2M2")
+    rejected_evidence_assessment = service.create_assessment("Rejected evidence", "C2M2")
+
+    link = service.link_evidence(
+        rejected_evidence_assessment.id,
+        "doc-1",
+        practice_reference="TEST-1a",
+        source=EvidenceSource.AI_PROPOSED,
+    )
+    service.review_evidence(
+        rejected_evidence_assessment.id,
+        link.id,
+        decision=EvidenceReviewStatus.REJECTED,
+        note="Not actually about this practice.",
+    )
+
+    assert service.compute_scores(no_evidence_assessment.id) == service.compute_scores(
+        rejected_evidence_assessment.id
+    )
+
+
+def test_practice_finding_not_satisfied_is_distinguishable_from_insufficient_evidence_in_dashboard() -> (
+    None
+):
+    """The actual fix: with an explicit PracticeFinding, the dashboard's
+    GapItem.status now distinguishes a practice nobody has looked at
+    (INSUFFICIENT_EVIDENCE, the default) from one a reviewer explicitly
+    examined and confirmed is not met (NOT_SATISFIED) — even though both
+    still correctly count as unmet for MIL/coverage purposes (neither is
+    fabricated as "satisfied").
+    """
+    framework = _tiny_framework()
+    service, _, _ = _make_service(framework_registry=_FakeFrameworkRegistry({"C2M2": framework}))
+    assessment = service.create_assessment("A", "C2M2")
+
+    service.set_practice_finding(
+        assessment.id,
+        "TEST-1a",
+        PracticeFindingStatus.NOT_SATISFIED,
+        "Reviewed the submitted policy directly; it does not cover asset tagging at all.",
+    )
+
+    dashboard = service.build_dashboard(assessment.id)
+    gaps_by_practice = {
+        gap.practice_id: gap for group in dashboard.complication for gap in group.gaps
+    }
+    assert gaps_by_practice["TEST-1a"].status == PracticeFindingStatus.NOT_SATISFIED
+    assert "asset tagging" in gaps_by_practice["TEST-1a"].finding_rationale
+    # TEST-2a has no finding recorded at all -- still the honest default.
+    assert gaps_by_practice["TEST-2a"].status == PracticeFindingStatus.INSUFFICIENT_EVIDENCE
+    assert gaps_by_practice["TEST-2a"].finding_rationale is None
+
+    # Neither is fabricated as met: MIL stays 0 (TEST-1a, a MIL1
+    # practice, is required for MIL1 and is not satisfied).
+    assert service.compute_scores(assessment.id)["TEST"] == 0.0
+
+
+def test_practice_finding_satisfied_counts_toward_score_without_an_evidence_link() -> None:
+    """SATISFIED is authoritative even with zero EvidenceLink rows for
+    that practice -- e.g. a documented compensating control a reviewer
+    accepts by direct policy review rather than a specific evidence
+    upload."""
+    framework = _tiny_framework()
+    service, _, _ = _make_service(framework_registry=_FakeFrameworkRegistry({"C2M2": framework}))
+    assessment = service.create_assessment("A", "C2M2")
+
+    service.set_practice_finding(
+        assessment.id,
+        "TEST-1a",
+        PracticeFindingStatus.SATISFIED,
+        "Confirmed via direct interview with the control owner; documented in finding notes.",
+    )
+
+    assert service.compute_scores(assessment.id)["TEST"] == 1.0  # MIL1 reached
+
+
+def test_practice_finding_not_applicable_excludes_practice_from_scoring_denominator() -> None:
+    """A NOT_APPLICABLE MIL1 practice must not block the domain at MIL0
+    forever -- it's removed from the MIL requirement entirely, not
+    treated as an unmet blocker."""
+    framework = _tiny_framework()
+    service, _, _ = _make_service(framework_registry=_FakeFrameworkRegistry({"C2M2": framework}))
+    assessment = service.create_assessment("A", "C2M2")
+
+    service.set_practice_finding(
+        assessment.id,
+        "TEST-1a",
+        PracticeFindingStatus.NOT_APPLICABLE,
+        "This organization has no assets of the type this practice covers.",
+    )
+
+    # TEST-1a excluded; TEST-2a (MIL2) is now the only MIL1-tier
+    # requirement... but TEST-2a is MIL2, so with TEST-1a excluded there
+    # are zero MIL1 practices left to require, and MIL2 remains unmet.
+    # Either way, the domain must not be silently blocked *by* the
+    # excluded practice.
+    assert service.compute_scores(assessment.id)["TEST"] == 1.0
+
+    dashboard = service.build_dashboard(assessment.id)
+    gap_practice_ids = {gap.practice_id for group in dashboard.complication for gap in group.gaps}
+    assert "TEST-1a" not in gap_practice_ids  # excluded, not a gap
+    assert "TEST-2a" in gap_practice_ids  # still genuinely unmet
+
+
+def test_set_practice_finding_requires_a_rationale() -> None:
+    service, _, _ = _make_service()
+    assessment = service.create_assessment("A", "C2M2")
+    with pytest.raises(MissingFindingRationaleError):
+        service.set_practice_finding(
+            assessment.id, "TEST-1a", PracticeFindingStatus.NOT_APPLICABLE, ""
+        )
+
+
+def test_set_practice_finding_rejects_unknown_practice_reference() -> None:
+    framework = _tiny_framework()
+    service, _, _ = _make_service(framework_registry=_FakeFrameworkRegistry({"C2M2": framework}))
+    assessment = service.create_assessment("A", "C2M2")
+    with pytest.raises(InvalidPracticeReferenceError):
+        service.set_practice_finding(
+            assessment.id, "NOT-A-REAL-PRACTICE", PracticeFindingStatus.SATISFIED, "n/a"
+        )
+
+
+def test_set_practice_finding_blocked_on_finalized_assessment() -> None:
+    service, _, _ = _make_service()
+    assessment = service.create_assessment("A", "C2M2")
+    service.transition_status(assessment.id, AssessmentStatus.IN_REVIEW)
+    service.transition_status(assessment.id, AssessmentStatus.FINALIZED)
+    with pytest.raises(AssessmentFinalizedError):
+        service.set_practice_finding(
+            assessment.id, "TEST-1a", PracticeFindingStatus.SATISFIED, "n/a"
+        )
+
+
+def test_set_practice_finding_upsert_preserves_history_via_repository() -> None:
+    """Confirms the service layer's write actually reaches the
+    append-only PracticeFindingChange trail, not just the current-state
+    row -- the repository-level mechanics are covered directly in
+    repositories/tests/test_assessment_repository.py; this asserts the
+    service exposes it correctly end to end.
+    """
+    service, _, _ = _make_service()
+    assessment = service.create_assessment("A", "C2M2")
+
+    service.set_practice_finding(
+        assessment.id, "TEST-1a", PracticeFindingStatus.INSUFFICIENT_EVIDENCE, "Nothing yet."
+    )
+    service.set_practice_finding(
+        assessment.id, "TEST-1a", PracticeFindingStatus.NOT_SATISFIED, "Now confirmed absent."
+    )
+
+    history = service.practice_finding_history(assessment.id, "TEST-1a")
+    assert [h.to_status for h in history] == [
+        PracticeFindingStatus.INSUFFICIENT_EVIDENCE,
+        PracticeFindingStatus.NOT_SATISFIED,
+    ]
+
+    current = service.practice_findings_for_assessment(assessment.id)
+    assert len(current) == 1  # upserted, not accumulated as separate rows
+    assert current[0].status == PracticeFindingStatus.NOT_SATISFIED

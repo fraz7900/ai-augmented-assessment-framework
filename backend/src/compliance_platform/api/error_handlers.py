@@ -35,6 +35,7 @@ from compliance_platform.services.assessment_service import (
     InvalidReviewDecisionError,
     InvalidStatusTransitionError,
     MappingEngineUnavailableError,
+    MissingFindingRationaleError,
 )
 
 _STATUS_CODE_BY_EXCEPTION: dict[type[Exception], int] = {
@@ -47,6 +48,7 @@ _STATUS_CODE_BY_EXCEPTION: dict[type[Exception], int] = {
     EvidenceDocumentNotIngestedError: 422,
     InvalidPracticeReferenceError: 422,
     InvalidReviewDecisionError: 400,
+    MissingFindingRationaleError: 400,
     MappingEngineUnavailableError: 503,
     ChatEngineUnavailableError: 503,
 }
