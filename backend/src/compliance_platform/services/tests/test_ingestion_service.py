@@ -156,3 +156,15 @@ def test_ingest_rejects_a_supersedes_reference_to_an_unknown_document() -> None:
         )
     assert exc_info.value.document_id == "does-not-exist"
     assert documents.documents == {}  # nothing persisted for a rejected ingest
+
+
+# --- parser_version (Sprint 18, ADR-0042) ---
+
+
+def test_ingest_reports_parser_version_in_the_result_and_the_persisted_document() -> None:
+    svc, _, documents = _make_service()
+    result = svc.ingest("notes.txt", b"Real synthetic evidence content for versioning tests.")
+    assert result.parser_version.startswith("compliance_platform.document_parsers==")
+    stored = documents.get_document(result.document_id)
+    assert stored is not None
+    assert stored.parser_version == result.parser_version

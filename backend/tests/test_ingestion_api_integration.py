@@ -171,6 +171,7 @@ def test_ingested_document_is_retrievable_via_documents_endpoint(client: TestCli
     assert body["submitter"] == "test-suite"
     assert body["supersedes_document_id"] is None
     assert body["superseded_by_document_id"] is None
+    assert body["parser_version"].startswith("compliance_platform.document_parsers==")
 
 
 def test_unknown_document_returns_404(client: TestClient) -> None:
@@ -205,3 +206,43 @@ def test_ingest_rejects_supersedes_reference_to_unknown_document(client: TestCli
         data={"supersedes_document_id": "does-not-exist"},
     )
     assert response.status_code == 422
+
+
+# --- page_number / parser_version provenance (Sprint 18, ADR-0042) ---
+
+
+def test_ingest_reports_a_real_parser_version(client: TestClient) -> None:
+    response = client.post(
+        "/ingest",
+        files={"file": ("policy.txt", b"Some real synthetic policy content here.", "text/plain")},
+    )
+    assert response.status_code == 200
+    assert response.json()["parser_version"].startswith("compliance_platform.document_parsers==")
+
+
+def test_multi_page_pdf_chunks_carry_a_real_page_number_end_to_end(client: TestClient) -> None:
+    from fpdf import FPDF
+
+    # Each page's own text must clear Settings.chunk_target_chars (1200
+    # by default) on its own, or both pages could land in a single
+    # chunk together (fixed-window chunking doesn't respect page
+    # boundaries) and this test would only ever see page 1.
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("Helvetica", size=12)
+    pdf.multi_cell(0, 10, "Access control policy content, page one. " * 40)
+    pdf.add_page()
+    pdf.set_font("Helvetica", size=12)
+    pdf.multi_cell(0, 10, "Incident response policy content, page two. " * 40)
+    content = bytes(pdf.output())
+
+    response = client.post("/ingest", files={"file": ("multi.pdf", content, "application/pdf")})
+    assert response.status_code == 200
+    body = response.json()
+    assert body["parser_version"].startswith("pypdf==")
+
+    repo = dependencies.get_cached_vector_repository()
+    chunks = repo.chunks_for_document(body["document_id"])
+    assert len(chunks) >= 2
+    page_numbers = {c["page_number"] for c in chunks}
+    assert page_numbers == {1, 2}  # real page provenance, not discarded before chunking

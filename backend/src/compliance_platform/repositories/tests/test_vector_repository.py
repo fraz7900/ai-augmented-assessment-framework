@@ -19,6 +19,9 @@ from __future__ import annotations
 import threading
 from pathlib import Path
 
+import lancedb
+import pyarrow as pa
+
 from compliance_platform.models.schemas import ChunkingStrategy, EvidenceChunk
 from compliance_platform.repositories.vector_repository import VectorRepository
 
@@ -196,3 +199,84 @@ def test_reads_stay_correct_under_concurrent_reader_and_writer_threads(tmp_path:
 
     assert errors == []
     assert repo.count() == write_count + 1
+
+
+# --- page_number schema migration (Sprint 18, ADR-0042) ---
+
+
+def test_pre_existing_store_without_page_number_is_migrated_on_open(tmp_path: Path) -> None:
+    # A hand-built "legacy" store on the OLD schema (no page_number
+    # column at all) -- the exact shape any real pre-ADR-0042 local
+    # vector store is in. Constructing VectorRepository against it must
+    # not fail on a schema mismatch, and pre-existing rows must survive
+    # with page_number=None, not be dropped or corrupted.
+    store_dir = tmp_path / "lancedb"
+    store_dir.mkdir()
+    db = lancedb.connect(str(store_dir))
+    old_schema = pa.schema(
+        [
+            pa.field("chunk_id", pa.string()),
+            pa.field("document_id", pa.string()),
+            pa.field("chunk_index", pa.int32()),
+            pa.field("text", pa.string()),
+            pa.field("chunking_strategy", pa.string()),
+            pa.field("section_reference", pa.string()),
+            pa.field("char_start", pa.int32()),
+            pa.field("char_end", pa.int32()),
+            pa.field("vector", pa.list_(pa.float32(), _DIMENSIONS)),
+        ]
+    )
+    table = db.create_table("evidence_chunks", schema=old_schema)
+    table.add(
+        [
+            {
+                "chunk_id": "legacy-1",
+                "document_id": "doc-legacy",
+                "chunk_index": 0,
+                "text": "pre-existing chunk from before page_number existed",
+                "chunking_strategy": "fixed_window",
+                "section_reference": "",
+                "char_start": 0,
+                "char_end": 10,
+                "vector": [0.0] * _DIMENSIONS,
+            }
+        ]
+    )
+
+    repo = VectorRepository(store_dir, _DIMENSIONS)
+    assert repo.count() == 1
+    legacy_chunks = repo.chunks_for_document("doc-legacy")
+    assert legacy_chunks[0]["chunk_id"] == "legacy-1"
+    assert legacy_chunks[0]["page_number"] is None
+
+    # A NEW chunk with a real page_number must also write successfully
+    # against the now-migrated table.
+    new_chunk = EvidenceChunk(
+        chunk_id="new-1",
+        document_id="doc-new",
+        chunk_index=0,
+        text="a fresh chunk on page 3",
+        chunking_strategy=ChunkingStrategy.FIXED_WINDOW,
+        char_start=0,
+        char_end=24,
+        page_number=3,
+    )
+    repo.add_chunks([new_chunk], [[1.0, 0.0, 0.0, 0.0]])
+    new_chunks = repo.chunks_for_document("doc-new")
+    assert new_chunks[0]["page_number"] == 3
+
+
+def test_page_number_round_trips_through_a_fresh_store(tmp_path: Path) -> None:
+    repo = _repo(tmp_path)
+    chunk = EvidenceChunk(
+        chunk_id="c1",
+        document_id="doc-1",
+        chunk_index=0,
+        text="chunk on page 2",
+        chunking_strategy=ChunkingStrategy.FIXED_WINDOW,
+        char_start=0,
+        char_end=15,
+        page_number=2,
+    )
+    repo.add_chunks([chunk], [[1.0, 0.0, 0.0, 0.0]])
+    assert repo.chunks_for_document("doc-1")[0]["page_number"] == 2

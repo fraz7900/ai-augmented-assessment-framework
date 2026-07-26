@@ -127,6 +127,7 @@ class IngestionService:
             document_id=parsed.metadata.document_id,
             text=parsed.raw_text,
             settings=self._settings,
+            page_boundaries=parsed.page_boundaries,
         )
 
         if not chunks:
@@ -146,16 +147,19 @@ class IngestionService:
                 content_hash=parsed.metadata.content_hash,
                 submitter=submitter,
                 supersedes_document_id=supersedes_document_id,
+                parser_version=parsed.metadata.parser_version,
             )
         )
 
         _logger.info(
-            "document ingested id=%s filename=%s file_type=%s chunk_count=%d supersedes=%s",
+            "document ingested id=%s filename=%s file_type=%s chunk_count=%d supersedes=%s "
+            "parser_version=%s",
             parsed.metadata.document_id,
             filename,
             parsed.metadata.file_type,
             len(chunks),
             supersedes_document_id,
+            parsed.metadata.parser_version,
         )
         return IngestionResult(
             document_id=parsed.metadata.document_id,
@@ -164,4 +168,5 @@ class IngestionService:
             parse_warnings=parsed.parse_warnings,
             chunk_count=len(chunks),
             embedding_backend=self._embedder.backend_name,
+            parser_version=parsed.metadata.parser_version,
         )

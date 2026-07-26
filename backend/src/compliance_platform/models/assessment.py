@@ -257,3 +257,11 @@ class Document(SQLModel, table=True):
     submitter: str | None = None
     uploaded_at: datetime = Field(default_factory=_utcnow)
     supersedes_document_id: str | None = Field(default=None, index=True)
+    # Sprint 18, ADR-0042: the real installed parser library version
+    # that produced this document's chunks (e.g. "pypdf==6.14.2"), not
+    # a hand-maintained internal counter. See models/schemas.py
+    # .SourceDocumentMetadata.parser_version for the full rationale.
+    # Default "" only for schema-evolution safety (a value is always
+    # supplied by ingestion_service.py in practice); no pre-existing
+    # Document row can lack it, since this table is new this same sprint.
+    parser_version: str = ""

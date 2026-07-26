@@ -352,6 +352,7 @@ class AssessmentService:
             uploaded_at=document.uploaded_at,
             supersedes_document_id=document.supersedes_document_id,
             superseded_by_document_id=superseded_by.id if superseded_by is not None else None,
+            parser_version=document.parser_version,
         )
 
     def transition_status(

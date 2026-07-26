@@ -32,6 +32,7 @@ class VectorRepository:
         # directly, not assumed (see ADR-0037).
         self._cached_table = None
         self._cache_lock = threading.Lock()
+        self._migrate_schema()
 
     def _schema(self) -> pa.Schema:
         return pa.schema(
@@ -45,8 +46,29 @@ class VectorRepository:
                 pa.field("char_start", pa.int32()),
                 pa.field("char_end", pa.int32()),
                 pa.field("vector", pa.list_(pa.float32(), self._dimensions)),
+                pa.field("page_number", pa.int32()),
             ]
         )
+
+    def _migrate_schema(self) -> None:
+        # LanceDB's own schema-evolution primitive (Table.add_columns) --
+        # this project's equivalent of assessment_repository.py's SQLite
+        # _add_missing_columns() ALTER TABLE helper. create_table(...,
+        # exist_ok=True) does NOT retroactively add a new field to an
+        # already-created on-disk table (confirmed empirically, not
+        # assumed), so a pre-existing store from before page_number
+        # (ADR-0042) existed would otherwise have every existing chunk's
+        # add() call fail on a schema mismatch the moment this repository
+        # tries to write a row with the new field. No-op if the table
+        # doesn't exist yet (a fresh create_table() call will use the
+        # current schema, nothing to migrate) or already has the column.
+        try:
+            table = self._db.open_table(_TABLE_NAME)
+        except ValueError:
+            return
+        existing_fields = {field.name for field in table.schema}
+        if "page_number" not in existing_fields:
+            table.add_columns({"page_number": "CAST(NULL AS INT)"})
 
     def _ensure_table(self):
         # Deliberately not implemented as "check list_tables(), then
@@ -107,6 +129,7 @@ class VectorRepository:
                 "char_start": chunk.char_start,
                 "char_end": chunk.char_end,
                 "vector": vector,
+                "page_number": chunk.page_number,
             }
             for chunk, vector in zip(chunks, vectors, strict=True)
         ]

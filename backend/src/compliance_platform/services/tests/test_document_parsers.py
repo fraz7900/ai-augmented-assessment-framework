@@ -6,6 +6,7 @@ import zipfile
 import openpyxl
 import pytest
 from docx import Document as DocxDocument
+from fpdf import FPDF
 from pypdf import PdfWriter
 
 from compliance_platform.models.schemas import FileType, ParseStatus
@@ -277,3 +278,66 @@ def test_parse_csv_extension_with_binary_content_is_caught_by_content_sniffing()
     parsed = document_parsers.parse_document("fake.csv", binary_content)
     assert parsed.parse_status == ParseStatus.FAILED
     assert any("does not match its .csv extension" in w for w in parsed.parse_warnings)
+
+
+# --- parser_version / page_number provenance (Sprint 18, ADR-0042) ---
+
+
+def test_parser_version_reports_the_real_installed_pypdf_version(sample_pdf_bytes: bytes) -> None:
+    import pypdf
+
+    parsed = document_parsers.parse_document("policy.pdf", sample_pdf_bytes)
+    assert parsed.metadata.parser_version == f"pypdf=={pypdf.__version__}"
+
+
+def test_parser_version_reports_the_real_installed_python_docx_version(
+    sample_docx_bytes: bytes,
+) -> None:
+    import importlib.metadata
+
+    parsed = document_parsers.parse_document("policy.docx", sample_docx_bytes)
+    assert parsed.metadata.parser_version == f"python-docx=={importlib.metadata.version('python-docx')}"
+
+
+def test_parser_version_reports_the_real_installed_openpyxl_version(
+    sample_xlsx_bytes: bytes,
+) -> None:
+    parsed = document_parsers.parse_document("inventory.xlsx", sample_xlsx_bytes)
+    assert parsed.metadata.parser_version == f"openpyxl=={openpyxl.__version__}"
+
+
+def test_parser_version_for_stdlib_only_formats_reports_this_modules_own_version() -> None:
+    for filename, content in [
+        ("notes.txt", b"Some real evidence content here."),
+        ("notes.md", b"# Heading\nBody text."),
+        ("notes.csv", b"Name,Value\nA,1\n"),
+    ]:
+        parsed = document_parsers.parse_document(filename, content)
+        assert parsed.metadata.parser_version.startswith("compliance_platform.document_parsers==")
+
+
+def test_parse_pdf_returns_page_boundaries_that_slice_back_to_each_pages_real_text() -> None:
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("Helvetica", size=12)
+    pdf.multi_cell(0, 10, "Page one content. " * 5)
+    pdf.add_page()
+    pdf.set_font("Helvetica", size=12)
+    pdf.multi_cell(0, 10, "Page two content. " * 5)
+    content = bytes(pdf.output())
+
+    parsed = document_parsers.parse_document("multi.pdf", content)
+    assert parsed.parse_status == ParseStatus.SUCCESS
+    assert parsed.page_boundaries is not None
+    assert len(parsed.page_boundaries) == 2
+    for start, end in parsed.page_boundaries:
+        assert 0 <= start <= end <= len(parsed.raw_text)
+    first_start, first_end = parsed.page_boundaries[0]
+    assert "Page one content" in parsed.raw_text[first_start:first_end]
+    second_start, second_end = parsed.page_boundaries[1]
+    assert "Page two content" in parsed.raw_text[second_start:second_end]
+
+
+def test_non_pdf_formats_have_no_page_boundaries(sample_docx_bytes: bytes) -> None:
+    parsed = document_parsers.parse_document("policy.docx", sample_docx_bytes)
+    assert parsed.page_boundaries is None

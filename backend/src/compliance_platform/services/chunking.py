@@ -81,12 +81,38 @@ def _structure_aware_chunks(
     return results
 
 
-def chunk_document(document_id: str, text: str, settings: Settings) -> list[EvidenceChunk]:
+def _page_number_for_offset(
+    page_boundaries: list[tuple[int, int]] | None, char_start: int
+) -> int | None:
+    """1-indexed page number for a chunk starting at char_start, or None
+    if page_boundaries wasn't supplied (every non-PDF format) or the
+    offset falls outside every known boundary (defensive; shouldn't
+    happen given page_boundaries always spans the full parsed text).
+    A chunk spanning a page break (fixed-window chunking doesn't respect
+    page boundaries) is attributed to its starting page only -- see
+    models/schemas.py EvidenceChunk.page_number's docstring.
+    """
+    if not page_boundaries:
+        return None
+    for page_index, (start, end) in enumerate(page_boundaries, start=1):
+        if start <= char_start < end:
+            return page_index
+    return None
+
+
+def chunk_document(
+    document_id: str,
+    text: str,
+    settings: Settings,
+    page_boundaries: list[tuple[int, int]] | None = None,
+) -> list[EvidenceChunk]:
     """Chunk a parsed document's raw text into EvidenceChunks.
 
     The strategy actually used is recorded on every resulting chunk
     (chunking_strategy field), so downstream consumers and debugging can
     always tell which path produced a given chunk rather than assuming.
+    page_boundaries (Sprint 18, ADR-0042), when supplied (PDF only),
+    tags every chunk with the page it starts on.
     """
     if _has_structural_markup(text):
         raw_chunks = _structure_aware_chunks(
@@ -105,6 +131,7 @@ def chunk_document(document_id: str, text: str, settings: Settings) -> list[Evid
                 section_reference=heading,
                 char_start=start,
                 char_end=end,
+                page_number=_page_number_for_offset(page_boundaries, start),
             )
             for idx, (chunk_text, start, end, heading) in enumerate(raw_chunks)
         ]
@@ -122,6 +149,7 @@ def chunk_document(document_id: str, text: str, settings: Settings) -> list[Evid
             section_reference=None,
             char_start=start,
             char_end=end,
+            page_number=_page_number_for_offset(page_boundaries, start),
         )
         for idx, (chunk_text, start, end) in enumerate(raw_chunks)
     ]
