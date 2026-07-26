@@ -24,6 +24,7 @@ from compliance_platform.models.assessment import (
     PracticeFinding,
     PracticeFindingChange,
     PracticeFindingStatus,
+    SanitizationApproval,
 )
 
 
@@ -265,3 +266,24 @@ class AssessmentRepository:
                 .order_by(text("rowid"))
             )
             return list(session.exec(statement).all())
+
+    def create_sanitization_approval(self, approval: SanitizationApproval) -> SanitizationApproval:
+        with Session(self._engine) as session:
+            session.add(approval)
+            session.commit()
+            session.refresh(approval)
+            return approval
+
+    def latest_sanitization_approval(self, assessment_id: str) -> SanitizationApproval | None:
+        # Most recent by rowid (same reliable-ordering reasoning as
+        # status_history above), i.e. the current standing approval —
+        # an assessment can be re-sanitized and re-approved repeatedly
+        # as its content evolves; only the latest one governs export.
+        with Session(self._engine) as session:
+            statement = (
+                select(SanitizationApproval)
+                .where(SanitizationApproval.assessment_id == assessment_id)
+                .order_by(text("rowid desc"))
+                .limit(1)
+            )
+            return session.exec(statement).first()

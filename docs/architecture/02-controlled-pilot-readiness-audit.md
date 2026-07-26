@@ -1,10 +1,12 @@
 # Controlled-Pilot Readiness: Audit, Risks, and Implementation Plan
 
 **Sprint:** 17
-**Status:** Audit and P0 core-correctness work complete; P1 items partially delivered, remainder
-scoped as next-sprint work (Section F). See `docs/adr/ADR-0030-practice-finding-status-and-evidence-audit-trail.md`
-and `docs/adr/ADR-0031-framework-version-pinning.md` for the two architectural decisions this sprint
-made.
+**Status:** Audit, P0 core-correctness work, and the highest-priority P1 (sanitization) complete;
+remaining P1/P2 items scoped as next-sprint work (Section F). See
+`docs/adr/ADR-0030-practice-finding-status-and-evidence-audit-trail.md`,
+`docs/adr/ADR-0031-framework-version-pinning.md`, and
+`docs/adr/ADR-0032-sanitization-preview-approve-export.md` for the three architectural decisions this
+sprint made.
 
 ## Purpose
 
@@ -36,7 +38,7 @@ are file paths and function/class names in `backend/src/compliance_platform/` un
 | 7 | Dashboard/gap analysis | **PARTIAL → improved this sprint** | Real, typed, per-practice `GapItem` list with domain aggregation and templated (never model-generated) narrative (`services/report_service.py`). | Previously carried no rationale or status beyond a bare `practice_id`/`text`/`mil` — every gap looked identical whether reviewed or not. **Fixed this sprint**: `GapItem.status`/`finding_rationale` (ADR-0030). Still no evidence-link citation embedded directly in `GapItem` (a gap references a practice, not the specific evidence that was reviewed and found insufficient) — noted as Section F follow-up. |
 | 8 | Cross-framework mapping | **COMPLETE** (pairwise mechanism, ADR-0027's ID-collision bug fixed and regression-tested) / canonical taxonomy **MISSING** | `framework_loader.py._merge_equivalents` keyed by `(framework_name, practice_id)` tuples, symmetric resolution via each entry's own `framework_a`/`framework_b`. | Strictly pairwise (`framework_a.practice_a_id <-> framework_b.practice_b_id`), no shared/canonical concept tag anywhere in `models/framework.py` or the YAML schema — confirmed by grep for `category`/`tag`/`concept`/`taxonomy`. See Section E's feasibility note (prototype only, per this sprint's explicit scope limit — no large ontology project). |
 | 9 | PDF/XLSX reporting | **COMPLETE** (export mechanics, ADR-0013) | Dual fpdf2/openpyxl layouts, real `Content-Disposition` filenames, byte-verified in tests (`services/tests/test_export_service.py`). | No redaction/anonymization step anywhere in the pipeline (see #10) — data is exported verbatim. |
-| 10 | Sanitization/anonymization | **MISSING** (zero implementation) | A privacy hook was *designed* in `docs/architecture/01-claude-code-workspace.md` (hook #7) but explicitly marked "Deferred" and is not wired into `.claude/settings.json`. The only code labeled "sanitize" anywhere is `export_service.py`'s `_pdf_safe`, a Latin-1 character-encoding fix for em-dashes/smart quotes — not PII handling. | Full pipeline: detect/redact/pseudonymize names, emails, phones, IPs, hostnames, facility names, account/vendor identifiers; preview/diff; explicit human approval gate before export. None exists. Scoped as next-sprint work — see Section F; not attempted this sprint given the size a defensible implementation requires. |
+| 10 | Sanitization/anonymization | **PARTIAL → delivered this sprint** (pattern-based categories complete; name/facility/vendor detection is reviewer-supplied, not automatic) | Originally zero implementation (a privacy hook was *designed* in `docs/architecture/01-claude-code-workspace.md` but never wired in; the only code labeled "sanitize" was a Latin-1 encoding fix, not PII handling). **Fixed this sprint**: `services/sanitization_service.py` detects EMAIL/PHONE/IP_ADDRESS/HOSTNAME_OR_URL via regex and pseudonymizes reviewer-supplied CUSTOM_TERM identifiers (names, facility/vendor/employee/customer references); `POST .../sanitization/preview` → `POST .../sanitization/approve` → `GET .../report/pdf\|xlsx?sanitized=true`, gated by a content hash so a stale or absent approval blocks export (ADR-0032). | No local NER model exists to auto-detect names/facility/vendor identifiers without a reviewer naming them first — a deliberate, disclosed scope limit (ADR-0032's Alternatives), not an oversight; the same class of ML-dependency decision ADR-0006/0008 made explicitly, not bundled silently into this feature. |
 | 11 | Model/provider abstraction | **COMPLETE** | Real `Protocol`-based DI throughout: `Embedder` (`ai/embeddings.py`), locally-declared `VectorRepositoryProtocol`/`AssessmentRepositoryProtocol`/`FrameworkRegistryProtocol` (`services/assessment_service.py`), constructed exactly once in `api/dependencies.py` and injected — no service imports a concrete embedder/vector-store/repository class. | No `LLMProvider` exists — correctly so, since no generative reasoner exists (#5). A design (not an implementation) is proposed in Section E. |
 | 12 | Security and failure handling | **PARTIAL** | Real size limits, real malformed-file handling (never a 500), no path-traversal vector (upload filenames are never used to construct a filesystem path), no secrets in the codebase (grep for `api_key`/`ANTHROPIC`/`OPENAI`/`ollama` returns nothing — consistent with retrieval-only), `.env` correctly gitignored. | No magic-byte/content-sniffing validation (extension-only). No timeout or decompression-bomb ceiling. **Zero logging anywhere in the backend** (`grep logger` returns nothing) — no leak risk today, but also no audit/observability trail if this becomes multi-user. No documented prompt-injection posture (architecturally moot today — no generative LLM call exists to inject into — but undocumented, which becomes a real gap the moment #5/#18's reasoner design is ever activated). |
 | 13 | Evaluation/testing | **PARTIAL → improved this sprint** | 215 backend tests (pre-sprint) across unit, "integration-flavored unit" (real committed YAML), and two real integration files (real SQLite/LanceDB/FastAPI `TestClient`); 13 frontend tests. Reasonable unit coverage per layer. | **No single test chained the full pipeline** (create → upload → parse → propose → review → dashboard → export) before this sprint — confirmed by direct inspection; the closest, `test_propose_mappings_and_review_workflow_end_to_end`, stops at `/score` and never calls `/dashboard` or export. **Fixed this sprint**: `backend/tests/test_golden_path_e2e.py` (Section C). No retrieval-evaluation tests (precision/recall against a labeled set), no AI-grounding tests (none needed today, since there is no generative output to ground — relevant once #5/#18 changes), no failure-injection tests, no performance-regression tests. |
@@ -50,11 +52,13 @@ are file paths and function/class names in `backend/src/compliance_platform/` un
 1. **[Fixed this sprint] "No evidence" collapsing into "control not implemented."** Impact: high — this
    is the platform's core credibility claim (an assessment result must mean what it says). Likelihood:
    certain (it was the *default*, always-active behavior, not an edge case). See ADR-0030.
-2. **Sanitization is entirely unbuilt while PDF/XLSX export is fully functional.** Impact: high — an
-   export containing unredacted facility names, account identifiers, or personnel names could leave
-   local-first-only infrastructure the moment it's downloaded. Likelihood: high for any real pilot use
-   (evidence documents realistically contain this content). Not fixed this sprint (see Section F);
-   flagged as the single highest-priority remaining P1.
+2. **[Fixed this sprint] Sanitization was entirely unbuilt while PDF/XLSX export is fully functional.**
+   Impact: high — an export containing unredacted facility names, account identifiers, or personnel
+   names could leave local-first-only infrastructure the moment it's downloaded. Likelihood: high for
+   any real pilot use (evidence documents realistically contain this content). Pattern-based categories
+   (email/phone/IP/hostname) plus reviewer-supplied term pseudonymization, gated by a content-hashed
+   approval, delivered this sprint — see ADR-0032. Automatic name/facility/vendor detection (would
+   need an evaluated local NER model) remains a disclosed, deliberate scope limit, not fixed.
 3. **No generative reasoner, by three confirmed decisions — but the mission explicitly asks this to be
    re-evaluated.** Impact: medium (retrieval-only is a real, demonstrated, low-risk architecture per
    ADR-0020's own rationale) but re-opening it without the same explicit-confirmation discipline
@@ -90,13 +94,17 @@ are file paths and function/class names in `backend/src/compliance_platform/` un
 4. **Golden-path end-to-end test** (`backend/tests/test_golden_path_e2e.py`): a fictional energy
    utility's evidence corpus (correct, contradictory, stale, missing, duplicate, and irrelevant
    evidence, across all four supported formats) proves create → upload → parse → retrieve/propose →
-   review → practice-findings → dashboard → PDF/XLSX export in one real test against the real FastAPI
-   app, SQLite, LanceDB, and C2M2 data — the specific gap Section A #13 found. Does not include a
-   sanitize step, honestly, since none exists (Section A #10) — not faked.
+   review → practice-findings → dashboard → sanitization preview/approval → sanitized PDF/XLSX export
+   in one real test against the real FastAPI app, SQLite, LanceDB, and C2M2 data — the specific gap
+   Section A #13 found.
 5. **New repository-level test file** (`repositories/tests/test_assessment_repository.py`): no
    dedicated test existed for `AssessmentRepository` before this sprint; covers the new migration
    helper (including a hand-built legacy-schema database, proving pre-existing data survives) and
    `PracticeFinding` upsert/history semantics directly against real SQLite.
+6. **Sanitization pipeline** (`services/sanitization_service.py`, `SanitizationApproval`):
+   pattern-based redaction (email/phone/IP/hostname) plus reviewer-supplied custom-term
+   pseudonymization, gated by a content-hashed human approval before any sanitized export can
+   succeed — see ADR-0032.
 
 **Migration mechanism** (shared by (1) and (3)): `repositories/assessment_repository.py`'s
 `_add_missing_columns()` — a `PRAGMA table_info` check plus `ALTER TABLE ... ADD COLUMN` for any column
@@ -114,13 +122,16 @@ scale.
 | `services/scoring_service.py` | `excluded_practice_ids` parameter (backward-compatible default) |
 | `services/report_service.py` | Shared `performed_and_excluded_practice_ids()`; findings folded into dashboard/gap/overall-summary building |
 | `services/assessment_service.py` | `set_practice_finding`/list/history; `create_assessment` version pinning; `compute_scores`/`build_dashboard` updated |
-| `api/assessments.py` | Three new practice-finding endpoints |
-| `api/error_handlers.py` | `MissingFindingRationaleError` registered |
+| `api/assessments.py` | Three new practice-finding endpoints; sanitization preview/approve endpoints; `sanitized` query param on report export endpoints |
+| `api/error_handlers.py` | `MissingFindingRationaleError`, `SanitizationNotApprovedError`, `SanitizationApprovalStaleError` registered |
+| `models/sanitization.py` | New file — `SensitivityCategory`, `RedactionMatch`, `SanitizationPreview` |
+| `services/sanitization_service.py` | New file — pattern-based + custom-term sanitization logic |
 | `repositories/tests/test_assessment_repository.py` | New file |
-| `services/tests/test_assessment_service.py` | 11 new tests (findings + version pinning) |
-| `backend/tests/test_assessment_api_integration.py` | 8 new tests |
-| `backend/tests/test_golden_path_e2e.py` | New file |
-| `docs/adr/ADR-0030-...md`, `docs/adr/ADR-0031-...md` | New ADRs |
+| `services/tests/test_assessment_service.py` | 16 new tests (findings, version pinning, sanitization approval workflow) |
+| `services/tests/test_sanitization_service.py` | New file — 10 tests |
+| `backend/tests/test_assessment_api_integration.py` | 12 new tests |
+| `backend/tests/test_golden_path_e2e.py` | New file, extended with a real sanitize step |
+| `docs/adr/ADR-0030-...md`, `docs/adr/ADR-0031-...md`, `docs/adr/ADR-0032-...md` | New ADRs |
 
 ## E. Acceptance criteria (this sprint's scope)
 
@@ -139,7 +150,10 @@ scale.
 - [x] All 215 pre-existing backend tests continue passing unmodified; new coverage added, not
   substituted for existing coverage.
 - [x] No new framework or framework mapping added (frozen per this sprint's explicit scope).
-- [ ] Sanitization pipeline — **not implemented this sprint**, scoped in Section F.
+- [x] Sanitization pipeline — pattern-based (email/phone/IP/hostname) plus reviewer-supplied
+  custom-term pseudonymization, with a content-hash-gated human approval before any sanitized export
+  (ADR-0032). Automatic name/facility/vendor detection without a reviewer naming the term first
+  remains out of scope, disclosed in ADR-0032's Alternatives, not silently dropped.
 - [ ] CPES/AQS tooling — **partially delivered**: CPES computed from real current measurements below;
   AQS requires the expert-labeled golden corpus this sprint's golden-path work is a precursor to, not
   a substitute for — see Section F.
@@ -203,16 +217,21 @@ human-in-the-loop invariant unconditionally.
 the real trade already named in ADR-0020's Rationale (review-burden reduction vs. this project's
 "nothing generated, nothing to hallucinate" property) — not decided by default in either direction.
 
-### F.2 Sanitization pipeline (highest-priority remaining P1)
+### F.2 Sanitization pipeline — **delivered this sprint** (see ADR-0032)
 
-Proposed shape, not implemented: `services/sanitization_service.py` with a `Redactor` protocol
-(pattern-based first pass — emails, phone numbers, IPs, hostnames via regex; names/facility/vendor
-identifiers need either a maintained gazetteer or a small local NER model, evaluated for footprint the
-same way ADR-0006/0008 evaluated embedding backends before choosing). Flow:
-`DashboardReport → sanitize() → SanitizationPreview (diff: original vs. redacted, per field) →
-explicit human approval (new endpoint, e.g. POST /assessments/{id}/report/pdf?sanitized=true requires
-a prior approval record) → export`. Never silently applies — an unapproved sanitized export must be
-blocked the same way `AssessmentFinalizedError` blocks a mutation today.
+`services/sanitization_service.py` detects EMAIL/PHONE/IP_ADDRESS/HOSTNAME_OR_URL via regex and
+pseudonymizes reviewer-supplied CUSTOM_TERM identifiers (names, facility/vendor/employee/customer
+references — deliberately not automatic; see below). Flow: `POST .../sanitization/preview` (diff,
+never persisted) → `POST .../sanitization/approve` (persists a SHA-256 hash of the specific sanitized
+content plus the term list used) → `GET .../report/pdf|xlsx?sanitized=true` (recomputes fresh, blocks
+with 409 if the underlying report has changed since approval, blocks with 412 if never approved at
+all). Golden-path-tested end to end in `backend/tests/test_golden_path_e2e.py`.
+
+**Remaining, disclosed limitation**: automatic detection of names/facility/vendor identifiers without
+a reviewer naming them first would need either a maintained gazetteer or a local NER model — evaluated
+for footprint and local-first compatibility the same way ADR-0006/0008 evaluated embedding backends,
+not adopted unilaterally here (see ADR-0032's Alternatives). A future NER pass could feed suggested
+terms into the same `custom_terms` list a human already reviews, rather than requiring a redesign.
 
 ### F.3 CPES — computed from real measurements (not fabricated)
 
@@ -268,9 +287,11 @@ already delivered.
 
 ### F.7 Frontend follow-up
 
-No frontend surface consumes `PracticeFinding`, `GapItem.status`/`finding_rationale`, or
-`Assessment.framework_version` yet — the backend contract is typed and stable
-(`response_model=PracticeFinding` etc.), but this sprint was scoped to the backend correctness layer
-first, per the mission's own P0-before-polish ordering. Recommended near-term: a finding-status
-control alongside `EvidenceReviewControls.tsx`, and a status badge on each `GapItem` in the dashboard
-view.
+No frontend surface consumes `PracticeFinding`, `GapItem.status`/`finding_rationale`,
+`Assessment.framework_version`, or the sanitization preview/approve/export flow yet — the backend
+contract is typed and stable (`response_model=PracticeFinding`/`SanitizationPreview`/
+`SanitizationApproval` etc.), but this sprint was scoped to the backend correctness layer first, per
+the mission's own P0-before-polish ordering. Recommended near-term: a finding-status control alongside
+`EvidenceReviewControls.tsx`, a status badge on each `GapItem` in the dashboard view, and a
+sanitization preview/diff screen with an explicit approve action gating the existing PDF/XLSX download
+buttons.

@@ -10,6 +10,8 @@ the assessment-generation skill).
 
 from __future__ import annotations
 
+import hashlib
+import json
 from typing import Protocol
 
 from compliance_platform.ai.embeddings import Embedder
@@ -23,10 +25,12 @@ from compliance_platform.models.assessment import (
     PracticeFinding,
     PracticeFindingChange,
     PracticeFindingStatus,
+    SanitizationApproval,
 )
 from compliance_platform.models.chat import ChatResponse, ChatResult
 from compliance_platform.models.framework import FrameworkDefinition
 from compliance_platform.models.report import DashboardReport
+from compliance_platform.models.sanitization import SanitizationPreview
 from compliance_platform.services.chat_service import answer_question
 from compliance_platform.services.export_service import build_pdf_report, build_xlsx_report
 from compliance_platform.services.mapping_service import find_mapping_candidates
@@ -34,7 +38,20 @@ from compliance_platform.services.report_service import (
     build_dashboard,
     performed_and_excluded_practice_ids,
 )
+from compliance_platform.services.sanitization_service import sanitize_dashboard_report
 from compliance_platform.services.scoring_service import compute_assessment_domain_scores
+
+
+def _sanitized_report_hash(report: DashboardReport) -> str:
+    """SHA-256 of the sanitized report's own JSON content, the same
+    hashing convention services/document_parsers.py uses for uploaded
+    document bytes — deterministic (sort_keys) so re-sanitizing
+    identical underlying data always reproduces the same hash, and any
+    real content change (a new finding, an edited rationale) always
+    changes it.
+    """
+    canonical = json.dumps(report.model_dump(mode="json"), sort_keys=True)
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 _REVIEW_DECISIONS = (
     EvidenceReviewStatus.ACCEPTED,
@@ -157,6 +174,37 @@ class MissingFindingRationaleError(Exception):
         )
 
 
+class SanitizationNotApprovedError(Exception):
+    """Raised on a sanitized export request when no SanitizationApproval
+    exists at all for this assessment yet — see
+    services/sanitization_service.py and ADR-0032's "never silently
+    publish an AI-sanitized report" rule.
+    """
+
+    def __init__(self, assessment_id: str) -> None:
+        self.assessment_id = assessment_id
+        super().__init__(
+            f"Assessment '{assessment_id}' has no approved sanitization yet; "
+            "request a preview and approve it before exporting a sanitized report."
+        )
+
+
+class SanitizationApprovalStaleError(Exception):
+    """Raised on a sanitized export request when a SanitizationApproval
+    exists, but the report content it was computed against has since
+    changed (a new/edited finding, an evidence decision, etc.) — the
+    freshly recomputed sanitized report no longer hashes to what was
+    actually approved.
+    """
+
+    def __init__(self, assessment_id: str) -> None:
+        self.assessment_id = assessment_id
+        super().__init__(
+            f"Assessment '{assessment_id}''s report has changed since its sanitization was "
+            "last approved; request a new preview and approval before exporting."
+        )
+
+
 class MappingEngineUnavailableError(Exception):
     def __init__(self) -> None:
         super().__init__("No embedder configured; cannot propose evidence mappings.")
@@ -199,6 +247,10 @@ class AssessmentRepositoryProtocol(Protocol):
     def practice_finding_history(
         self, assessment_id: str, practice_reference: str
     ) -> list[PracticeFindingChange]: ...
+    def create_sanitization_approval(
+        self, approval: SanitizationApproval
+    ) -> SanitizationApproval: ...
+    def latest_sanitization_approval(self, assessment_id: str) -> SanitizationApproval | None: ...
 
 
 class VectorRepositoryProtocol(Protocol):
@@ -362,20 +414,70 @@ class AssessmentService:
         findings = self._assessments.practice_findings_for_assessment(assessment_id)
         return build_dashboard(assessment, framework, evidence_links, findings)
 
-    def generate_dashboard_pdf(self, assessment_id: str) -> bytes:
+    def generate_dashboard_pdf(self, assessment_id: str, sanitized: bool = False) -> bytes:
         """PDF rendering of the same DashboardReport build_dashboard
         returns — see services/export_service.py and ADR-0013. Reuses
         build_dashboard rather than recomputing anything, and therefore
         raises the same AssessmentNotFoundError /
-        FrameworkScoringUnavailableError it does.
+        FrameworkScoringUnavailableError it does. sanitized=True (ADR-0032)
+        renders the approved sanitized report instead, raising
+        SanitizationNotApprovedError/SanitizationApprovalStaleError if
+        no current approval covers the report's real current content —
+        never falls back to exporting unsanitized content silently.
         """
-        return build_pdf_report(self.build_dashboard(assessment_id))
+        if not sanitized:
+            return build_pdf_report(self.build_dashboard(assessment_id))
+        return build_pdf_report(self._approved_sanitized_report(assessment_id))
 
-    def generate_dashboard_xlsx(self, assessment_id: str) -> bytes:
+    def generate_dashboard_xlsx(self, assessment_id: str, sanitized: bool = False) -> bytes:
         """XLSX rendering of the same DashboardReport — see
-        services/export_service.py and ADR-0013.
+        services/export_service.py and ADR-0013. See
+        generate_dashboard_pdf's docstring for the sanitized=True behavior.
         """
-        return build_xlsx_report(self.build_dashboard(assessment_id))
+        if not sanitized:
+            return build_xlsx_report(self.build_dashboard(assessment_id))
+        return build_xlsx_report(self._approved_sanitized_report(assessment_id))
+
+    def preview_sanitization(
+        self, assessment_id: str, custom_terms: list[str] | None = None
+    ) -> SanitizationPreview:
+        """Builds a fresh sanitization preview (ADR-0032) — the
+        preview/diff a human reviewer inspects before approving. Never
+        persisted by itself; approve_sanitization is the only thing
+        that writes a durable record, and only after this exact preview
+        content is re-derived server-side, not trusted from the caller.
+        """
+        dashboard = self.build_dashboard(assessment_id)
+        return sanitize_dashboard_report(dashboard, custom_terms)
+
+    def approve_sanitization(
+        self, assessment_id: str, custom_terms: list[str] | None, approved_by: str
+    ) -> SanitizationApproval:
+        """Records a human's explicit approval of one specific sanitized
+        report (ADR-0032). Recomputes the sanitization server-side from
+        real current data — never trusts a client-supplied "already
+        sanitized" payload — and hashes exactly that content, so a
+        later sanitized export can prove it matches what was approved.
+        """
+        self.get_assessment(assessment_id)  # raises AssessmentNotFoundError if missing
+        preview = self.preview_sanitization(assessment_id, custom_terms)
+        approval = SanitizationApproval(
+            assessment_id=assessment_id,
+            sanitized_content_hash=_sanitized_report_hash(preview.sanitized_report),
+            custom_terms_json=json.dumps(custom_terms or []),
+            approved_by=approved_by,
+        )
+        return self._assessments.create_sanitization_approval(approval)
+
+    def _approved_sanitized_report(self, assessment_id: str) -> DashboardReport:
+        approval = self._assessments.latest_sanitization_approval(assessment_id)
+        if approval is None:
+            raise SanitizationNotApprovedError(assessment_id)
+        custom_terms = json.loads(approval.custom_terms_json)
+        preview = self.preview_sanitization(assessment_id, custom_terms)
+        if _sanitized_report_hash(preview.sanitized_report) != approval.sanitized_content_hash:
+            raise SanitizationApprovalStaleError(assessment_id)
+        return preview.sanitized_report
 
     def answer_question(self, assessment_id: str, question: str) -> ChatResponse:
         """Retrieval-only Q&A over this assessment's reviewed evidence

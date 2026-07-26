@@ -20,6 +20,7 @@ from compliance_platform.models.assessment import (
     PracticeFinding,
     PracticeFindingChange,
     PracticeFindingStatus,
+    SanitizationApproval,
 )
 from compliance_platform.models.framework import (
     Domain,
@@ -42,6 +43,8 @@ from compliance_platform.services.assessment_service import (
     InvalidStatusTransitionError,
     MappingEngineUnavailableError,
     MissingFindingRationaleError,
+    SanitizationApprovalStaleError,
+    SanitizationNotApprovedError,
 )
 
 
@@ -52,6 +55,7 @@ class _FakeAssessmentRepository:
         self._evidence: dict[str, list[EvidenceLink]] = {}
         self._findings: dict[tuple[str, str], PracticeFinding] = {}
         self._finding_history: dict[str, list[PracticeFindingChange]] = {}
+        self._sanitization_approvals: dict[str, list[SanitizationApproval]] = {}
 
     def create_assessment(
         self, name: str, framework_name: str, framework_version: str | None = None
@@ -169,6 +173,14 @@ class _FakeAssessmentRepository:
             for c in self._finding_history.get(assessment_id, [])
             if c.practice_reference == practice_reference
         ]
+
+    def create_sanitization_approval(self, approval: SanitizationApproval) -> SanitizationApproval:
+        self._sanitization_approvals.setdefault(approval.assessment_id, []).append(approval)
+        return approval
+
+    def latest_sanitization_approval(self, assessment_id: str) -> SanitizationApproval | None:
+        approvals = self._sanitization_approvals.get(assessment_id, [])
+        return approvals[-1] if approvals else None
 
 
 class _FakeVectorRepository:
@@ -943,3 +955,91 @@ def test_set_practice_finding_upsert_preserves_history_via_repository() -> None:
     current = service.practice_findings_for_assessment(assessment.id)
     assert len(current) == 1  # upserted, not accumulated as separate rows
     assert current[0].status == PracticeFindingStatus.NOT_SATISFIED
+
+
+# --- Sanitization (ADR-0032) ---
+
+
+def test_preview_sanitization_redacts_pii_in_assessment_name() -> None:
+    framework = _tiny_framework()
+    service, _, _ = _make_service(framework_registry=_FakeFrameworkRegistry({"C2M2": framework}))
+    assessment = service.create_assessment("Contact ops@example-utility.com for details", "C2M2")
+    preview = service.preview_sanitization(assessment.id)
+    assert "ops@example-utility.com" not in preview.sanitized_report.situation.assessment_name
+
+
+def test_export_sanitized_pdf_blocked_without_any_approval() -> None:
+    service, _, _ = _make_service()
+    assessment = service.create_assessment("A", "C2M2")
+    with pytest.raises(SanitizationNotApprovedError):
+        service.generate_dashboard_pdf(assessment.id, sanitized=True)
+
+
+def test_export_sanitized_pdf_succeeds_after_approval() -> None:
+    framework = _tiny_framework()
+    service, _, _ = _make_service(framework_registry=_FakeFrameworkRegistry({"C2M2": framework}))
+    assessment = service.create_assessment("A", "C2M2")
+    service.approve_sanitization(assessment.id, custom_terms=[], approved_by="compliance-lead")
+    pdf_bytes = service.generate_dashboard_pdf(assessment.id, sanitized=True)
+    assert pdf_bytes[:4] == b"%PDF"
+
+
+def test_export_sanitized_pdf_blocked_after_report_content_changes_post_approval() -> None:
+    """The core guarantee: approval is tied to specific content, not a
+    standing on/off toggle. Once approved, adding a new finding changes
+    the report, so the previously-approved hash no longer matches and
+    export must be blocked until re-approved."""
+    framework = _tiny_framework()
+    service, _, _ = _make_service(framework_registry=_FakeFrameworkRegistry({"C2M2": framework}))
+    assessment = service.create_assessment("A", "C2M2")
+    service.approve_sanitization(assessment.id, custom_terms=[], approved_by="compliance-lead")
+
+    service.set_practice_finding(
+        assessment.id, "TEST-1a", PracticeFindingStatus.NOT_SATISFIED, "New finding added."
+    )
+
+    with pytest.raises(SanitizationApprovalStaleError):
+        service.generate_dashboard_pdf(assessment.id, sanitized=True)
+
+    # Re-approving with the current content succeeds again.
+    service.approve_sanitization(assessment.id, custom_terms=[], approved_by="compliance-lead")
+    pdf_bytes = service.generate_dashboard_pdf(assessment.id, sanitized=True)
+    assert pdf_bytes[:4] == b"%PDF"
+
+
+def test_approved_custom_terms_are_reused_at_export_time_not_re_supplied() -> None:
+    """The approved term list, not whatever the export caller happens to
+    pass (export endpoints take no term list at all), governs what a
+    sanitized export actually redacts -- so the export always reproduces
+    exactly what was reviewed and approved."""
+    import io
+
+    from openpyxl import load_workbook
+
+    framework = _tiny_framework()
+    service, _, _ = _make_service(framework_registry=_FakeFrameworkRegistry({"C2M2": framework}))
+    assessment = service.create_assessment("Assessment for Example Utility Co.", "C2M2")
+    service.approve_sanitization(
+        assessment.id, custom_terms=["Example Utility Co."], approved_by="compliance-lead"
+    )
+    xlsx_bytes = service.generate_dashboard_xlsx(assessment.id, sanitized=True)
+    workbook = load_workbook(io.BytesIO(xlsx_bytes))
+    xlsx_text = "\n".join(
+        str(cell.value)
+        for sheet in workbook.worksheets
+        for row in sheet.iter_rows()
+        for cell in row
+        if cell.value is not None
+    )
+    assert "Example Utility Co." not in xlsx_text
+    assert "ORG-TERM" in xlsx_text
+
+
+def test_unsanitized_export_is_unaffected_by_sanitization_feature() -> None:
+    """sanitized defaults to False -- existing export behavior is
+    completely unchanged unless explicitly opted into."""
+    framework = _tiny_framework()
+    service, _, _ = _make_service(framework_registry=_FakeFrameworkRegistry({"C2M2": framework}))
+    assessment = service.create_assessment("Contact ops@example-utility.com", "C2M2")
+    pdf_bytes = service.generate_dashboard_pdf(assessment.id)  # sanitized=False, the default
+    assert pdf_bytes[:4] == b"%PDF"

@@ -191,3 +191,34 @@ class PracticeFindingChange(SQLModel, table=True):
     rationale: str
     set_by: str = Field(default="human")
     changed_at: datetime = Field(default_factory=_utcnow)
+
+
+class SanitizationApproval(SQLModel, table=True):
+    """A human's explicit sign-off on one specific sanitized report
+    (ADR-0032) — "internal assessment -> sanitization -> preview/diff ->
+    human approval -> sanitized export", never a silent step.
+
+    sanitized_content_hash pins exactly what was approved: a SHA-256 of
+    the sanitized DashboardReport's own JSON content, recomputed fresh
+    every time a sanitized export is requested
+    (services/assessment_service.py.generate_dashboard_pdf/xlsx). If
+    anything the report is built from has changed since approval (a new
+    finding, an edited rationale, a newly accepted evidence link), the
+    freshly recomputed hash will not match this stored one, and export
+    is blocked (SanitizationApprovalStaleError) until re-approved —
+    approval is tied to specific content, not to "sanitization is on"
+    as a standing toggle that could authorize a materially different
+    report than what was actually reviewed.
+    """
+
+    id: str = Field(default_factory=_new_id, primary_key=True)
+    assessment_id: str = Field(foreign_key="assessment.id", index=True)
+    sanitized_content_hash: str
+    # JSON-encoded list[str] of the custom terms (names, facility/
+    # vendor/employee identifiers, etc.) in effect for this approval —
+    # stored, not re-derived, so a later export reproduces exactly what
+    # was reviewed rather than whatever custom-term list happens to be
+    # supplied at export time.
+    custom_terms_json: str
+    approved_by: str
+    approved_at: datetime = Field(default_factory=_utcnow)

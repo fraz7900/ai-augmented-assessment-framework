@@ -7,11 +7,13 @@ docs/architecture/00-repository-architecture.md's testing strategy.
 
 from __future__ import annotations
 
+import io
 from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
+from pypdf import PdfReader
 
 from compliance_platform.api import dependencies
 from compliance_platform.core.config import Settings
@@ -953,3 +955,84 @@ def test_not_applicable_finding_excludes_practice_from_score_denominator(
     dashboard = client.get(f"/assessments/{assessment_id}/dashboard").json()
     gap_ids = {g["practice_id"] for group in dashboard["complication"] for g in group["gaps"]}
     assert "ACCESS-1a" not in gap_ids
+
+
+# --- Sanitization (ADR-0032) ---
+
+
+def test_sanitization_preview_does_not_require_approval_first(client: TestClient) -> None:
+    create_response = client.post(
+        "/assessments",
+        json={"name": "Contact security@example-utility.com", "framework_name": "C2M2"},
+    )
+    assessment_id = create_response.json()["id"]
+
+    preview_response = client.post(
+        f"/assessments/{assessment_id}/sanitization/preview", json={"custom_terms": []}
+    )
+    assert preview_response.status_code == 200
+    body = preview_response.json()
+    assert "security@example-utility.com" not in body["sanitized_report"]["situation"]["assessment_name"]
+    assert any(m["category"] == "email" for m in body["matches"])
+
+
+def test_sanitized_export_blocked_until_approved_then_succeeds(client: TestClient) -> None:
+    create_response = client.post(
+        "/assessments", json={"name": "Assessment for Example Utility Co.", "framework_name": "C2M2"}
+    )
+    assessment_id = create_response.json()["id"]
+
+    blocked = client.get(f"/assessments/{assessment_id}/report/pdf?sanitized=true")
+    assert blocked.status_code == 412
+
+    approve_response = client.post(
+        f"/assessments/{assessment_id}/sanitization/approve",
+        json={"custom_terms": ["Example Utility Co."], "approved_by": "compliance-lead"},
+    )
+    assert approve_response.status_code == 200
+    assert approve_response.json()["approved_by"] == "compliance-lead"
+
+    pdf_response = client.get(f"/assessments/{assessment_id}/report/pdf?sanitized=true")
+    assert pdf_response.status_code == 200
+    reader = PdfReader(io.BytesIO(pdf_response.content))
+    pdf_text = "\n".join(page.extract_text() for page in reader.pages)
+    assert "Example Utility Co." not in pdf_text
+    assert "ORG-TERM" in pdf_text
+
+    xlsx_response = client.get(f"/assessments/{assessment_id}/report/xlsx?sanitized=true")
+    assert xlsx_response.status_code == 200
+
+
+def test_sanitized_export_becomes_stale_after_a_new_finding_is_recorded(client: TestClient) -> None:
+    create_response = client.post("/assessments", json={"name": "Test", "framework_name": "C2M2"})
+    assessment_id = create_response.json()["id"]
+    client.post(
+        f"/assessments/{assessment_id}/sanitization/approve",
+        json={"custom_terms": [], "approved_by": "compliance-lead"},
+    )
+    assert client.get(f"/assessments/{assessment_id}/report/pdf?sanitized=true").status_code == 200
+
+    client.put(
+        f"/assessments/{assessment_id}/practice-findings/ACCESS-1a",
+        json={"status": "not_satisfied", "rationale": "Changed after approval."},
+    )
+
+    stale_response = client.get(f"/assessments/{assessment_id}/report/pdf?sanitized=true")
+    assert stale_response.status_code == 409
+
+    # Re-approving against the now-current content resolves it.
+    client.post(
+        f"/assessments/{assessment_id}/sanitization/approve",
+        json={"custom_terms": [], "approved_by": "compliance-lead"},
+    )
+    assert client.get(f"/assessments/{assessment_id}/report/pdf?sanitized=true").status_code == 200
+
+
+def test_unsanitized_export_unaffected_by_sanitization_feature(client: TestClient) -> None:
+    create_response = client.post(
+        "/assessments", json={"name": "Contact security@example-utility.com", "framework_name": "C2M2"}
+    )
+    assessment_id = create_response.json()["id"]
+    # No approval ever created -- default (sanitized=false / omitted) must still work.
+    response = client.get(f"/assessments/{assessment_id}/report/pdf")
+    assert response.status_code == 200

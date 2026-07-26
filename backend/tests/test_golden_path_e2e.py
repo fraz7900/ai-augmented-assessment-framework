@@ -3,22 +3,19 @@
 
 Chains create-assessment -> upload (multi-format, real parser/chunker/
 embedder/LanceDB) -> propose-mappings (retrieval) -> human review ->
-practice findings (ADR-0030) -> dashboard -> PDF/XLSX export, against a
-single small fictional energy-utility evidence corpus deliberately built
-to contain every category the audit's mission brief named: correct
-evidence, missing evidence, contradictory evidence, stale evidence, a
-duplicate upload, and an irrelevant document -- across all four
-supported formats (PDF, DOCX, TXT, MD).
+practice findings (ADR-0030) -> dashboard -> sanitization preview/
+approval (ADR-0032) -> sanitized PDF/XLSX export, against a single small
+fictional energy-utility evidence corpus deliberately built to contain
+every category the audit's mission brief named: correct evidence,
+missing evidence, contradictory evidence, stale evidence, a duplicate
+upload, and an irrelevant document -- across all four supported formats
+(PDF, DOCX, TXT, MD).
 
 No test anywhere in this repository previously chained the full
 pipeline in one place (confirmed during the audit); prior tests each
 covered one or two stages against fakes or in isolation. This is real,
 against the real FastAPI app, real SQLite, real LanceDB, and the real
 C2M2 framework data -- no fakes.
-
-Deliberately does NOT exercise a sanitization/redaction step before
-export: no such capability exists in this codebase yet (see the audit
-document's Section 9/10 findings) and this test does not fake one.
 """
 
 from __future__ import annotations
@@ -312,14 +309,48 @@ def test_golden_path_evidence_to_dashboard_and_export(client: TestClient) -> Non
         if cell.value is not None
     )
     assert "ACCESS-1b" in xlsx_text
+    assert "Northfield Municipal Power & Light" in pdf_text  # unsanitized -- real org name present
 
-    # No sanitization/redaction step exists in this codebase (confirmed by
-    # the controlled-pilot readiness audit) -- this test does not call one
-    # or pretend one ran. See docs/architecture/
-    # 02-controlled-pilot-readiness-audit.md and the mission's recommended
-    # next sprint for that gap.
+    # 9. SANITIZE -- preview the redaction/pseudonymization diff, approve
+    # it explicitly, then confirm the sanitized export actually differs
+    # from the unsanitized one and no longer carries the organization
+    # name -- "internal assessment -> sanitization -> preview/diff ->
+    # human approval -> sanitized export" (ADR-0032), never silent.
+    unsanitized_before_approval = client.get(
+        f"/assessments/{assessment_id}/report/pdf?sanitized=true"
+    )
+    assert unsanitized_before_approval.status_code == 412  # blocked -- no approval yet
 
-    # 9. FINALIZE -- immutability takes effect; further mutation is blocked.
+    preview_response = client.post(
+        f"/assessments/{assessment_id}/sanitization/preview",
+        json={"custom_terms": ["Northfield Municipal Power & Light"]},
+    )
+    assert preview_response.status_code == 200
+    preview = preview_response.json()
+    assert any(m["category"] == "custom_term" for m in preview["matches"])
+    assert (
+        "Northfield Municipal Power & Light"
+        not in preview["sanitized_report"]["situation"]["assessment_name"]
+    )
+
+    approve_response = client.post(
+        f"/assessments/{assessment_id}/sanitization/approve",
+        json={
+            "custom_terms": ["Northfield Municipal Power & Light"],
+            "approved_by": "compliance-lead@review",
+        },
+    )
+    assert approve_response.status_code == 200
+
+    sanitized_pdf_response = client.get(f"/assessments/{assessment_id}/report/pdf?sanitized=true")
+    assert sanitized_pdf_response.status_code == 200
+    sanitized_reader = PdfReader(io.BytesIO(sanitized_pdf_response.content))
+    sanitized_pdf_text = "\n".join(page.extract_text() for page in sanitized_reader.pages)
+    assert "Northfield Municipal Power & Light" not in sanitized_pdf_text
+    assert "ORG-TERM" in sanitized_pdf_text
+    assert "ACCESS-1b" in sanitized_pdf_text  # gap citations survive sanitization too
+
+    # 10. FINALIZE -- immutability takes effect; further mutation is blocked.
     client.post(f"/assessments/{assessment_id}/status", json={"status": "in_review"})
     finalize_response = client.post(
         f"/assessments/{assessment_id}/status", json={"status": "finalized"}

@@ -36,6 +36,8 @@ from compliance_platform.services.assessment_service import (
     InvalidStatusTransitionError,
     MappingEngineUnavailableError,
     MissingFindingRationaleError,
+    SanitizationApprovalStaleError,
+    SanitizationNotApprovedError,
 )
 
 _STATUS_CODE_BY_EXCEPTION: dict[type[Exception], int] = {
@@ -44,6 +46,7 @@ _STATUS_CODE_BY_EXCEPTION: dict[type[Exception], int] = {
     AssessmentFinalizedError: 409,
     EvidenceAlreadyReviewedError: 409,
     InvalidStatusTransitionError: 409,
+    SanitizationApprovalStaleError: 409,
     FrameworkScoringUnavailableError: 422,
     EvidenceDocumentNotIngestedError: 422,
     InvalidPracticeReferenceError: 422,
@@ -51,6 +54,7 @@ _STATUS_CODE_BY_EXCEPTION: dict[type[Exception], int] = {
     MissingFindingRationaleError: 400,
     MappingEngineUnavailableError: 503,
     ChatEngineUnavailableError: 503,
+    SanitizationNotApprovedError: 412,
 }
 
 

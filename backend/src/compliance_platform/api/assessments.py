@@ -31,9 +31,11 @@ from compliance_platform.models.assessment import (
     PracticeFinding,
     PracticeFindingChange,
     PracticeFindingStatus,
+    SanitizationApproval,
 )
 from compliance_platform.models.chat import ChatResponse
 from compliance_platform.models.report import DashboardReport
+from compliance_platform.models.sanitization import SanitizationPreview
 from compliance_platform.services.assessment_service import AssessmentService
 
 router = APIRouter(prefix="/assessments", tags=["assessments"])
@@ -177,16 +179,21 @@ def _slugify_filename(name: str) -> str:
 @router.get("/{assessment_id}/report/pdf")
 def get_dashboard_pdf(
     assessment_id: str,
+    sanitized: bool = False,
     service: AssessmentService = Depends(get_assessment_service),
 ) -> Response:
     """PDF rendering of the same dashboard GET /dashboard returns
     (Sprint 7) — see services/export_service.py and ADR-0013. Same
     error mapping as the dashboard endpoint, since both are built from
-    the same DashboardReport.
+    the same DashboardReport. sanitized=true (ADR-0032) requires a
+    current, matching PracticeFinding/evidence-state approval recorded
+    via POST .../sanitization/approve first — see
+    services/assessment_service.py.
     """
     assessment = service.get_assessment(assessment_id)
-    pdf_bytes = service.generate_dashboard_pdf(assessment_id)
-    filename = f"{_slugify_filename(assessment.name)}_dashboard.pdf"
+    pdf_bytes = service.generate_dashboard_pdf(assessment_id, sanitized=sanitized)
+    suffix = "_sanitized" if sanitized else ""
+    filename = f"{_slugify_filename(assessment.name)}_dashboard{suffix}.pdf"
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
@@ -197,18 +204,65 @@ def get_dashboard_pdf(
 @router.get("/{assessment_id}/report/xlsx")
 def get_dashboard_xlsx(
     assessment_id: str,
+    sanitized: bool = False,
     service: AssessmentService = Depends(get_assessment_service),
 ) -> Response:
     """XLSX rendering of the same dashboard GET /dashboard returns
-    (Sprint 7) — see services/export_service.py and ADR-0013.
+    (Sprint 7) — see services/export_service.py and ADR-0013. See
+    get_dashboard_pdf's docstring for the sanitized=true behavior.
     """
     assessment = service.get_assessment(assessment_id)
-    xlsx_bytes = service.generate_dashboard_xlsx(assessment_id)
-    filename = f"{_slugify_filename(assessment.name)}_dashboard.xlsx"
+    xlsx_bytes = service.generate_dashboard_xlsx(assessment_id, sanitized=sanitized)
+    suffix = "_sanitized" if sanitized else ""
+    filename = f"{_slugify_filename(assessment.name)}_dashboard{suffix}.xlsx"
     return Response(
         content=xlsx_bytes,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+class SanitizationPreviewRequest(BaseModel):
+    custom_terms: list[str] = []
+
+
+class ApproveSanitizationRequest(BaseModel):
+    custom_terms: list[str] = []
+    approved_by: str
+
+
+@router.post("/{assessment_id}/sanitization/preview", response_model=SanitizationPreview)
+def preview_sanitization(
+    assessment_id: str,
+    request: SanitizationPreviewRequest,
+    service: AssessmentService = Depends(get_assessment_service),
+) -> SanitizationPreview:
+    """Read-only preview/diff of what a sanitized export would redact
+    or pseudonymize (ADR-0032) — never persisted, never itself
+    authorizes an export. custom_terms is the reviewer-supplied list of
+    organization-specific identifiers (names, facility/vendor/customer/
+    employee identifiers) to pseudonymize; see
+    services/sanitization_service.py for why those categories can't be
+    detected automatically without fabricating an NER capability this
+    project hasn't evaluated.
+    """
+    return service.preview_sanitization(assessment_id, request.custom_terms)
+
+
+@router.post("/{assessment_id}/sanitization/approve", response_model=SanitizationApproval)
+def approve_sanitization(
+    assessment_id: str,
+    request: ApproveSanitizationRequest,
+    service: AssessmentService = Depends(get_assessment_service),
+) -> SanitizationApproval:
+    """Records explicit human approval of one specific sanitized report
+    (ADR-0032's "never silently publish an AI-sanitized report" rule).
+    Required before GET .../report/pdf|xlsx?sanitized=true will
+    succeed; a later change to the underlying report invalidates this
+    approval automatically (see SanitizationApprovalStaleError).
+    """
+    return service.approve_sanitization(
+        assessment_id, request.custom_terms, request.approved_by
     )
 
 
