@@ -1,0 +1,87 @@
+# CI (ADR-0048): runs the same checks this project has always run
+# manually before every commit - the backend pytest suite, and the
+# frontend's real typecheck/build (`tsc -b`, NOT bare `tsc --noEmit` -
+# that silently checks nothing in this project's project-references
+# tsconfig, see the frontend job below) plus its vitest suite.
+#
+# Two independent jobs, not one - backend and frontend have no shared
+# build step, and running them in parallel is strictly faster than
+# chaining them for no benefit.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  backend-tests:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12" # matches deployment/backend.Dockerfile
+          cache: pip
+          cache-dependency-path: backend/pyproject.toml
+
+      - name: Install backend package with dev dependencies
+        run: pip install -e ".[dev]"
+
+      # The ONNX embedding model (~67MB, BAAI/bge-small-en-v1.5) downloads
+      # to this path on first use in ai/tests/test_embeddings.py and
+      # anything exercising the real embedder - it is not vendored (see
+      # ADR-0017's Decision #2) and data/processed/ is gitignored, so a
+      # fresh checkout has nothing here. Caching it keyed on the model
+      # name avoids re-downloading it on every single run; restore-keys
+      # falls back to any prior cache if the exact key ever changes.
+      - name: Cache embedding model
+        uses: actions/cache@v4
+        with:
+          path: data/processed/model_cache
+          key: onnx-model-BAAI-bge-small-en-v1.5-${{ runner.os }}
+          restore-keys: |
+            onnx-model-BAAI-bge-small-en-v1.5-
+
+      - name: Run backend test suite
+        run: python -m pytest -q
+
+  frontend-checks:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24" # matches deployment/frontend.Dockerfile
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      # --legacy-peer-deps: openapi-typescript declares a peer range of
+      # typescript@^5.x, but this project pins typescript ~6.0.2 - the
+      # same conflict ADR-0017 (Decision #7) hit and resolved with this
+      # exact flag for the Docker build; plain `npm ci` fails here too.
+      - name: Install frontend dependencies
+        run: npm ci --legacy-peer-deps
+
+      # `npm run build` runs `tsc -b && vite build` - this is the real
+      # typecheck, unlike a bare `npx tsc --noEmit` at the repo root,
+      # which resolves this project's project-references tsconfig.json
+      # ("files": [], only "references") and silently checks NOTHING,
+      # a false negative that let a real type error ship undetected
+      # through several manual checks earlier this sprint until a live
+      # Docker build caught it (see ADR-0045). Never swap this back to
+      # bare tsc --noEmit.
+      - name: Typecheck and build frontend
+        run: npm run build
+
+      - name: Run frontend test suite
+        run: npm run test -- --run
