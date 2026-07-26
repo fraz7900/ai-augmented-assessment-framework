@@ -85,6 +85,23 @@ class Settings(BaseSettings):
     chat_similarity_threshold: float = 0.4
     chat_result_limit: int = 5
 
+    # CORS (Sprint 18, ADR-0045: single-user/small-team deployment
+    # hardening). Was previously hardcoded directly in main.py to the
+    # two local Vite-dev-server origins -- fine for local development,
+    # but meant any real deployment on a different host/domain needed a
+    # CODE CHANGE just to have its frontend origin allowed at all.
+    # Defaults preserve exactly the prior hardcoded behavior; a real
+    # deployment overrides via COMPLIANCE_PLATFORM_CORS_ALLOWED_ORIGINS
+    # (comma-separated). Moot for the default deployment/ path (ADR-0045
+    # routes the frontend and API through nginx on one origin, so no
+    # cross-origin request is ever made) -- this exists for local dev
+    # and for anyone who deliberately keeps the backend on a separately
+    # published port instead.
+    cors_allowed_origins: tuple[str, ...] = (
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    )
+
 
 def get_settings() -> Settings:
     """Factory rather than a module-level singleton, so tests can override

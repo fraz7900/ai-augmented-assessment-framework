@@ -17,9 +17,13 @@ COPY frontend/ ./
 
 # Vite bakes import.meta.env.VITE_API_BASE_URL in at BUILD time, and the
 # resulting JS runs in the user's browser - not inside the Compose network -
-# so this must be a browser-reachable URL (the backend's *published host
-# port*), never a Compose-internal service name like http://backend:8000.
-ARG VITE_API_BASE_URL=http://localhost:8000
+# so this must be either a browser-reachable absolute URL, or (the default
+# here, ADR-0045) a same-origin relative path. "/api" matches
+# frontend.nginx.conf's proxy location exactly: nginx serves this bundle
+# AND proxies /api/* to the backend on the same origin/port, so the
+# browser never makes a cross-origin request at all (no CORS involved),
+# and the backend never needs to be published on its own host port.
+ARG VITE_API_BASE_URL=/api
 ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
 RUN npm run build
 

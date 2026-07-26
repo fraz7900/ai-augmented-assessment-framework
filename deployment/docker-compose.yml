@@ -1,13 +1,20 @@
 # Run from this directory: `docker compose up` (backend + frontend only).
 # Ollama is intentionally NOT part of the default stack - see the `ollama`
 # service below and ADR-0017.
+#
+# ADR-0045 (single-user/small-team deployment hardening): the backend is
+# deliberately NOT published on a host port anymore. nginx (the frontend
+# container) is the one gated entry point for both the UI and the API
+# (proxied under /api/, see frontend.nginx.conf) - reaching the backend
+# directly, bypassing that gate, is no longer possible from outside the
+# Compose network. Before you run `docker compose up`, generate
+# secrets/.htpasswd - see README.md; nginx will fail to start without it,
+# which is the correct fail-closed behavior for a missing credentials file.
 services:
   backend:
     build:
       context: ..
       dockerfile: deployment/backend.Dockerfile
-    ports:
-      - "8000:8000"
     volumes:
       - compliance-data:/data
     healthcheck:
@@ -21,15 +28,14 @@ services:
     build:
       context: ..
       dockerfile: deployment/frontend.Dockerfile
-      args:
-        # Browser-reachable URL (see frontend.Dockerfile) - matches the
-        # backend's *published* host port above, not a Compose service name.
-        VITE_API_BASE_URL: http://localhost:8000
+      # VITE_API_BASE_URL defaults to /api (see frontend.Dockerfile) -
+      # same-origin, proxied by nginx to the backend service internally.
     ports:
-      # nginx listens on 80 internally; published on 5173 specifically so
-      # the browser-visible origin matches the backend's existing CORS
-      # allowlist (main.py) exactly, with zero backend changes required.
+      # nginx listens on 80 internally; published on 5173 as the one
+      # host-reachable port for the whole stack (UI + proxied API).
       - "5173:80"
+    volumes:
+      - ./secrets/.htpasswd:/etc/nginx/.htpasswd:ro
     depends_on:
       backend:
         condition: service_healthy

@@ -1,11 +1,15 @@
 # ADR-0017: Docker Compose deployment stack — one named volume, Ollama gated behind a profile, live-verified end to end
 
-**Status:** Accepted, fully verified
+**Status:** Accepted, fully verified — extended by ADR-0045 (Sprint 18), which hardened this stack for
+single-user/small-team deployment on a real host (removed the backend's direct host port, added a
+gated single origin via nginx). The stack described below (direct backend port, no auth) is this
+ADR's original, accurate record of Sprint 10's local-dev-only version — read ADR-0045 for what
+actually runs today.
 **Sprint:** 10 (follow-up to ADR-0016)
 **Deciders:** Fraz Ahmed
 **Related:** `deployment/README.md`, ADR-0002 (data as code), ADR-0011/ADR-0014 (Ollama evaluated,
 not taken), R-6 (ONNX cold-load latency), `docs/product/requirements.md` NFR-7, PROJECT_CHARTER.md
-Section 12
+Section 12, ADR-0045 (Sprint 18 hardening)
 
 ## Context
 
