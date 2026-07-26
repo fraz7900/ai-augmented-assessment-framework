@@ -166,8 +166,9 @@ scale.
   not-applicable pending the reasoner go/no-go decision (§F.1); Evidence Precision/Recall and
   Assessment Agreement are implemented but only demonstrated at a 5-document, non-statistically-
   significant scale — see Section F.4.
-- [ ] Canonical framework ontology — **design note only** (Section F), per this sprint's own explicit
-  instruction not to launch a large ontology project without first proving feasibility is warranted.
+- [x] Canonical framework ontology feasibility probe — `scripts/probe_canonical_ontology.py` (ADR-0035),
+  run against the real NERC CIP↔C2M2 reviewed pairing: ~4.5x tag-overlap lift over baseline, a real
+  positive signal but not proof, no go/no-go decision rendered — see Section F.5.
 
 ---
 
@@ -320,17 +321,31 @@ omitting the metric silently, so a future AQS report can't be misread as implyin
 unsupported-claim rate when no claims exist to measure at all. Sequenced after F.1's reasoner design
 is either approved or declined, as originally planned.
 
-### F.5 Canonical framework ontology — feasibility note only
+### F.5 Canonical framework ontology — feasibility probe run, delivered as a probe, not a build
 
-Prototype-scale investigation only, per this sprint's explicit instruction not to launch a large
-ontology project. The current schema (Section A #8) has zero canonical-tag infrastructure. A minimal
-proof of feasibility would add one optional `Practice.canonical_concepts: list[str]` field (empty by
-default, additive, no schema break) and hand-tag a small sample (e.g. the already-reviewed NERC
-CIP↔C2M2 pairing's ~74 entries) against a short, fixed vocabulary (asset management, vulnerability
-management, IAM, patch management, incident response, recovery, vendor risk, training,
-monitoring/logging, network security) to see whether tag-overlap actually predicts the pairing's own
-human-reviewed equivalence decisions before investing further. Not started this sprint — flagged as a
-cheap, bounded experiment for a future sprint, not a commitment.
+Prototype-scale investigation, per this sprint's explicit instruction not to launch a large ontology
+project. Delivered this sprint (ADR-0035): `Practice.canonical_concepts: list[str]` (additive, empty
+default, no schema break — no `framework_mapping/*.yaml` file populates it yet) and
+`scripts/probe_canonical_ontology.py`, which hand-tags every practice in the already-reviewed NERC
+CIP↔C2M2 equivalence pairing (74 entries, 73 unique NERC CIP practices, 56 unique C2M2 practices)
+against the fixed 10-concept vocabulary named above, from the real verified practice text, tagged
+independently of which pairings exist.
+
+**Result**: tag overlap fires on 91.9% of the 74 real reviewed-equivalent pairs, versus 20.6% across
+the other 4,014 (NERC CIP, C2M2) combinations from the same tagged practice universe — a ~4.5x lift.
+Only one of the 129 tagged practices (`PROGRAM-1a`, a general program-strategy statement) got zero
+tags from the vocabulary at all.
+
+**Reading this honestly, not as a verdict**: a lift this size is a real, positive signal — tag overlap
+correlates with genuine equivalence far more than chance — but a 20.6% baseline hit rate is still high
+enough that tag overlap alone would be a weak *filter*, not a substitute for the retrieval-based
+matching this project already uses (ADR-0011) or for human review. The baseline is also an
+approximation (every non-reviewed pair is treated as a presumed non-match, not an exhaustively
+negative-labeled one, so a few of those 4,014 "misses" may actually be plausible matches nobody has
+reviewed yet — inflating the true lift somewhat, or not, in a direction this probe cannot resolve).
+**No go/no-go decision is made here** — that judgment, and any decision to populate
+`canonical_concepts` in real framework data or build retrieval/filtering logic on top of it, is left
+for the project owner, consistent with this sprint's "feasibility only, not a commitment" scope.
 
 ### F.6 Scalability — **delivered this sprint** (see ADR-0033)
 

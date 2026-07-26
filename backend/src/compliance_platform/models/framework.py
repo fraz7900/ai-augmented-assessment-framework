@@ -67,6 +67,15 @@ class Practice(BaseModel):
     # tier — a real structural concept C2M2/NIST CSF 2.0 have no
     # equivalent of. Empty string for every C2M2/NIST practice.
     applicability: str = ""
+    # Canonical-ontology feasibility probe only (ADR-0035): tags from a
+    # small, fixed vocabulary, meant to answer "does tag overlap predict
+    # human-reviewed cross-framework equivalence" before any real
+    # investment in a full ontology. Additive, empty by default — no
+    # framework_mapping/*.yaml file populates this yet; see
+    # scripts/probe_canonical_ontology.py, which keeps its hand-tagged
+    # data local to the script rather than writing it into verified
+    # framework transcription data pending that decision.
+    canonical_concepts: list[str] = []
 
 
 class Objective(BaseModel):
