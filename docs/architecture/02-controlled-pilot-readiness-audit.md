@@ -1,12 +1,14 @@
 # Controlled-Pilot Readiness: Audit, Risks, and Implementation Plan
 
 **Sprint:** 17
-**Status:** Audit, P0 core-correctness work, and the highest-priority P1 (sanitization) complete;
-remaining P1/P2 items scoped as next-sprint work (Section F). See
+**Status:** Audit, P0 core-correctness work, sanitization (P1), and a scalability benchmark pass with
+one real bug found and fixed are complete; remaining items (reasoner go/no-go, frontend wiring,
+canonical-ontology prototype) scoped as next-sprint work (Section F). See
 `docs/adr/ADR-0030-practice-finding-status-and-evidence-audit-trail.md`,
-`docs/adr/ADR-0031-framework-version-pinning.md`, and
-`docs/adr/ADR-0032-sanitization-preview-approve-export.md` for the three architectural decisions this
-sprint made.
+`docs/adr/ADR-0031-framework-version-pinning.md`,
+`docs/adr/ADR-0032-sanitization-preview-approve-export.md`, and
+`docs/adr/ADR-0033-scalability-benchmark-and-chunks-for-document-fix.md` for the four architectural
+decisions this sprint made.
 
 ## Purpose
 
@@ -42,7 +44,7 @@ are file paths and function/class names in `backend/src/compliance_platform/` un
 | 11 | Model/provider abstraction | **COMPLETE** | Real `Protocol`-based DI throughout: `Embedder` (`ai/embeddings.py`), locally-declared `VectorRepositoryProtocol`/`AssessmentRepositoryProtocol`/`FrameworkRegistryProtocol` (`services/assessment_service.py`), constructed exactly once in `api/dependencies.py` and injected — no service imports a concrete embedder/vector-store/repository class. | No `LLMProvider` exists — correctly so, since no generative reasoner exists (#5). A design (not an implementation) is proposed in Section E. |
 | 12 | Security and failure handling | **PARTIAL** | Real size limits, real malformed-file handling (never a 500), no path-traversal vector (upload filenames are never used to construct a filesystem path), no secrets in the codebase (grep for `api_key`/`ANTHROPIC`/`OPENAI`/`ollama` returns nothing — consistent with retrieval-only), `.env` correctly gitignored. | No magic-byte/content-sniffing validation (extension-only). No timeout or decompression-bomb ceiling. **Zero logging anywhere in the backend** (`grep logger` returns nothing) — no leak risk today, but also no audit/observability trail if this becomes multi-user. No documented prompt-injection posture (architecturally moot today — no generative LLM call exists to inject into — but undocumented, which becomes a real gap the moment #5/#18's reasoner design is ever activated). |
 | 13 | Evaluation/testing | **PARTIAL → improved this sprint** | 215 backend tests (pre-sprint) across unit, "integration-flavored unit" (real committed YAML), and two real integration files (real SQLite/LanceDB/FastAPI `TestClient`); 13 frontend tests. Reasonable unit coverage per layer. | **No single test chained the full pipeline** (create → upload → parse → propose → review → dashboard → export) before this sprint — confirmed by direct inspection; the closest, `test_propose_mappings_and_review_workflow_end_to_end`, stops at `/score` and never calls `/dashboard` or export. **Fixed this sprint**: `backend/tests/test_golden_path_e2e.py` (Section C). No retrieval-evaluation tests (precision/recall against a labeled set), no AI-grounding tests (none needed today, since there is no generative output to ground — relevant once #5/#18 changes), no failure-injection tests, no performance-regression tests. |
-| 14 | Scalability | **MISSING** | No benchmark/load-test tooling anywhere (only prose mentions of *future* intent in ADR-0008 and `00-repository-architecture.md`). Sync FastAPI routes throughout (only `/ingest` is `async def`, and its body is purely sync work), sync SQLite via SQLModel, no connection pooling, no background-job queue. Real corpus baseline: `data/sample_evidence/` has exactly 2 documents; no test exercises more than single-digit document counts. | Appropriately classified as "not yet measured" for a genuinely local-first, single-user tool (ADR-0002/0006/0008/0020's own stated scope) rather than a gap relative to a goal this project has actually committed to — see Section F for the recommended, bounded benchmarking pass. |
+| 14 | Scalability | **MISSING → measured this sprint** | `backend/scripts/benchmark_scalability.py` (new) measures the real app/SQLite/LanceDB/ONNX stack at 100 and 1,000 synthetic documents (ADR-0033). Real numbers, 100→1,000 docs: ingestion 6.4→9.4 docs/sec (scales fine); evidence-linking 207ms→1,428ms per link (**7x degradation, root-caused to a real bug and fixed** — `VectorRepository.chunks_for_document` was doing `table.to_pandas()`, an O(total corpus size) full-table load, on every call); dashboard reads 44ms→20ms p50 (no degradation); LanceDB storage ~1MB→53MB (linear, expected); peak RSS 994MB→3,848MB. | Single-query retrieval latency (95ms→~4s) and `propose-mappings` (53s→15+ min) also degraded sharply, but did **not** reproduce at anywhere near that magnitude in isolated testing — most likely this session's own loaded WSL2 environment, not a proven algorithmic defect; disclosed as an open, unresolved question rather than asserted either way (ADR-0033). `_open_existing_table()` re-opening the table on every call (~40-120ms/call, real but smaller) also found, disclosed, not fixed — a caching fix needs its own concurrent-write-safety verification first. Concurrent-read degradation persisted across every measurement but its exact magnitude is judged unreliable given the same environment noise. |
 | 15 | Reusability | **COMPLETE** | Framework-as-data (#1) confirmed genuinely reusable (adding a framework requires zero application-code changes, per every framework-addition ADR since ADR-0021); repository pattern (#11) confirmed genuinely swappable; `FrameworkRegistry`/`AssessmentRepository`/`VectorRepository` each have exactly one file that knows their concrete implementation. | None found. |
 
 ---
@@ -67,10 +69,14 @@ are file paths and function/class names in `backend/src/compliance_platform/` un
    not implementation (Section E) — the correct response per the mission's own instruction: "if
    introducing generative inference creates unacceptable complexity or violates existing project
    constraints, explicitly demonstrate why."
-4. **No scalability measurement at all, for a product whose real evidence corpora (a genuine energy
-   utility's policy/procedure library) will exceed the 2-document baseline this repo has ever tested
-   against.** Impact: medium-high if a real pilot corpus causes an unmeasured latency/memory cliff.
-   Likelihood: unknown — genuinely unmeasured, not assumed. Not fixed this sprint (see Section F).
+4. **[Measured this sprint] No scalability measurement existed at all, for a product whose real
+   evidence corpora (a genuine energy utility's policy/procedure library) will exceed the 2-document
+   baseline this repo had ever tested against.** Impact: medium-high if a real pilot corpus causes an
+   unmeasured latency/memory cliff. Now measured (ADR-0033): a real, reproducible 7x evidence-linking
+   slowdown at 1,000 documents was found, root-caused to a genuine O(total corpus size) bug in
+   `VectorRepository.chunks_for_document`, and fixed. A second, larger-looking retrieval-latency
+   number did not reproduce in isolated testing and is disclosed as unresolved rather than asserted —
+   see ADR-0033 and §F.6.
 5. **No framework-version drift detection until this sprint; still no content-hash-level detection.**
    Impact: medium (an assessment's scoring could silently change if `framework_mapping/*.yaml` is
    edited between creation and later review) — partially fixed this sprint (ADR-0031 pins the version
@@ -239,17 +245,22 @@ terms into the same `custom_terms` list a human already reviews, rather than req
 not an invented composite score, per the mission's own "do not inflate scores because test count is
 high" instruction:
 
-- **Stability**: 235/235 backend tests passing (100%) after this sprint's changes, including one true
+- **Stability**: 262/262 backend tests passing (100%) after this sprint's changes, including one true
   golden-path E2E test; zero known data-integrity regressions; a real migration-path test proves
   schema evolution doesn't corrupt pre-existing local data. No formalized failure-recovery testing
   exists yet (Section A #13's remaining gap).
-- **Scalability**: **not measured** (Section A #14) — reporting an invented number here would violate
-  this project's own standing discipline. Recommended first step below.
+- **Scalability**: measured this sprint (ADR-0033, §F.6) at 100/1,000 documents. Ingestion and
+  dashboard reads scale cleanly (linear or better). One real, reproducible bottleneck found and
+  fixed (evidence-linking, 7x degradation, root-caused to an O(total corpus) full-table load). One
+  larger-looking number (retrieval latency, 42x) measured but explicitly not trusted as an
+  architectural conclusion — it didn't reproduce in isolated testing, and this project's own
+  discipline is to disclose that uncertainty rather than round it into a confident finding either way.
 - **Reusability**: 7 frameworks added since MVP close with zero application-code changes each (real,
   historical, cited in every framework-addition ADR) — the strongest evidence this project has for
   this dimension; provider abstraction confirmed real (Section A #11, #15).
 
-A single weighted number is deliberately not asserted here given the Scalability gap — presenting one
+A single weighted number is still deliberately not asserted here given the retrieval-latency
+uncertainty just described — presenting one
 would fabricate precision this project doesn't have, the same principle `docs/adr/
 ADR-0012-executive-dashboard-gap-analysis.md` already applied to refusing a fabricated business-impact
 score.
@@ -276,14 +287,30 @@ monitoring/logging, network security) to see whether tag-overlap actually predic
 human-reviewed equivalence decisions before investing further. Not started this sprint — flagged as a
 cheap, bounded experiment for a future sprint, not a commitment.
 
-### F.6 Scalability — recommended first measurement pass
+### F.6 Scalability — **delivered this sprint** (see ADR-0033)
 
-Before any optimization: build a synthetic corpus at 100/1,000 document scale (reusing this sprint's
-in-memory PDF/DOCX generation pattern, `backend/conftest.py`), measure p50/p95 for `/ingest`,
-`/propose-mappings`, `/dashboard`, and report generation, and measure `assessments.db`/LanceDB
-directory size growth. Optimize only what's actually measured as a bottleneck, per the mission's own
-"benchmark before optimizing" instruction — not attempted this sprint given the volume of P0/P1 work
-already delivered.
+`backend/scripts/benchmark_scalability.py` measures the real app/SQLite/LanceDB/ONNX stack at 100 and
+1,000 synthetic documents. Headline results:
+
+| Metric | 100 docs | 1,000 docs | Assessment |
+|---|---|---|---|
+| Ingestion | 6.4 docs/sec | 9.4 docs/sec | Scales fine, no action needed |
+| Evidence linking | 207ms/link p50 | 1,428ms/link p50 (7x) | **Real bug found and fixed** — `chunks_for_document` was doing an O(total corpus) full-table load; now a native filtered query |
+| Single-query retrieval | 95ms p50 | ~4,000ms p50 (42x) | **Unresolved, disclosed, not asserted as a real defect** — did not reproduce in isolated testing; most likely this session's own loaded WSL2 environment |
+| `propose-mappings` (full batch) | 53s | 923s (~15 min) | Same caveat as retrieval above (this call is ~350 retrieval searches) |
+| Dashboard read | 44ms p50 | 20ms p50 | No degradation |
+| LanceDB storage | ~1MB | ~53MB | Linear, expected |
+| Peak RSS | 994MB | 3,848MB | Real, driven by corpus size held in-process during the benchmark run itself |
+
+A second, smaller, high-confidence finding — `VectorRepository._open_existing_table()` re-opens the
+LanceDB table from disk on every call (~40-120ms overhead each, confirmed in isolation) — is real but
+deliberately not fixed this sprint: safely caching an open table handle requires first verifying it
+can't silently serve stale results after a write through a different handle, not verified here.
+
+**Recommended next step, not this sprint**: re-run this exact script on a dedicated, non-shared,
+non-WSL2/OneDrive host to get a trustworthy answer on whether the retrieval-latency number is real —
+right now it's a real measurement from a real (if noisy) environment, not proof of anything at the
+query-algorithm level, and treating it as proof either way would be premature.
 
 ### F.7 Frontend follow-up
 

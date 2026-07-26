@@ -100,12 +100,29 @@ class VectorRepository:
         return table.search(query_vector).limit(limit).to_list()
 
     def chunks_for_document(self, document_id: str) -> list[dict[str, Any]]:
+        """Filtered read of one document's own chunks — deliberately a
+        native LanceDB filter (`search().where(...)`), NOT
+        `table.to_pandas()` + a Python-side dataframe filter. The
+        to_pandas() approach materializes and copies EVERY row in the
+        entire vector store (all documents, all vectors) into memory on
+        every single call, an O(total corpus size) cost for what should
+        be an O(this document's own chunk count) lookup — confirmed as
+        a real, measured bottleneck via
+        backend/scripts/benchmark_scalability.py (evidence-linking
+        latency degraded ~7x, 207ms to 1.4s per link, going from 100 to
+        1000 documents in the vector store; this method is on that
+        call's hot path via services/assessment_service.py.link_evidence's
+        existence check). See docs/architecture/
+        02-controlled-pilot-readiness-audit.md §F.6 and ADR-0033.
+        """
         table = self._open_existing_table()
         if table is None:
             return []
-        df = table.to_pandas()
-        matched = df[df["document_id"] == document_id]
-        return matched.drop(columns=["vector"]).to_dict(orient="records")
+        escaped_id = document_id.replace("'", "''")
+        rows = table.search().where(f"document_id = '{escaped_id}'").to_list()
+        for row in rows:
+            row.pop("vector", None)
+        return rows
 
     def search_within_documents(
         self, query_vector: list[float], document_ids: list[str], limit: int = 5
