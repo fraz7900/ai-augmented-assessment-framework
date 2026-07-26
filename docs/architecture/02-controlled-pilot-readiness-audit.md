@@ -174,7 +174,7 @@ scale.
 
 ## F. Design notes and recommended next sprint
 
-### F.1 Local assessment reasoner — re-evaluated, not implemented
+### F.1 Local assessment reasoner — reconfirmed retrieval-only (ADR-0036), closed
 
 `docs/adr/ADR-0020-mvp-closure-retrieval-only.md` closed retrieval-only as this platform's **permanent**
 architecture, after two prior reconsiderations (ADR-0011/Sprint 5, ADR-0014/Sprint 8) — each an
@@ -223,9 +223,10 @@ rejected, not trusted; (c) the result lands as a **PENDING** `PracticeFinding` w
 (the field ADR-0030 already reserved for exactly this), never auto-applied, preserving this project's
 human-in-the-loop invariant unconditionally.
 
-**Recommendation**: put this design to the project owner directly, the same way D-25/ADR-0020 did, with
-the real trade already named in ADR-0020's Rationale (review-burden reduction vs. this project's
-"nothing generated, nothing to hallucinate" property) — not decided by default in either direction.
+**Resolved this sprint (ADR-0036)**: put to the project owner directly, the same way D-25/ADR-0020
+was — reconfirmed retrieval-only. ADR-0020 stands; no reasoner is built. The design above remains
+available for reference but is not in-progress work, and this thread is closed rather than left open
+for a fourth deferral; reopening it again requires a materially new reason, not a routine status check.
 
 ### F.2 Sanitization pipeline — **delivered this sprint** (see ADR-0032)
 
