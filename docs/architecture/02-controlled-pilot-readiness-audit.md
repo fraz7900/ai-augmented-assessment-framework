@@ -160,9 +160,12 @@ scale.
   custom-term pseudonymization, with a content-hash-gated human approval before any sanitized export
   (ADR-0032). Automatic name/facility/vendor detection without a reviewer naming the term first
   remains out of scope, disclosed in ADR-0032's Alternatives, not silently dropped.
-- [ ] CPES/AQS tooling — **partially delivered**: CPES computed from real current measurements below;
-  AQS requires the expert-labeled golden corpus this sprint's golden-path work is a precursor to, not
-  a substitute for — see Section F.
+- [x] CPES/AQS measurement scaffolding — `scripts/measure_cpes.py` and `scripts/measure_aqs.py`
+  (plus `services/aqs_service.py`, 13 unit tests) turn both from hand-written doc numbers into
+  repeatable, runnable measurements. AQS's Unsupported Claim Rate component remains explicitly
+  not-applicable pending the reasoner go/no-go decision (§F.1); Evidence Precision/Recall and
+  Assessment Agreement are implemented but only demonstrated at a 5-document, non-statistically-
+  significant scale — see Section F.4.
 - [ ] Canonical framework ontology — **design note only** (Section F), per this sprint's own explicit
   instruction not to launch a large ontology project without first proving feasibility is warranted.
 
@@ -239,41 +242,83 @@ for footprint and local-first compatibility the same way ADR-0006/0008 evaluated
 not adopted unilaterally here (see ADR-0032's Alternatives). A future NER pass could feed suggested
 terms into the same `custom_terms` list a human already reviews, rather than requiring a redesign.
 
-### F.3 CPES — computed from real measurements (not fabricated)
+### F.3 CPES — computed from real measurements (not fabricated), now scripted
 
 `CPES = 0.40 Stability + 0.30 Scalability + 0.30 Reusability`. Reported as underlying measurements,
 not an invented composite score, per the mission's own "do not inflate scores because test count is
-high" instruction:
+high" instruction. `scripts/measure_cpes.py` (this sprint) turns this from a hand-written doc
+section into a runnable, repeatable measurement: it runs the real pytest suite for Stability, counts
+`framework_mapping/*.yaml` files for Reusability, and loads a prior `benchmark_scalability.py --output`
+JSON for Scalability if one is given — never re-typing a number by hand. As of this sprint:
 
-- **Stability**: 262/262 backend tests passing (100%) after this sprint's changes, including one true
-  golden-path E2E test; zero known data-integrity regressions; a real migration-path test proves
-  schema evolution doesn't corrupt pre-existing local data. No formalized failure-recovery testing
-  exists yet (Section A #13's remaining gap).
-- **Scalability**: measured this sprint (ADR-0033, §F.6) at 100/1,000 documents. Ingestion and
+- **Stability**: 275/275 backend tests passing (100%) after this sprint's changes (up from 262 —
+  13 new tests for `services/aqs_service.py`, §F.4), including one true golden-path E2E test; zero
+  known data-integrity regressions; a real migration-path test proves schema evolution doesn't
+  corrupt pre-existing local data. No formalized failure-recovery testing exists yet (Section A #13's
+  remaining gap).
+- **Scalability**: measured last sprint (ADR-0033, §F.6) at 100/1,000 documents; not re-run this
+  sprint (`scripts/measure_cpes.py` reports this component as "not measured this run" whenever no
+  `--benchmark-json` is passed, rather than silently carrying forward a stale number). Ingestion and
   dashboard reads scale cleanly (linear or better). One real, reproducible bottleneck found and
   fixed (evidence-linking, 7x degradation, root-caused to an O(total corpus) full-table load). One
   larger-looking number (retrieval latency, 42x) measured but explicitly not trusted as an
   architectural conclusion — it didn't reproduce in isolated testing, and this project's own
   discipline is to disclose that uncertainty rather than round it into a confident finding either way.
-- **Reusability**: 7 frameworks added since MVP close with zero application-code changes each (real,
+- **Reusability**: `scripts/measure_cpes.py` counts 7 framework YAML files currently in
+  `framework_mapping/` (c2m2, cis_controls, iso_27001, nerc_cip, nist_csf, pci_dss, soc2) — a raw
+  current count, not a "since MVP close" delta, which remains a historical fact tracked in the ADR
+  trail, not derived by the script. Zero application-code changes were needed for any of them (real,
   historical, cited in every framework-addition ADR) — the strongest evidence this project has for
   this dimension; provider abstraction confirmed real (Section A #11, #15).
 
-A single weighted number is still deliberately not asserted here given the retrieval-latency
-uncertainty just described — presenting one
-would fabricate precision this project doesn't have, the same principle `docs/adr/
-ADR-0012-executive-dashboard-gap-analysis.md` already applied to refusing a fabricated business-impact
-score.
+`scripts/measure_cpes.py` deliberately never prints a single weighted composite — it hardcodes
+`composite: null` with an explanatory note, so no future run can accidentally start reporting a
+fabricated number just because all three components happened to load successfully. Collapsing
+measurements of differing confidence (a live pytest run vs. a stale/absent benchmark file vs. a
+raw file count standing in for a historical claim) into one number would fabricate precision this
+project doesn't have, the same principle `docs/adr/ADR-0012-executive-dashboard-gap-analysis.md`
+already applied to refusing a fabricated business-impact score.
 
-### F.4 AQS — sequencing, not implementation
+### F.4 AQS — scaffolding delivered, two of three components measured
 
-Requires an expert-labeled golden corpus. This sprint's `test_golden_path_e2e.py` corpus is a real
-step toward one (it already has known-correct answers per evidence category) but is sized for
-pipeline-correctness testing, not statistically meaningful precision/recall measurement. Recommended
-next step: expand it with explicit expected-label annotations per practice and enough volume (the
-mission's own suggested scale) to compute Evidence Recall/Precision, Assessment Agreement, and
-Unsupported Claim Rate meaningfully — sequenced *after* F.1's reasoner design is either approved or
-declined, since Unsupported Claim Rate has no meaning without a reasoner producing claims to measure.
+`services/aqs_service.py` implements two of the mission's three AQS components as pure,
+unit-tested functions (`services/tests/test_aqs_service.py`, 13 tests):
+
+- **Assessment Agreement** (`compute_assessment_agreement`) — computable today from any real
+  assessment's actual human review decisions on AI-proposed evidence links, no labeled corpus
+  required. Deliberately returns `agreement_rate=None` (not `0.0`) when nothing has been reviewed
+  yet, the same "don't fabricate a zero" discipline `report_service.py` already applies elsewhere.
+- **Evidence Precision/Recall** (`compute_evidence_precision_recall`) — a pure set-comparison
+  function; requires an expert-labeled ground-truth corpus, supplied by the caller.
+
+`scripts/measure_aqs.py` demonstrates both end-to-end against the real FastAPI app, SQLite,
+LanceDB, and ONNX embedder, using a 5-document hand-labeled corpus (ground truth decided before
+running the mapping engine, not fit to its output). Explicitly disclosed as pipeline-scaffolding
+scale, not a statistically meaningful sample.
+
+**A real finding surfaced by this small demonstration run, not fixed this sprint**: recall was
+1.0 (4/4 correct practices found) but precision was 0.012 (4 true positives against 338 false
+positives, out of 342 total AI proposals). Root cause: `mapping_service.py`'s
+`mapping_candidates_per_practice=1` takes the single best-matching chunk per uncovered practice and
+proposes it whenever similarity clears `mapping_similarity_threshold=0.55` — with only 5 documents
+in the whole corpus, 342 of C2M2's 356 practices found *some* chunk clearing that threshold, almost
+none of them a real match. This is a genuine, reproducible measurement, not a script defect
+(confirmed: 356 total practices − 1 already-covered ≈ 355 attempted, 342 proposals actually created).
+**Not acted on this sprint** — same discipline as the scalability benchmark's unconfirmed
+retrieval-latency number: one 5-document run does not establish whether 0.55/candidates-per-practice=1
+is miscalibrated at realistic corpus sizes (tens to hundreds of documents) or is an artifact specific
+to a corpus this small, and changing production mapping-engine behavior on a 5-document sample would
+be exactly the "optimize before benchmarking" mistake this project's own discipline prohibits.
+Recommended next step: re-run `scripts/measure_aqs.py` against a corpus sized closer to
+`scripts/benchmark_scalability.py`'s 100-1,000 document range with proper negative-label documents
+included, before considering any threshold change.
+
+**Unsupported Claim Rate** (`unsupported_claim_rate_status`) is not implemented — it requires a
+reasoner producing free-text claims, and this project has none (ADR-0020, re-evaluated not reopened
+this sprint, §F.1). The function returns an explicit, structural not-applicable result rather than
+omitting the metric silently, so a future AQS report can't be misread as implying a zero
+unsupported-claim rate when no claims exist to measure at all. Sequenced after F.1's reasoner design
+is either approved or declined, as originally planned.
 
 ### F.5 Canonical framework ontology — feasibility note only
 
@@ -312,13 +357,15 @@ non-WSL2/OneDrive host to get a trustworthy answer on whether the retrieval-late
 right now it's a real measurement from a real (if noisy) environment, not proof of anything at the
 query-algorithm level, and treating it as proof either way would be premature.
 
-### F.7 Frontend follow-up
+### F.7 Frontend follow-up — **delivered this sprint**
 
-No frontend surface consumes `PracticeFinding`, `GapItem.status`/`finding_rationale`,
-`Assessment.framework_version`, or the sanitization preview/approve/export flow yet — the backend
-contract is typed and stable (`response_model=PracticeFinding`/`SanitizationPreview`/
-`SanitizationApproval` etc.), but this sprint was scoped to the backend correctness layer first, per
-the mission's own P0-before-polish ordering. Recommended near-term: a finding-status control alongside
-`EvidenceReviewControls.tsx`, a status badge on each `GapItem` in the dashboard view, and a
-sanitization preview/diff screen with an explicit approve action gating the existing PDF/XLSX download
-buttons.
+`PracticeFindingStatusBadge.tsx` and `PracticeFindingControls.tsx` (mirroring
+`EvidenceReviewControls.tsx`'s structural pending-only gating, disabled once the assessment is
+finalized) are wired into `GapGroup.tsx`; `AssessmentDetailPage.tsx` shows the pinned
+`framework_version`; `SanitizationPanel.tsx` implements the preview/diff/approve flow and gates the
+sanitized PDF/XLSX download links, matching the backend's hash-gated approval (ADR-0032). Verified
+end-to-end against a live backend instance: typecheck clean, existing test suite green, and the PUT
+practice-finding, dashboard, sanitization preview/approve, and sanitized PDF/XLSX endpoints all
+exercised manually. No browser/screenshot tool was available in this environment, so this was
+endpoint-level verification, not a visual one — worth a manual look before calling the UI itself
+pilot-ready.
