@@ -1,11 +1,12 @@
 # ADR-0045: Single-user/small-team deployment hardening — gated single origin, no direct backend port
 
-**Status:** Accepted, fully verified
+**Status:** Accepted, fully verified — the "TLS/HTTPS" gap disclosed below (in "What this does NOT
+add") was closed in ADR-0047 (Sprint 18 follow-up); read ADR-0047 for the HTTPS-only nginx design.
 **Sprint:** 18 (controlled-pilot readiness pass, follow-up to ADR-0033 through ADR-0044)
 **Deciders:** Fraz Ahmed ("when can I actually deploy the application on an actual host," scoped
 directly to single-user/small-team use, not the explicitly out-of-scope multi-tenant case)
 **Related:** ADR-0017 (original Docker Compose stack), `PROJECT_CHARTER.md` Section 12 (multi-tenant
-auth and cloud/hosted deployment both explicitly out of scope for this MVP)
+auth and cloud/hosted deployment both explicitly out of scope for this MVP), ADR-0047 (TLS follow-up)
 
 ## Context
 

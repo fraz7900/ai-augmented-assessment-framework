@@ -10,6 +10,11 @@
 # Compose network. Before you run `docker compose up`, generate
 # secrets/.htpasswd - see README.md; nginx will fail to start without it,
 # which is the correct fail-closed behavior for a missing credentials file.
+#
+# ADR-0047 (TLS): also generate secrets/tls.crt and secrets/tls.key before
+# your first run (see README.md) - nginx now serves HTTPS only (port 443
+# internally, published on host 5173) and, like .htpasswd, refuses to boot
+# without those files.
 services:
   backend:
     build:
@@ -31,11 +36,15 @@ services:
       # VITE_API_BASE_URL defaults to /api (see frontend.Dockerfile) -
       # same-origin, proxied by nginx to the backend service internally.
     ports:
-      # nginx listens on 80 internally; published on 5173 as the one
-      # host-reachable port for the whole stack (UI + proxied API).
-      - "5173:80"
+      # nginx listens on 443 (HTTPS-only, ADR-0047) internally; published
+      # on 5173 as the one host-reachable port for the whole stack
+      # (UI + proxied API). Visit https://localhost:5173 - there is no
+      # plain-HTTP listener to fall back to.
+      - "5173:443"
     volumes:
       - ./secrets/.htpasswd:/etc/nginx/.htpasswd:ro
+      - ./secrets/tls.crt:/etc/nginx/tls/tls.crt:ro
+      - ./secrets/tls.key:/etc/nginx/tls/tls.key:ro
     depends_on:
       backend:
         condition: service_healthy
