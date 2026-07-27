@@ -74,6 +74,14 @@ class ParsedDocument(BaseModel):
     # has no pages" from "this PDF had zero pages" (already its own
     # EMPTY status).
     page_boundaries: list[tuple[int, int]] | None = None
+    # Row boundaries (Sprint 18, ADR-0052): (char_start, char_end, row_number,
+    # sheet_name) per rendered "Row N: ..." line, relative to raw_text --
+    # populated only by parse_xlsx/parse_csv (every other format has no row
+    # concept). sheet_name is always None for CSV (no sheet concept); XLSX
+    # sets it per the sheet the row came from. None (not an empty list) for
+    # every non-tabular format, same "format doesn't apply" convention as
+    # page_boundaries above.
+    row_boundaries: list[tuple[int, int, int, str | None]] | None = None
 
 
 class EvidenceChunk(BaseModel):
@@ -96,6 +104,23 @@ class EvidenceChunk(BaseModel):
     # doesn't respect them) is attributed to its starting page only --
     # a disclosed simplification, not full multi-page provenance.
     page_number: int | None = None
+    # Row/sheet provenance (Sprint 18, ADR-0052): the 1-indexed spreadsheet
+    # row (matching the "Row N" label already rendered into the chunk's own
+    # text by document_parsers.py) and, for XLSX, the sheet it came from.
+    # Both None for every non-tabular format. sheet_name is also already
+    # available via section_reference for XLSX chunks (structure-aware
+    # chunking's heading detection already captures it) -- this is a
+    # dedicated, typed field so a consumer doesn't need to know the source
+    # file_type to know what section_reference means for this document.
+    # A chunk is attributed to the FIRST row it actually contains, not
+    # necessarily the row nearest its char_start -- unlike page_number's
+    # "starting page only" simplification, a chunk that opens on a sheet's
+    # "# Heading" line (common: the heading is the first thing in every
+    # sheet's section, so most sheets' opening chunk starts there, not on
+    # row 2) would otherwise always report row_number=None despite plainly
+    # containing real row data.
+    row_number: int | None = None
+    sheet_name: str | None = None
 
 
 class IngestionResult(BaseModel):

@@ -342,3 +342,54 @@ def test_parse_pdf_returns_page_boundaries_that_slice_back_to_each_pages_real_te
 def test_non_pdf_formats_have_no_page_boundaries(sample_docx_bytes: bytes) -> None:
     parsed = document_parsers.parse_document("policy.docx", sample_docx_bytes)
     assert parsed.page_boundaries is None
+
+
+# --- row_boundaries (Sprint 18, ADR-0052) ---
+
+
+def test_parse_xlsx_returns_row_boundaries_that_slice_back_to_each_rows_real_text() -> None:
+    wb = openpyxl.Workbook()
+    ws1 = wb.active
+    ws1.title = "Assets"
+    ws1.append(["Asset Name"])
+    ws1.append(["Firewall-01"])
+    ws1.append(["Switch-12"])
+    ws2 = wb.create_sheet("Vendors")
+    ws2.append(["Vendor"])
+    ws2.append(["Acme Corp"])
+    buffer = io.BytesIO()
+    wb.save(buffer)
+
+    parsed = document_parsers.parse_document("inventory.xlsx", buffer.getvalue())
+    assert parsed.parse_status == ParseStatus.SUCCESS
+    assert parsed.page_boundaries is None
+    assert parsed.row_boundaries is not None
+    assert len(parsed.row_boundaries) == 3  # 2 Assets rows + 1 Vendors row
+    for start, end, _row_number, _sheet_name in parsed.row_boundaries:
+        assert 0 <= start <= end <= len(parsed.raw_text)
+
+    by_sheet = {}
+    for start, end, row_number, sheet_name in parsed.row_boundaries:
+        by_sheet.setdefault(sheet_name, []).append((row_number, parsed.raw_text[start:end]))
+
+    assert by_sheet["Assets"] == [
+        (2, "Row 2: Asset Name: Firewall-01"),
+        (3, "Row 3: Asset Name: Switch-12"),
+    ]
+    assert by_sheet["Vendors"] == [(2, "Row 2: Vendor: Acme Corp")]
+
+
+def test_parse_csv_returns_row_boundaries_with_no_sheet_name(sample_csv_bytes: bytes) -> None:
+    parsed = document_parsers.parse_document("inventory.csv", sample_csv_bytes)
+    assert parsed.parse_status == ParseStatus.SUCCESS
+    assert parsed.page_boundaries is None
+    assert parsed.row_boundaries is not None
+    assert len(parsed.row_boundaries) == 2
+    for start, end, row_number, sheet_name in parsed.row_boundaries:
+        assert sheet_name is None  # CSV has no sheet concept
+        assert f"Row {row_number}:" in parsed.raw_text[start:end]
+
+
+def test_non_tabular_formats_have_no_row_boundaries(sample_docx_bytes: bytes) -> None:
+    parsed = document_parsers.parse_document("policy.docx", sample_docx_bytes)
+    assert parsed.row_boundaries is None

@@ -100,11 +100,41 @@ def _page_number_for_offset(
     return None
 
 
+def _row_info_for_offset(
+    row_boundaries: list[tuple[int, int, int, str | None]] | None,
+    char_start: int,
+    char_end: int,
+) -> tuple[int | None, str | None]:
+    """(row_number, sheet_name) for the FIRST row a chunk (char_start,
+    char_end) actually overlaps -- deliberately not "the row containing
+    char_start" the way _page_number_for_offset works for pages. XLSX/CSV
+    chunks commonly start on a "# Sheet Name" heading line (structure-aware
+    chunking's own section boundaries include the heading), which sits
+    BEFORE any row's own (start, end) range -- matching char_start alone
+    would report row_number=None for most sheets' opening chunk despite it
+    plainly containing real row data. Overlap-matching instead picks up
+    the first row the chunk's range genuinely reaches into. row_boundaries
+    entries are built in increasing char order (document_parsers.py), so
+    the first overlap found is the first row in document order, not an
+    arbitrary one. None, None if row_boundaries wasn't supplied (every
+    non-tabular format) or the chunk's range contains no row at all
+    (shouldn't happen given every section has at least one row -- parse_xlsx
+    skips sheets with zero rendered rows entirely).
+    """
+    if not row_boundaries:
+        return None, None
+    for row_start, row_end, row_number, sheet_name in row_boundaries:
+        if row_start < char_end and row_end > char_start:
+            return row_number, sheet_name
+    return None, None
+
+
 def chunk_document(
     document_id: str,
     text: str,
     settings: Settings,
     page_boundaries: list[tuple[int, int]] | None = None,
+    row_boundaries: list[tuple[int, int, int, str | None]] | None = None,
 ) -> list[EvidenceChunk]:
     """Chunk a parsed document's raw text into EvidenceChunks.
 
@@ -112,7 +142,9 @@ def chunk_document(
     (chunking_strategy field), so downstream consumers and debugging can
     always tell which path produced a given chunk rather than assuming.
     page_boundaries (Sprint 18, ADR-0042), when supplied (PDF only),
-    tags every chunk with the page it starts on.
+    tags every chunk with the page it starts on. row_boundaries (Sprint
+    18, ADR-0052), when supplied (XLSX/CSV only), tags every chunk with
+    the first spreadsheet row (and, for XLSX, sheet) it actually contains.
     """
     if _has_structural_markup(text):
         raw_chunks = _structure_aware_chunks(
@@ -121,35 +153,45 @@ def chunk_document(
             settings.chunk_overlap_chars,
             settings.chunk_min_chars,
         )
-        return [
+        chunks = []
+        for idx, (chunk_text, start, end, heading) in enumerate(raw_chunks):
+            row_number, sheet_name = _row_info_for_offset(row_boundaries, start, end)
+            chunks.append(
+                EvidenceChunk(
+                    chunk_id=str(uuid.uuid4()),
+                    document_id=document_id,
+                    chunk_index=idx,
+                    text=chunk_text,
+                    chunking_strategy=ChunkingStrategy.STRUCTURE_AWARE,
+                    section_reference=heading,
+                    char_start=start,
+                    char_end=end,
+                    page_number=_page_number_for_offset(page_boundaries, start),
+                    row_number=row_number,
+                    sheet_name=sheet_name,
+                )
+            )
+        return chunks
+
+    raw_chunks = _fixed_window_chunks(
+        text, settings.chunk_target_chars, settings.chunk_overlap_chars, settings.chunk_min_chars
+    )
+    chunks = []
+    for idx, (chunk_text, start, end) in enumerate(raw_chunks):
+        row_number, sheet_name = _row_info_for_offset(row_boundaries, start, end)
+        chunks.append(
             EvidenceChunk(
                 chunk_id=str(uuid.uuid4()),
                 document_id=document_id,
                 chunk_index=idx,
                 text=chunk_text,
-                chunking_strategy=ChunkingStrategy.STRUCTURE_AWARE,
-                section_reference=heading,
+                chunking_strategy=ChunkingStrategy.FIXED_WINDOW,
+                section_reference=None,
                 char_start=start,
                 char_end=end,
                 page_number=_page_number_for_offset(page_boundaries, start),
+                row_number=row_number,
+                sheet_name=sheet_name,
             )
-            for idx, (chunk_text, start, end, heading) in enumerate(raw_chunks)
-        ]
-
-    raw_chunks = _fixed_window_chunks(
-        text, settings.chunk_target_chars, settings.chunk_overlap_chars, settings.chunk_min_chars
-    )
-    return [
-        EvidenceChunk(
-            chunk_id=str(uuid.uuid4()),
-            document_id=document_id,
-            chunk_index=idx,
-            text=chunk_text,
-            chunking_strategy=ChunkingStrategy.FIXED_WINDOW,
-            section_reference=None,
-            char_start=start,
-            char_end=end,
-            page_number=_page_number_for_offset(page_boundaries, start),
         )
-        for idx, (chunk_text, start, end) in enumerate(raw_chunks)
-    ]
+    return chunks

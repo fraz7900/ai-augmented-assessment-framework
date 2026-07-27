@@ -129,6 +129,7 @@ class IngestionService:
             text=parsed.raw_text,
             settings=self._settings,
             page_boundaries=parsed.page_boundaries,
+            row_boundaries=parsed.row_boundaries,
         )
 
         if not chunks:

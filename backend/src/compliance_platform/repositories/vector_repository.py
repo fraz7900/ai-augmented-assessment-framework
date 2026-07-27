@@ -47,6 +47,8 @@ class VectorRepository:
                 pa.field("char_end", pa.int32()),
                 pa.field("vector", pa.list_(pa.float32(), self._dimensions)),
                 pa.field("page_number", pa.int32()),
+                pa.field("row_number", pa.int32()),
+                pa.field("sheet_name", pa.string()),
             ]
         )
 
@@ -57,11 +59,12 @@ class VectorRepository:
         # exist_ok=True) does NOT retroactively add a new field to an
         # already-created on-disk table (confirmed empirically, not
         # assumed), so a pre-existing store from before page_number
-        # (ADR-0042) existed would otherwise have every existing chunk's
-        # add() call fail on a schema mismatch the moment this repository
-        # tries to write a row with the new field. No-op if the table
-        # doesn't exist yet (a fresh create_table() call will use the
-        # current schema, nothing to migrate) or already has the column.
+        # (ADR-0042) or row_number/sheet_name (ADR-0052) existed would
+        # otherwise have every existing chunk's add() call fail on a
+        # schema mismatch the moment this repository tries to write a row
+        # with the new field. No-op if the table doesn't exist yet (a
+        # fresh create_table() call will use the current schema, nothing
+        # to migrate) or already has the column.
         try:
             table = self._db.open_table(_TABLE_NAME)
         except ValueError:
@@ -69,6 +72,10 @@ class VectorRepository:
         existing_fields = {field.name for field in table.schema}
         if "page_number" not in existing_fields:
             table.add_columns({"page_number": "CAST(NULL AS INT)"})
+        if "row_number" not in existing_fields:
+            table.add_columns({"row_number": "CAST(NULL AS INT)"})
+        if "sheet_name" not in existing_fields:
+            table.add_columns({"sheet_name": "CAST(NULL AS STRING)"})
 
     def _ensure_table(self):
         # Deliberately not implemented as "check list_tables(), then
@@ -130,6 +137,8 @@ class VectorRepository:
                 "char_end": chunk.char_end,
                 "vector": vector,
                 "page_number": chunk.page_number,
+                "row_number": chunk.row_number,
+                "sheet_name": chunk.sheet_name or "",
             }
             for chunk, vector in zip(chunks, vectors, strict=True)
         ]

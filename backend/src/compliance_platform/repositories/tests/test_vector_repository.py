@@ -269,6 +269,100 @@ def test_pre_existing_store_without_page_number_is_migrated_on_open(tmp_path: Pa
     assert new_chunks[0]["page_number"] == 3
 
 
+# --- row_number/sheet_name schema migration (Sprint 18, ADR-0052) ---
+
+
+def test_pre_existing_store_without_row_number_or_sheet_name_is_migrated_on_open(
+    tmp_path: Path,
+) -> None:
+    # A hand-built "legacy" store on the post-ADR-0042 schema (has
+    # page_number, predates row_number/sheet_name) -- the realistic shape
+    # of any real pre-ADR-0052 local vector store. Same discipline as the
+    # page_number migration test above: must not fail on the schema
+    # mismatch, and pre-existing rows must survive with row_number/
+    # sheet_name=None, not be dropped or corrupted.
+    store_dir = tmp_path / "lancedb"
+    store_dir.mkdir()
+    db = lancedb.connect(str(store_dir))
+    old_schema = pa.schema(
+        [
+            pa.field("chunk_id", pa.string()),
+            pa.field("document_id", pa.string()),
+            pa.field("chunk_index", pa.int32()),
+            pa.field("text", pa.string()),
+            pa.field("chunking_strategy", pa.string()),
+            pa.field("section_reference", pa.string()),
+            pa.field("char_start", pa.int32()),
+            pa.field("char_end", pa.int32()),
+            pa.field("vector", pa.list_(pa.float32(), _DIMENSIONS)),
+            pa.field("page_number", pa.int32()),
+        ]
+    )
+    table = db.create_table("evidence_chunks", schema=old_schema)
+    table.add(
+        [
+            {
+                "chunk_id": "legacy-1",
+                "document_id": "doc-legacy",
+                "chunk_index": 0,
+                "text": "pre-existing chunk from before row_number/sheet_name existed",
+                "chunking_strategy": "fixed_window",
+                "section_reference": "",
+                "char_start": 0,
+                "char_end": 10,
+                "vector": [0.0] * _DIMENSIONS,
+                "page_number": None,
+            }
+        ]
+    )
+
+    repo = VectorRepository(store_dir, _DIMENSIONS)
+    assert repo.count() == 1
+    legacy_chunks = repo.chunks_for_document("doc-legacy")
+    assert legacy_chunks[0]["chunk_id"] == "legacy-1"
+    assert legacy_chunks[0]["row_number"] is None
+    assert legacy_chunks[0]["sheet_name"] is None
+
+    # A NEW chunk with real row_number/sheet_name must also write
+    # successfully against the now-migrated table.
+    new_chunk = EvidenceChunk(
+        chunk_id="new-1",
+        document_id="doc-new",
+        chunk_index=0,
+        text="Row 2: Name: Firewall-01",
+        chunking_strategy=ChunkingStrategy.STRUCTURE_AWARE,
+        section_reference="Assets",
+        char_start=0,
+        char_end=25,
+        row_number=2,
+        sheet_name="Assets",
+    )
+    repo.add_chunks([new_chunk], [[1.0, 0.0, 0.0, 0.0]])
+    new_chunks = repo.chunks_for_document("doc-new")
+    assert new_chunks[0]["row_number"] == 2
+    assert new_chunks[0]["sheet_name"] == "Assets"
+
+
+def test_row_number_and_sheet_name_round_trip_through_a_fresh_store(tmp_path: Path) -> None:
+    repo = _repo(tmp_path)
+    chunk = EvidenceChunk(
+        chunk_id="c1",
+        document_id="doc-1",
+        chunk_index=0,
+        text="Row 3: Owner: NetOps",
+        chunking_strategy=ChunkingStrategy.STRUCTURE_AWARE,
+        section_reference="Assets",
+        char_start=0,
+        char_end=20,
+        row_number=3,
+        sheet_name="Assets",
+    )
+    repo.add_chunks([chunk], [[1.0, 0.0, 0.0, 0.0]])
+    chunks = repo.chunks_for_document("doc-1")
+    assert chunks[0]["row_number"] == 3
+    assert chunks[0]["sheet_name"] == "Assets"
+
+
 def test_page_number_round_trips_through_a_fresh_store(tmp_path: Path) -> None:
     repo = _repo(tmp_path)
     chunk = EvidenceChunk(

@@ -37,9 +37,18 @@ from compliance_platform.models.schemas import (
 _PARSER_MODULE_VERSION = "1"
 
 # (extracted text, status, warnings, page boundaries as (char_start, char_end)
-# per page, or None for formats with no page concept) -- shared by every
-# parse_*() function below.
-ParseResult = tuple[str, ParseStatus, list[str], list[tuple[int, int]] | None]
+# per page or None for formats with no page concept, row boundaries as
+# (char_start, char_end, row_number, sheet_name) per rendered row or None
+# for formats with no row concept) -- shared by every parse_*() function
+# below. Exactly one of page/row boundaries is non-None for any given
+# format (PDF has pages, XLSX/CSV have rows, everything else has neither).
+ParseResult = tuple[
+    str,
+    ParseStatus,
+    list[str],
+    list[tuple[int, int]] | None,
+    list[tuple[int, int, int, str | None]] | None,
+]
 
 
 def _parser_version(file_type: FileType) -> str:
@@ -134,11 +143,11 @@ def parse_pdf(content: bytes) -> ParseResult:
     try:
         reader = PdfReader(io.BytesIO(content))
     except Exception as exc:  # pypdf raises varied exception types on malformed PDFs
-        return "", ParseStatus.FAILED, [f"Could not open PDF: {exc}"], None
+        return "", ParseStatus.FAILED, [f"Could not open PDF: {exc}"], None, None
 
     page_count = len(reader.pages)
     if page_count == 0:
-        return "", ParseStatus.EMPTY, ["PDF has zero pages."], None
+        return "", ParseStatus.EMPTY, ["PDF has zero pages."], None, None
 
     page_texts: list[str] = []
     for i, page in enumerate(reader.pages):
@@ -171,9 +180,9 @@ def parse_pdf(content: bytes) -> ParseResult:
             f"across {page_count} page(s); this looks like a scanned or "
             "image-only PDF, which the MVP does not support (no OCR)."
         )
-        return text, ParseStatus.UNSUPPORTED_SCANNED, warnings, page_boundaries
+        return text, ParseStatus.UNSUPPORTED_SCANNED, warnings, page_boundaries, None
 
-    return text, ParseStatus.SUCCESS, warnings, page_boundaries
+    return text, ParseStatus.SUCCESS, warnings, page_boundaries, None
 
 
 def parse_docx(content: bytes) -> ParseResult:
@@ -181,14 +190,14 @@ def parse_docx(content: bytes) -> ParseResult:
     try:
         _, ceiling_warning = _zip_bomb_ceiling_warning(content, "DOCX")
     except zipfile.BadZipFile as exc:
-        return "", ParseStatus.FAILED, [f"Could not open DOCX: {exc}"], None
+        return "", ParseStatus.FAILED, [f"Could not open DOCX: {exc}"], None, None
     if ceiling_warning:
-        return "", ParseStatus.FAILED, [ceiling_warning], None
+        return "", ParseStatus.FAILED, [ceiling_warning], None, None
 
     try:
         doc = DocxDocument(io.BytesIO(content))
     except Exception as exc:
-        return "", ParseStatus.FAILED, [f"Could not open DOCX: {exc}"], None
+        return "", ParseStatus.FAILED, [f"Could not open DOCX: {exc}"], None, None
 
     lines: list[str] = []
     for para in doc.paragraphs:
@@ -204,9 +213,9 @@ def parse_docx(content: bytes) -> ParseResult:
     full_text = "\n".join(lines)
     if not full_text.strip():
         warnings.append("DOCX contained no extractable paragraph text.")
-        return full_text, ParseStatus.EMPTY, warnings, None
+        return full_text, ParseStatus.EMPTY, warnings, None, None
 
-    return full_text, ParseStatus.SUCCESS, warnings, None
+    return full_text, ParseStatus.SUCCESS, warnings, None, None
 
 
 def parse_plain_text(content: bytes) -> ParseResult:
@@ -220,17 +229,17 @@ def parse_plain_text(content: bytes) -> ParseResult:
         )
         text = content.decode("latin-1", errors="replace")
         if not text.strip():
-            return "", ParseStatus.ENCODING_FAILURE, warnings, None
+            return "", ParseStatus.ENCODING_FAILURE, warnings, None, None
 
     if not text.strip():
-        return text, ParseStatus.EMPTY, ["File contained no text content."], None
+        return text, ParseStatus.EMPTY, ["File contained no text content."], None, None
 
-    return text, ParseStatus.SUCCESS, warnings, None
+    return text, ParseStatus.SUCCESS, warnings, None, None
 
 
 def _render_tabular_rows(
     header: list[str], rows: list[list[str]], start_row_number: int
-) -> list[str]:
+) -> list[tuple[str, int]]:
     """Renders each data row as "Row <N>: col1: val1 | col2: val2 | ..."
     -- self-describing (a chunk containing just "Firewall-01 | NetOps"
     with no column context would be far weaker evidence than one
@@ -241,15 +250,44 @@ def _render_tabular_rows(
     handles ragged rows (shorter/longer than the header) without
     crashing, a real condition in real-world spreadsheets. Blank rows
     (every cell empty) are skipped, not rendered as an empty citation.
+
+    Returns (line_text, row_number) pairs, not bare strings (Sprint 18,
+    ADR-0052) -- callers building row_boundaries need the real row_number
+    per line, which is NOT the same as its position in the returned list
+    once blank rows are skipped (enumerate(rows) alone would silently
+    misnumber every row after the first skip).
     """
-    lines: list[str] = []
+    lines: list[tuple[str, int]] = []
     for offset, row in enumerate(rows):
         if not any(cell.strip() for cell in row):
             continue
         pairs = " | ".join(f"{h}: {v}" for h, v in zip(header, row, strict=False) if h.strip())
         if pairs:
-            lines.append(f"Row {start_row_number + offset}: {pairs}")
+            row_number = start_row_number + offset
+            lines.append((f"Row {row_number}: {pairs}", row_number))
     return lines
+
+
+def _append_rendered_rows(
+    rendered: list[tuple[str, int]],
+    sheet_name: str | None,
+    lines: list[str],
+    row_boundaries: list[tuple[int, int, int, str | None]],
+    cursor: int,
+) -> int:
+    """Appends each rendered (line_text, row_number) to `lines`, recording
+    its real char offset in `row_boundaries` as it goes, and returns the
+    updated cursor -- shared by parse_xlsx (per sheet) and parse_csv (one
+    call, sheet_name=None), so the char-offset bookkeeping (mirroring
+    parse_pdf's page_boundaries pattern above) exists in exactly one place.
+    """
+    for line_text, row_number in rendered:
+        start = cursor
+        end = start + len(line_text)
+        row_boundaries.append((start, end, row_number, sheet_name))
+        lines.append(line_text)
+        cursor = end + 1  # the "\n" separator between lines
+    return cursor
 
 
 def parse_xlsx(content: bytes) -> ParseResult:
@@ -257,20 +295,22 @@ def parse_xlsx(content: bytes) -> ParseResult:
     try:
         _, ceiling_warning = _zip_bomb_ceiling_warning(content, "XLSX")
     except zipfile.BadZipFile as exc:
-        return "", ParseStatus.FAILED, [f"Could not open XLSX: {exc}"], None
+        return "", ParseStatus.FAILED, [f"Could not open XLSX: {exc}"], None, None
     if ceiling_warning:
-        return "", ParseStatus.FAILED, [ceiling_warning], None
+        return "", ParseStatus.FAILED, [ceiling_warning], None, None
 
     try:
         workbook = openpyxl.load_workbook(io.BytesIO(content), read_only=True, data_only=True)
     except Exception as exc:
-        return "", ParseStatus.FAILED, [f"Could not open XLSX: {exc}"], None
+        return "", ParseStatus.FAILED, [f"Could not open XLSX: {exc}"], None, None
 
     # Sheet names rendered as "# Sheet Name" headings so
     # chunking.py's existing structure-aware chunker (already keyed off
     # literal "# " markers, per DOCX's own heading convention above)
     # splits by sheet automatically -- no new chunking logic needed.
     lines: list[str] = []
+    row_boundaries: list[tuple[int, int, int, str | None]] = []
+    cursor = 0
     for sheet in workbook.worksheets:
         sheet_rows = list(sheet.iter_rows(values_only=True))
         if not sheet_rows:
@@ -279,15 +319,23 @@ def parse_xlsx(content: bytes) -> ParseResult:
         data_rows = [[str(c) if c is not None else "" for c in row] for row in sheet_rows[1:]]
         rendered = _render_tabular_rows(header, data_rows, start_row_number=2)
         if rendered:
-            lines.append(f"# {sheet.title}")
-            lines.extend(rendered)
+            heading = f"# {sheet.title}"
+            lines.append(heading)
+            cursor += len(heading) + 1  # the "\n" after the heading line
+            cursor = _append_rendered_rows(rendered, sheet.title, lines, row_boundaries, cursor)
     workbook.close()
 
     text = "\n".join(lines)
     if not text.strip():
-        return text, ParseStatus.EMPTY, ["XLSX contained no data rows across any sheet."], None
+        return (
+            text,
+            ParseStatus.EMPTY,
+            ["XLSX contained no data rows across any sheet."],
+            None,
+            None,
+        )
 
-    return text, ParseStatus.SUCCESS, warnings, None
+    return text, ParseStatus.SUCCESS, warnings, None, row_boundaries
 
 
 def parse_csv(content: bytes) -> ParseResult:
@@ -304,17 +352,21 @@ def parse_csv(content: bytes) -> ParseResult:
     try:
         rows = list(csv.reader(io.StringIO(text_content)))
     except Exception as exc:  # the stdlib csv module can raise on pathological content
-        return "", ParseStatus.FAILED, [f"Could not parse CSV: {exc}"], None
+        return "", ParseStatus.FAILED, [f"Could not parse CSV: {exc}"], None, None
 
     if not rows:
-        return "", ParseStatus.EMPTY, ["CSV contained no rows."], None
+        return "", ParseStatus.EMPTY, ["CSV contained no rows."], None, None
 
-    lines = _render_tabular_rows(rows[0], rows[1:], start_row_number=2)
+    rendered = _render_tabular_rows(rows[0], rows[1:], start_row_number=2)
+    lines: list[str] = []
+    row_boundaries: list[tuple[int, int, int, str | None]] = []
+    # CSV has no sheet concept -- sheet_name is always None here.
+    _append_rendered_rows(rendered, None, lines, row_boundaries, cursor=0)
     text = "\n".join(lines)
     if not text.strip():
-        return text, ParseStatus.EMPTY, ["CSV contained no data rows."], None
+        return text, ParseStatus.EMPTY, ["CSV contained no data rows."], None, None
 
-    return text, ParseStatus.SUCCESS, warnings, None
+    return text, ParseStatus.SUCCESS, warnings, None, row_boundaries
 
 
 _PARSERS = {
@@ -357,7 +409,7 @@ def parse_document(
     file_type = file_type_from_extension(filename)
 
     if not _content_matches_file_type(content, file_type):
-        text, status, warnings, page_boundaries = (
+        text, status, warnings, page_boundaries, row_boundaries = (
             "",
             ParseStatus.FAILED,
             [
@@ -366,10 +418,11 @@ def parse_document(
                 "to a format-specific parser expecting content it doesn't actually contain."
             ],
             None,
+            None,
         )
     else:
         parser = _PARSERS[file_type]
-        text, status, warnings, page_boundaries = parser(content)
+        text, status, warnings, page_boundaries, row_boundaries = parser(content)
 
     metadata = SourceDocumentMetadata(
         document_id=_new_document_id(),
@@ -386,4 +439,5 @@ def parse_document(
         parse_status=status,
         parse_warnings=warnings,
         page_boundaries=page_boundaries,
+        row_boundaries=row_boundaries,
     )

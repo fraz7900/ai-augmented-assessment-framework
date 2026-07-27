@@ -94,3 +94,71 @@ def test_page_number_uses_a_chunks_starting_offset_when_it_spans_a_page_boundary
     first_chunk = chunks[0]
     assert first_chunk.char_start < 50 < first_chunk.char_end  # genuinely spans the page break
     assert first_chunk.page_number == 1
+
+
+# --- row_number/sheet_name (Sprint 18, ADR-0052) ---
+
+
+def test_row_number_and_sheet_name_are_none_when_no_row_boundaries_supplied() -> None:
+    text = "Sentence one. " * 20
+    settings = _settings(chunk_target_chars=1000, chunk_overlap_chars=0, chunk_min_chars=10)
+    chunks = chunking.chunk_document("doc-9", text, settings)
+    assert all(c.row_number is None and c.sheet_name is None for c in chunks)
+
+
+def test_row_number_resolves_even_when_the_chunk_opens_on_the_sheet_heading_line() -> None:
+    # The realistic, COMMON case, not an edge case: structure-aware
+    # chunking's own section boundaries include the "# Sheet Name"
+    # heading line itself, so a section's first chunk almost always
+    # starts there, before any row's own (char_start, char_end) range.
+    # Matching on char_start alone (the way page_number does) would
+    # report row_number=None for nearly every sheet's opening chunk
+    # despite it plainly containing real row data -- this is the actual
+    # bug the overlap-based _row_info_for_offset design fixes.
+    text = "# Assets\nRow 2: Name: Firewall-01\nRow 3: Name: Router-02"
+    row_boundaries = [(9, 33, 2, "Assets"), (34, 58, 3, "Assets")]
+    settings = _settings(chunk_target_chars=1000, chunk_overlap_chars=0, chunk_min_chars=5)
+
+    chunks = chunking.chunk_document(
+        "doc-10", text, settings, row_boundaries=row_boundaries
+    )
+    assert len(chunks) == 1
+    assert chunks[0].char_start == 0  # starts on the "# Assets" heading, before row 2
+    assert chunks[0].row_number == 2  # still resolves to the first row it contains
+    assert chunks[0].sheet_name == "Assets"
+
+
+def test_row_number_and_sheet_name_reset_per_sheet() -> None:
+    text = (
+        "# Assets\nRow 2: Name: Firewall-01\n"
+        "# Vendors\nRow 2: Vendor: Acme Corp"
+    )
+    row_boundaries = [(9, 33, 2, "Assets"), (44, 68, 2, "Vendors")]
+    # Small enough that each sheet's section becomes its own chunk.
+    settings = _settings(chunk_target_chars=35, chunk_overlap_chars=0, chunk_min_chars=5)
+
+    chunks = chunking.chunk_document(
+        "doc-11", text, settings, row_boundaries=row_boundaries
+    )
+    assets_chunk = next(c for c in chunks if c.sheet_name == "Assets")
+    vendors_chunk = next(c for c in chunks if c.sheet_name == "Vendors")
+    assert assets_chunk.row_number == 2
+    assert vendors_chunk.row_number == 2  # same row_number, different sheet -- not ambiguous
+
+
+def test_row_number_via_fixed_window_chunking_for_csv_style_text_with_no_sheets() -> None:
+    # CSV has no "# Heading" markers at all, so it goes through
+    # fixed-window chunking, not structure-aware -- confirms row tagging
+    # works on that path too, with sheet_name staying None throughout
+    # (CSV genuinely has no sheet concept).
+    text = "Row 2: Name: Firewall-01\nRow 3: Name: Router-02"
+    row_boundaries = [(0, 24, 2, None), (25, 48, 3, None)]
+    settings = _settings(chunk_target_chars=1000, chunk_overlap_chars=0, chunk_min_chars=5)
+
+    chunks = chunking.chunk_document(
+        "doc-12", text, settings, row_boundaries=row_boundaries
+    )
+    assert len(chunks) == 1
+    assert chunks[0].chunking_strategy == ChunkingStrategy.FIXED_WINDOW
+    assert chunks[0].row_number == 2
+    assert chunks[0].sheet_name is None

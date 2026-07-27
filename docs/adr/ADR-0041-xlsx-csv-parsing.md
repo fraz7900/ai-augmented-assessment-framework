@@ -1,6 +1,8 @@
 # ADR-0041: XLSX/CSV document parsing
 
-**Status:** Accepted
+**Status:** Accepted — the "row/sheet info embedded in chunk text only, no dedicated fields" gap
+disclosed below was closed in ADR-0052 (same-sprint follow-up); read ADR-0052 for the
+`row_number`/`sheet_name` fields, mirroring ADR-0042's `page_number` precedent.
 **Sprint:** 18 (controlled-pilot readiness pass, follow-up to ADR-0033 through ADR-0040)
 **Deciders:** Fraz Ahmed (project-owner directive: "Start with XLSX/CSV parsing," Section A #2 of
 `docs/architecture/02-controlled-pilot-readiness-audit.md`)
