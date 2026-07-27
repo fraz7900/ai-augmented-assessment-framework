@@ -1,6 +1,7 @@
 # ADR-0050: Document-supersession flagging on the evidence review screen and in exports
 
-**Status:** Accepted, live-verified
+**Status:** Accepted, live-verified — the Dashboard-tab citation-rendering gap disclosed below
+("Consequences") was closed in ADR-0051 (same-sprint follow-up).
 **Sprint:** 18 (post-audit follow-up)
 **Deciders:** Fraz Ahmed ("document supersession flagging in the dashboard/export," then scoped via
 AskUserQuestion to the evidence review screen + export specifically, once it was found the dashboard's

@@ -10,14 +10,17 @@ import type { EvidenceReviewStatus, EvidenceSource } from '../api/types'
 // and pending review" — the same rule, applied here to the evidence list
 // itself rather than just the dashboard.
 
-const reviewStyles: Record<EvidenceReviewStatus, string> = {
+// Exported so other renderers of a review_status (e.g. CitedEvidenceList,
+// ADR-0050/0051) use the exact same color/label mapping rather than a
+// second, driftable copy.
+export const reviewStyles: Record<EvidenceReviewStatus, string> = {
   pending: 'bg-purple-100 text-purple-800',
   accepted: 'bg-emerald-100 text-emerald-800',
   edited: 'bg-blue-100 text-blue-800',
   rejected: 'bg-red-100 text-red-800',
 }
 
-const reviewLabels: Record<EvidenceReviewStatus, string> = {
+export const reviewLabels: Record<EvidenceReviewStatus, string> = {
   pending: 'Pending review',
   accepted: 'Accepted',
   edited: 'Edited',

@@ -9,6 +9,7 @@ import PracticeFindingStatusBadge from './PracticeFindingStatusBadge'
 import PracticeFindingControls from './PracticeFindingControls'
 import EvidenceRequestControls from './EvidenceRequestControls'
 import EvidenceRequestBadge from './EvidenceRequestBadge'
+import CitedEvidenceList from './CitedEvidenceList'
 
 // executive-reporting skill: "every number needs a so-what" — total_practices
 // and met_practices never render without the server-computed so_what
@@ -55,6 +56,7 @@ export default function GapGroup({
               {gap.finding_rationale && (
                 <p className="mt-1 text-xs text-slate-500">{gap.finding_rationale}</p>
               )}
+              <CitedEvidenceList citations={gap.cited_evidence} />
               {evidenceRequests
                 ?.filter((r) => r.practice_reference === gap.practice_id && !r.resolved_at)
                 .map((request) => (

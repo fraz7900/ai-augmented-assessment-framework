@@ -1,6 +1,8 @@
 # ADR-0040: Evidence-link citation on GapItem, and rendering the finding in exports
 
-**Status:** Accepted
+**Status:** Accepted — `cited_evidence` was computed here but never rendered on the Dashboard tab; that
+gap was found and disclosed by ADR-0050 and closed in ADR-0051 (same-sprint follow-ups). Read
+ADR-0051 for the `CitedEvidenceList` component that finally renders it.
 **Sprint:** 18 (controlled-pilot readiness pass, follow-up to ADR-0033 through ADR-0039)
 **Deciders:** Fraz Ahmed (project-owner directive: "Start with evidence link citation on gaps,"
 Section A #7 of `docs/architecture/02-controlled-pilot-readiness-audit.md`)
