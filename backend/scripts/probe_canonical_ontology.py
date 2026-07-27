@@ -69,7 +69,13 @@ VOCABULARY = (
 # reflect a genuine reading of each practice's actual requirement, not
 # the pairing it happens to appear in below.
 NERC_CIP_TAGS: dict[str, list[str]] = {
-    "CIP-003-1.1": ["training", "network_security", "incident_response", "recovery", "vulnerability_management"],
+    "CIP-003-1.1": [
+        "training",
+        "network_security",
+        "incident_response",
+        "recovery",
+        "vulnerability_management",
+    ],
     "CIP-003-1.2": ["training", "iam", "incident_response", "vendor_risk", "network_security"],
     "CIP-004-1.1": ["training"],
     "CIP-004-2.2": ["training", "iam"],
@@ -206,9 +212,12 @@ C2M2_TAGS: dict[str, list[str]] = {
 
 
 def _load_reviewed_pairs() -> list[tuple[str, str]]:
-    data = yaml.safe_load((_FRAMEWORK_MAPPING_DIR / "cross_framework_equivalence.yaml").read_text())
+    equivalence_path = _FRAMEWORK_MAPPING_DIR / "cross_framework_equivalence.yaml"
+    data = yaml.safe_load(equivalence_path.read_text())
     return [
-        (e["practice_a_id"], e["practice_b_id"]) if e["framework_a"] == "NERC CIP" else (e["practice_b_id"], e["practice_a_id"])
+        (e["practice_a_id"], e["practice_b_id"])
+        if e["framework_a"] == "NERC CIP"
+        else (e["practice_b_id"], e["practice_a_id"])
         for e in data
         if {e.get("framework_a"), e.get("framework_b")} == {"NERC CIP", "C2M2"}
     ]
@@ -276,7 +285,9 @@ def run_probe() -> dict:
 def main() -> None:
     import argparse
 
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     parser.add_argument("--output", type=Path, default=None)
     args = parser.parse_args()
 

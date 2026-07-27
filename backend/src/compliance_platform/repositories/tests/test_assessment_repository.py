@@ -184,10 +184,10 @@ def test_practice_findings_for_assessment_isolated_per_assessment(tmp_path: Path
 
     assert len(repo.practice_findings_for_assessment(a1.id)) == 1
     assert len(repo.practice_findings_for_assessment(a2.id)) == 1
-    assert repo.practice_findings_for_assessment(a1.id)[0].status == PracticeFindingStatus.SATISFIED
-    assert (
-        repo.practice_findings_for_assessment(a2.id)[0].status == PracticeFindingStatus.NOT_APPLICABLE
-    )
+    finding_a1 = repo.practice_findings_for_assessment(a1.id)[0]
+    finding_a2 = repo.practice_findings_for_assessment(a2.id)[0]
+    assert finding_a1.status == PracticeFindingStatus.SATISFIED
+    assert finding_a2.status == PracticeFindingStatus.NOT_APPLICABLE
 
 
 # --- Document versioning (Sprint 18, ADR-0039) ---

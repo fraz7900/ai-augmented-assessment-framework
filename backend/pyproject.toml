@@ -64,3 +64,10 @@ select = ["E", "F", "I", "UP", "B"]
 "scripts/generate_c2m2_yaml.py" = ["E501"]
 # Same rationale, same exception, for the NIST CSF 2.0 transcription script.
 "scripts/generate_nist_csf_yaml.py" = ["E501"]
+# Same rationale, same exception, for the NERC CIP, ISO 27001, CIS
+# Controls v8, SOC 2, and PCI DSS v4.0.1 transcription scripts.
+"scripts/generate_nerc_cip_yaml.py" = ["E501"]
+"scripts/generate_iso_27001_yaml.py" = ["E501"]
+"scripts/generate_cis_controls_yaml.py" = ["E501"]
+"scripts/generate_soc2_yaml.py" = ["E501"]
+"scripts/generate_pci_dss_yaml.py" = ["E501"]

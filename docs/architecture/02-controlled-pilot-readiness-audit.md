@@ -145,7 +145,7 @@ scale.
   exist and are distinguishable in scoring and the dashboard.
 - [x] "No evidence" no longer scores identically to "confirmed non-compliant" once an explicit finding
   is recorded — proven by a direct regression test documenting the pre-fix collapse
-  (`test_practice_with_zero_evidence_and_practice_with_confirmed_non_compliance_score_identically_without_a_finding`)
+  (`test_zero_evidence_and_confirmed_non_compliance_score_identically_without_a_finding`)
   alongside the fix.
 - [x] Every finding requires a rationale; every transition is preserved in an append-only history
   table, queryable via API.

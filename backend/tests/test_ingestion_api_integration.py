@@ -183,12 +183,20 @@ def test_supersedes_relationship_is_recorded_and_visible_both_directions(
 ) -> None:
     v1 = client.post(
         "/ingest",
-        files={"file": ("policy_v1.txt", b"Passwords must be at least eight characters.", "text/plain")},
+        files={
+            "file": ("policy_v1.txt", b"Passwords must be at least eight characters.", "text/plain")
+        },
     ).json()["document_id"]
 
     v2 = client.post(
         "/ingest",
-        files={"file": ("policy_v2.txt", b"Passwords must be at least twelve characters.", "text/plain")},
+        files={
+            "file": (
+                "policy_v2.txt",
+                b"Passwords must be at least twelve characters.",
+                "text/plain",
+            )
+        },
         data={"supersedes_document_id": v1},
     ).json()["document_id"]
 

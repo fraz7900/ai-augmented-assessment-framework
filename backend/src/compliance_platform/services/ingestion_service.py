@@ -110,7 +110,8 @@ class IngestionService:
         # compression has no equivalent cheap pre-extraction check.
         if len(parsed.raw_text) > self._settings.max_extracted_text_chars:
             _logger.warning(
-                "ingestion rejected filename=%s reason=decompression_bomb_ceiling extracted_chars=%d",
+                "ingestion rejected filename=%s reason=decompression_bomb_ceiling "
+                "extracted_chars=%d",
                 filename,
                 len(parsed.raw_text),
             )

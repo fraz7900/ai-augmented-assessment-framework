@@ -190,7 +190,9 @@ def test_reads_stay_correct_under_concurrent_reader_and_writer_threads(tmp_path:
                 errors.append(exc)
                 return
 
-    threads = [threading.Thread(target=writer)] + [threading.Thread(target=reader) for _ in range(4)]
+    threads = [threading.Thread(target=writer)] + [
+        threading.Thread(target=reader) for _ in range(4)
+    ]
     for t in threads:
         t.start()
     writes_done.wait(timeout=30)
@@ -315,7 +317,9 @@ def _bulk_chunks(prefix: str, document_id: str, count: int) -> list[EvidenceChun
     ]
 
 
-def _measure_chunks_for_document(repo: VectorRepository, document_id: str, samples: int = 50) -> float:
+def _measure_chunks_for_document(
+    repo: VectorRepository, document_id: str, samples: int = 50
+) -> float:
     for _ in range(10):  # warm-up: excludes cold-open/first-query overhead from the measurement
         repo.chunks_for_document(document_id)
     start = time.perf_counter()

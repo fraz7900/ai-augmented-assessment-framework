@@ -388,7 +388,10 @@ class AssessmentService:
         if updated is None:  # pragma: no cover - existence already checked above
             raise AssessmentNotFoundError(assessment_id)
         _logger.info(
-            "assessment status transition id=%s %s -> %s", assessment_id, assessment.status, new_status
+            "assessment status transition id=%s %s -> %s",
+            assessment_id,
+            assessment.status,
+            new_status,
         )
         return updated
 

@@ -168,7 +168,9 @@ def _build_complication(
                     practice_text=p.text,
                     mil=p.mil,
                     has_pending_ai_proposal=p.id in pending_practice_ids,
-                    status=finding.status if finding else PracticeFindingStatus.INSUFFICIENT_EVIDENCE,
+                    status=(
+                        finding.status if finding else PracticeFindingStatus.INSUFFICIENT_EVIDENCE
+                    ),
                     finding_rationale=finding.rationale if finding else None,
                     cited_evidence=[
                         EvidenceCitation(

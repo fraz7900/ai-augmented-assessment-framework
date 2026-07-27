@@ -28,6 +28,10 @@ def _find_practice(framework, practice_id: str):
     return None
 
 
+def _equivalents_in(practice, framework_name: str) -> set[str]:
+    return {e.practice_id for e in practice.equivalents if e.framework_name == framework_name}
+
+
 def test_c2m2_loads_with_all_ten_domains() -> None:
     framework = _registry().require("C2M2")
     assert framework.version == "2.1"
@@ -315,7 +319,13 @@ def test_nerc_cip_standard_without_applicable_systems_table_has_empty_applicabil
     nerc-cip-expert skill).
     """
     framework = _registry().require("NERC CIP")
-    for standard, practice_id in [("CIP-002", "CIP-002-1.1"), ("CIP-012", "CIP-012-1.1"), ("CIP-014", "CIP-014-4.1")]:
+    # _standard names which standard each ID belongs to, for readability --
+    # not used in the assertion itself.
+    for _standard, practice_id in [
+        ("CIP-002", "CIP-002-1.1"),
+        ("CIP-012", "CIP-012-1.1"),
+        ("CIP-014", "CIP-014-4.1"),
+    ]:
         practice = _find_practice(framework, practice_id)
         assert practice is not None, f"{practice_id} not found"
         assert practice.applicability == ""
@@ -632,7 +642,7 @@ def test_soc2_practice_equivalent_points_back_to_nerc_cip() -> None:
     framework = _registry().require("SOC 2")
     practice = _find_practice(framework, "CC6.2")
     assert practice is not None
-    nerc_equivalents = {e.practice_id for e in practice.equivalents if e.framework_name == "NERC CIP"}
+    nerc_equivalents = _equivalents_in(practice, "NERC CIP")
     assert "CIP-007-5.3" in nerc_equivalents
 
 
@@ -691,7 +701,8 @@ def test_pci_dss_practice_text_is_a_leaf_requirement_not_a_section_statement() -
     practice = _find_practice(framework, "9.2.1")
     assert practice is not None
     assert practice.text == (
-        "Appropriate facility entry controls are in place to restrict physical access to systems in the CDE."
+        "Appropriate facility entry controls are in place to restrict physical access "
+        "to systems in the CDE."
     )
     assert practice.mil is None
     assert practice.applicability == ""
@@ -702,7 +713,8 @@ def test_pci_dss_practice_text_is_a_leaf_requirement_not_a_section_statement() -
         if any(p.id == "9.2.1" for p in o.practices)
     )
     assert objective.title == (
-        "9.2 Physical access controls manage entry into facilities and systems containing cardholder data."
+        "9.2 Physical access controls manage entry into facilities and systems "
+        "containing cardholder data."
     )
 
 
@@ -721,7 +733,7 @@ def test_pci_dss_practice_equivalent_points_back_to_nerc_cip() -> None:
     framework = _registry().require("PCI DSS")
     practice = _find_practice(framework, "9.2.1")
     assert practice is not None
-    nerc_equivalents = {e.practice_id for e in practice.equivalents if e.framework_name == "NERC CIP"}
+    nerc_equivalents = _equivalents_in(practice, "NERC CIP")
     assert "CIP-006-1.1" in nerc_equivalents
 
 
@@ -745,7 +757,7 @@ def test_nerc_cip_practice_with_curated_nist_equivalent_points_back() -> None:
     framework = _registry().require("NIST CSF 2.0")
     practice = _find_practice(framework, "PR.AA-01")
     assert practice is not None
-    nerc_equivalents = {e.practice_id for e in practice.equivalents if e.framework_name == "NERC CIP"}
+    nerc_equivalents = _equivalents_in(practice, "NERC CIP")
     assert "CIP-007-5.3" in nerc_equivalents
 
 

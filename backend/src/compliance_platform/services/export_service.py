@@ -153,7 +153,9 @@ def build_pdf_report(dashboard: DashboardReport) -> bytes:
             # so it goes through _pdf_safe like every other free-text
             # field this renderer handles.
             if gap.status != PracticeFindingStatus.INSUFFICIENT_EVIDENCE or gap.finding_rationale:
-                rationale = f" - {_pdf_safe(gap.finding_rationale)}" if gap.finding_rationale else ""
+                rationale = (
+                    f" - {_pdf_safe(gap.finding_rationale)}" if gap.finding_rationale else ""
+                )
                 _line(pdf, 5, f"      Status: {_status_label(gap.status)}{rationale}")
             if gap.cited_evidence:
                 _line(

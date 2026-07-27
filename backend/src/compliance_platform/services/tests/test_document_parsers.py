@@ -132,7 +132,7 @@ def test_parse_txt_extension_with_binary_content_is_caught_by_content_sniffing()
     assert any("does not match its .txt extension" in w for w in parsed.parse_warnings)
 
 
-def test_parse_pdf_with_correct_signature_but_invalid_body_fails_in_the_parser_not_sniffing() -> None:
+def test_parse_pdf_with_valid_signature_but_invalid_body_fails_in_parser_not_sniffing() -> None:
     # Passes the magic-byte check (proves sniffing and parser-level
     # failure are genuinely distinct code paths, not the same check
     # under two names) but is not a real, structurally valid PDF.
@@ -296,7 +296,8 @@ def test_parser_version_reports_the_real_installed_python_docx_version(
     import importlib.metadata
 
     parsed = document_parsers.parse_document("policy.docx", sample_docx_bytes)
-    assert parsed.metadata.parser_version == f"python-docx=={importlib.metadata.version('python-docx')}"
+    expected_version = f"python-docx=={importlib.metadata.version('python-docx')}"
+    assert parsed.metadata.parser_version == expected_version
 
 
 def test_parser_version_reports_the_real_installed_openpyxl_version(

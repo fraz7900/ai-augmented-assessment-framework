@@ -117,10 +117,18 @@ class FrameworkRegistry:
                     for entry in entries:
                         other_framework_name = None
                         other_id = None
-                        if entry["framework_a"] == framework.name and entry["practice_a_id"] == practice.id:
+                        a_matches = (
+                            entry["framework_a"] == framework.name
+                            and entry["practice_a_id"] == practice.id
+                        )
+                        b_matches = (
+                            entry["framework_b"] == framework.name
+                            and entry["practice_b_id"] == practice.id
+                        )
+                        if a_matches:
                             other_framework_name = entry["framework_b"]
                             other_id = entry["practice_b_id"]
-                        elif entry["framework_b"] == framework.name and entry["practice_b_id"] == practice.id:
+                        elif b_matches:
                             other_framework_name = entry["framework_a"]
                             other_id = entry["practice_a_id"]
                         if other_id is None:

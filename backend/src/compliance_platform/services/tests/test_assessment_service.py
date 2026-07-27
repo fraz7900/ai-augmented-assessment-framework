@@ -834,9 +834,7 @@ def test_answer_question_returns_ranked_hits_from_reviewed_evidence_only() -> No
 # that gap, directly.
 
 
-def test_practice_with_zero_evidence_and_practice_with_confirmed_non_compliance_score_identically_without_a_finding() -> (
-    None
-):
+def test_zero_evidence_and_confirmed_non_compliance_score_identically_without_a_finding() -> None:
     """Documents the pre-ADR-0030 collapse this feature closes: with NO
     PracticeFinding recorded, a practice with zero evidence and a
     practice whose only evidence was reviewed and REJECTED score
@@ -871,9 +869,7 @@ def test_practice_with_zero_evidence_and_practice_with_confirmed_non_compliance_
     )
 
 
-def test_practice_finding_not_satisfied_is_distinguishable_from_insufficient_evidence_in_dashboard() -> (
-    None
-):
+def test_not_satisfied_is_distinguishable_from_insufficient_evidence_in_dashboard() -> None:
     """The actual fix: with an explicit PracticeFinding, the dashboard's
     GapItem.status now distinguishes a practice nobody has looked at
     (INSUFFICIENT_EVIDENCE, the default) from one a reviewer explicitly
@@ -1200,7 +1196,9 @@ def test_get_document_detail_raises_for_unknown_document() -> None:
 
 def test_get_document_detail_with_no_supersession_relationship() -> None:
     service, assessment_repo, _ = _make_service()
-    assessment_repo.add_document(Document(id="doc-1", filename="a.txt", file_type="txt", content_hash="h"))
+    assessment_repo.add_document(
+        Document(id="doc-1", filename="a.txt", file_type="txt", content_hash="h")
+    )
 
     detail = service.get_document_detail("doc-1")
     assert detail.id == "doc-1"
@@ -1210,7 +1208,9 @@ def test_get_document_detail_with_no_supersession_relationship() -> None:
 
 def test_get_document_detail_surfaces_forward_and_reverse_supersession() -> None:
     service, assessment_repo, _ = _make_service()
-    assessment_repo.add_document(Document(id="doc-v1", filename="a.txt", file_type="txt", content_hash="h1"))
+    assessment_repo.add_document(
+        Document(id="doc-v1", filename="a.txt", file_type="txt", content_hash="h1")
+    )
     assessment_repo.add_document(
         Document(
             id="doc-v2",

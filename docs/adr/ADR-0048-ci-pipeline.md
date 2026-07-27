@@ -1,6 +1,8 @@
 # ADR-0048: GitHub Actions CI pipeline (backend pytest, frontend typecheck/build/test)
 
-**Status:** Accepted, live-verified
+**Status:** Accepted, live-verified — the "no lint gate" decision below (Rationale #3) was revisited
+in ADR-0049 (same-sprint follow-up), which cleaned up the 482 pre-existing ruff findings and added the
+gate; read ADR-0049 for that work.
 **Sprint:** 18 (post-audit follow-up, project-owner directive: "work on the CI pipeline, and the
 chunks edge case, and the TLS in deployment stack" — this ADR covers the CI pipeline)
 **Deciders:** Fraz Ahmed

@@ -163,7 +163,9 @@ def test_ingest_rejects_extracted_text_beyond_the_decompression_bomb_ceiling() -
     # this one covers every format uniformly, including PDF/TXT/MD.
     svc, repo, _ = _make_service(max_extracted_text_chars=50)
     with pytest.raises(UnsupportedDocumentError) as exc_info:
-        svc.ingest("notes.txt", b"This document's extracted text is well over fifty characters long.")
+        svc.ingest(
+            "notes.txt", b"This document's extracted text is well over fifty characters long."
+        )
     assert exc_info.value.status == ParseStatus.FAILED
     assert any("decompression-bomb" in w for w in exc_info.value.warnings)
     assert repo.added == []
@@ -263,9 +265,12 @@ def test_document_registry_write_failure_is_compensated_by_deleting_the_written_
     """
     svc, vector_repo, documents = _make_service(fail_create_document=True)
     with pytest.raises(_DocumentStoreFailure):
-        svc.ingest("notes.txt", b"Real synthetic evidence content for failure injection tests.")
+        svc.ingest(
+            "notes.txt", b"Real synthetic evidence content for failure injection tests."
+        )
     assert vector_repo.added == []  # compensating delete removed the chunks that were written
-    assert vector_repo.deleted_document_ids  # the delete genuinely ran, not just coincidentally empty
+    # the delete genuinely ran, not just coincidentally empty
+    assert vector_repo.deleted_document_ids
     assert documents.documents == {}
 
 

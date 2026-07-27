@@ -33,6 +33,13 @@ jobs:
       - name: Install backend package with dev dependencies
         run: pip install -e ".[dev]"
 
+      # Gates on ruff (ADR-0049): the codebase was cleaned to a genuine
+      # zero findings under the existing backend/pyproject.toml
+      # [tool.ruff.lint] config (select = ["E", "F", "I", "UP", "B"]) --
+      # this step exists to keep it there, not to introduce a new bar.
+      - name: Lint backend with ruff
+        run: ruff check .
+
       # The ONNX embedding model (~67MB, BAAI/bge-small-en-v1.5) downloads
       # to this path on first use in ai/tests/test_embeddings.py and
       # anything exercising the real embedder - it is not vendored (see

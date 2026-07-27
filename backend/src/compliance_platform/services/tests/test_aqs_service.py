@@ -73,7 +73,9 @@ class TestComputeAssessmentAgreement:
 
 class TestComputeEvidencePrecisionRecall:
     def test_perfect_match(self) -> None:
-        result = compute_evidence_precision_recall({"ACCESS-1a", "ACCESS-1b"}, {"ACCESS-1a", "ACCESS-1b"})
+        result = compute_evidence_precision_recall(
+            {"ACCESS-1a", "ACCESS-1b"}, {"ACCESS-1a", "ACCESS-1b"}
+        )
         assert result.precision == 1.0
         assert result.recall == 1.0
         assert result.false_positives == 0

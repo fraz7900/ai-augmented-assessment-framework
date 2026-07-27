@@ -26,8 +26,8 @@ from pathlib import Path
 
 import pytest
 from docx import Document as DocxDocument
-from fpdf import FPDF
 from fastapi.testclient import TestClient
+from fpdf import FPDF
 from openpyxl import load_workbook
 from pypdf import PdfReader
 

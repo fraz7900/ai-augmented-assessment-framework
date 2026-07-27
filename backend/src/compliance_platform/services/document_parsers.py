@@ -36,6 +36,11 @@ from compliance_platform.models.schemas import (
 # _render_tabular_rows's actual parsing behavior changes materially.
 _PARSER_MODULE_VERSION = "1"
 
+# (extracted text, status, warnings, page boundaries as (char_start, char_end)
+# per page, or None for formats with no page concept) -- shared by every
+# parse_*() function below.
+ParseResult = tuple[str, ParseStatus, list[str], list[tuple[int, int]] | None]
+
 
 def _parser_version(file_type: FileType) -> str:
     if file_type == FileType.PDF:
@@ -124,7 +129,7 @@ def _new_document_id() -> str:
     return str(uuid.uuid4())
 
 
-def parse_pdf(content: bytes) -> tuple[str, ParseStatus, list[str], list[tuple[int, int]] | None]:
+def parse_pdf(content: bytes) -> ParseResult:
     warnings: list[str] = []
     try:
         reader = PdfReader(io.BytesIO(content))
@@ -171,7 +176,7 @@ def parse_pdf(content: bytes) -> tuple[str, ParseStatus, list[str], list[tuple[i
     return text, ParseStatus.SUCCESS, warnings, page_boundaries
 
 
-def parse_docx(content: bytes) -> tuple[str, ParseStatus, list[str], list[tuple[int, int]] | None]:
+def parse_docx(content: bytes) -> ParseResult:
     warnings: list[str] = []
     try:
         _, ceiling_warning = _zip_bomb_ceiling_warning(content, "DOCX")
@@ -204,7 +209,7 @@ def parse_docx(content: bytes) -> tuple[str, ParseStatus, list[str], list[tuple[
     return full_text, ParseStatus.SUCCESS, warnings, None
 
 
-def parse_plain_text(content: bytes) -> tuple[str, ParseStatus, list[str], list[tuple[int, int]] | None]:
+def parse_plain_text(content: bytes) -> ParseResult:
     warnings: list[str] = []
     try:
         text = content.decode("utf-8")
@@ -223,7 +228,9 @@ def parse_plain_text(content: bytes) -> tuple[str, ParseStatus, list[str], list[
     return text, ParseStatus.SUCCESS, warnings, None
 
 
-def _render_tabular_rows(header: list[str], rows: list[list[str]], start_row_number: int) -> list[str]:
+def _render_tabular_rows(
+    header: list[str], rows: list[list[str]], start_row_number: int
+) -> list[str]:
     """Renders each data row as "Row <N>: col1: val1 | col2: val2 | ..."
     -- self-describing (a chunk containing just "Firewall-01 | NetOps"
     with no column context would be far weaker evidence than one
@@ -245,7 +252,7 @@ def _render_tabular_rows(header: list[str], rows: list[list[str]], start_row_num
     return lines
 
 
-def parse_xlsx(content: bytes) -> tuple[str, ParseStatus, list[str], list[tuple[int, int]] | None]:
+def parse_xlsx(content: bytes) -> ParseResult:
     warnings: list[str] = []
     try:
         _, ceiling_warning = _zip_bomb_ceiling_warning(content, "XLSX")
@@ -283,7 +290,7 @@ def parse_xlsx(content: bytes) -> tuple[str, ParseStatus, list[str], list[tuple[
     return text, ParseStatus.SUCCESS, warnings, None
 
 
-def parse_csv(content: bytes) -> tuple[str, ParseStatus, list[str], list[tuple[int, int]] | None]:
+def parse_csv(content: bytes) -> ParseResult:
     warnings: list[str] = []
     try:
         text_content = content.decode("utf-8")

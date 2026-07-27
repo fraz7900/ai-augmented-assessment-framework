@@ -978,7 +978,10 @@ def test_request_more_evidence_and_list_it(client: TestClient) -> None:
 
     request_response = client.post(
         f"/assessments/{assessment_id}/practice-findings/ACCESS-1a/evidence-requests",
-        json={"note": "Please upload the current access provisioning policy.", "requested_by": "priya"},
+        json={
+            "note": "Please upload the current access provisioning policy.",
+            "requested_by": "priya",
+        },
     )
     assert request_response.status_code == 200
     body = request_response.json()
@@ -1071,13 +1074,15 @@ def test_sanitization_preview_does_not_require_approval_first(client: TestClient
     )
     assert preview_response.status_code == 200
     body = preview_response.json()
-    assert "security@example-utility.com" not in body["sanitized_report"]["situation"]["assessment_name"]
+    sanitized_name = body["sanitized_report"]["situation"]["assessment_name"]
+    assert "security@example-utility.com" not in sanitized_name
     assert any(m["category"] == "email" for m in body["matches"])
 
 
 def test_sanitized_export_blocked_until_approved_then_succeeds(client: TestClient) -> None:
     create_response = client.post(
-        "/assessments", json={"name": "Assessment for Example Utility Co.", "framework_name": "C2M2"}
+        "/assessments",
+        json={"name": "Assessment for Example Utility Co.", "framework_name": "C2M2"},
     )
     assessment_id = create_response.json()["id"]
 
@@ -1129,7 +1134,8 @@ def test_sanitized_export_becomes_stale_after_a_new_finding_is_recorded(client: 
 
 def test_unsanitized_export_unaffected_by_sanitization_feature(client: TestClient) -> None:
     create_response = client.post(
-        "/assessments", json={"name": "Contact security@example-utility.com", "framework_name": "C2M2"}
+        "/assessments",
+        json={"name": "Contact security@example-utility.com", "framework_name": "C2M2"},
     )
     assessment_id = create_response.json()["id"]
     # No approval ever created -- default (sanitized=false / omitted) must still work.

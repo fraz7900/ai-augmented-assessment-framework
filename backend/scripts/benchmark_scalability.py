@@ -286,7 +286,10 @@ def run_benchmark(doc_count: int, dashboard_samples: int, search_samples: int) -
 
 
 def _measure_concurrency(
-    settings: Settings, assessment_id: str, sequential_dashboard_p50_ms: float, concurrency: int = 10
+    settings: Settings,
+    assessment_id: str,
+    sequential_dashboard_p50_ms: float,
+    concurrency: int = 10,
 ) -> dict:
     """Launches a real uvicorn subprocess against the same (already-
     populated) database/vector-store this run just built, hits it with
@@ -334,7 +337,9 @@ def _measure_concurrency(
             except subprocess.TimeoutExpired:
                 proc.kill()
                 output, _ = proc.communicate(timeout=5)
-            raise RuntimeError(f"benchmark server did not start within 180s. Output so far:\n{output}")
+            raise RuntimeError(
+                f"benchmark server did not start within 180s. Output so far:\n{output}"
+            )
 
         warm_client = httpx.Client(base_url=base_url, timeout=30)
         for _ in range(3):
@@ -350,14 +355,20 @@ def _measure_concurrency(
 
         t0 = time.perf_counter()
         with ThreadPoolExecutor(max_workers=concurrency) as pool:
-            latencies = list(pool.map(lambda _: _one_call(), range(concurrency)))
+            # list() forces every call to actually complete before
+            # measuring wall_seconds below -- pool.map()'s return value
+            # itself is a lazy iterator otherwise. Individual per-call
+            # latencies aren't needed, only the aggregate wall-clock time.
+            list(pool.map(lambda _: _one_call(), range(concurrency)))
         wall_seconds = time.perf_counter() - t0
         sequential_estimate = (sequential_dashboard_p50_ms / 1000) * concurrency
         return {
             "concurrent_requests": concurrency,
             "wall_seconds": round(wall_seconds, 3),
             "naive_sequential_estimate_seconds": round(sequential_estimate, 3),
-            "speedup_factor": round(sequential_estimate / wall_seconds, 2) if wall_seconds > 0 else None,
+            "speedup_factor": (
+                round(sequential_estimate / wall_seconds, 2) if wall_seconds > 0 else None
+            ),
             "measured_against": "real uvicorn subprocess, independent httpx clients per request",
         }
     finally:

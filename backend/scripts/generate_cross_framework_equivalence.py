@@ -16,7 +16,8 @@ cross_framework_equivalence.yaml directly — that file is hand-curated
 (Step 2) from a subset of this output, each accepted entry carrying a
 rationale sentence, not just a similarity score. Run with:
 
-    cd backend && source .venv/bin/activate && python scripts/generate_cross_framework_equivalence.py [pair]
+    cd backend && source .venv/bin/activate && \
+        python scripts/generate_cross_framework_equivalence.py [pair]
 
 where [pair] is "nist" (NIST CSF 2.0 reviewed against C2M2, ADR-0019,
 the default), "nerc" (NERC CIP reviewed against C2M2, ADR-0023), "iso"
@@ -59,13 +60,20 @@ def _cosine_similarity(a: list[float], b: list[float]) -> float:
     return dot / (norm_a * norm_b)
 
 
-def _print_top3_candidates(reviewed_practices, reviewed_label, target_practices, target_label, embedder) -> None:
-    print(f"Embedding {len(target_practices)} {target_label} practices and {len(reviewed_practices)} {reviewed_label} practices...")
+def _print_top3_candidates(
+    reviewed_practices, reviewed_label, target_practices, target_label, embedder
+) -> None:
+    print(
+        f"Embedding {len(target_practices)} {target_label} practices and "
+        f"{len(reviewed_practices)} {reviewed_label} practices..."
+    )
     target_vectors = embedder.embed([p.text for p in target_practices])
     reviewed_vectors = embedder.embed([p.text for p in reviewed_practices])
 
     print(f"\n{'=' * 100}")
-    for reviewed_practice, reviewed_vector in zip(reviewed_practices, reviewed_vectors, strict=True):
+    for reviewed_practice, reviewed_vector in zip(
+        reviewed_practices, reviewed_vectors, strict=True
+    ):
         scored = [
             (_cosine_similarity(reviewed_vector, target_vector), target_practice)
             for target_practice, target_vector in zip(target_practices, target_vectors, strict=True)
@@ -76,60 +84,58 @@ def _print_top3_candidates(reviewed_practices, reviewed_label, target_practices,
             print(f"    {similarity:.3f}  {target_practice.id}: {target_practice.text}")
 
 
+def _all_practices(framework):
+    return [
+        practice
+        for domain in framework.domains
+        if domain.practices_populated
+        for practice in domain.all_practices()
+    ]
+
+
 def main() -> None:
     pair = sys.argv[1] if len(sys.argv) > 1 else "nist"
     settings = get_settings()
     registry = FrameworkRegistry(settings.framework_mapping_dir)
-    c2m2 = registry.require("C2M2")
-    c2m2_practices = [
-        practice
-        for domain in c2m2.domains
-        if domain.practices_populated
-        for practice in domain.all_practices()
-    ]
-    embedder = get_embedder("semantic_local_onnx", cache_dir=Path(settings.embedding_model_cache_dir))
+    c2m2_practices = _all_practices(registry.require("C2M2"))
+    embedder = get_embedder(
+        "semantic_local_onnx", cache_dir=Path(settings.embedding_model_cache_dir)
+    )
 
     if pair == "nist":
-        nist = registry.require("NIST CSF 2.0")
-        nist_practices = [practice for domain in nist.domains for practice in domain.all_practices()]
+        nist_practices = _all_practices(registry.require("NIST CSF 2.0"))
         _print_top3_candidates(nist_practices, "NIST CSF 2.0", c2m2_practices, "C2M2", embedder)
     elif pair == "nerc":
-        nerc = registry.require("NERC CIP")
-        nerc_practices = [practice for domain in nerc.domains for practice in domain.all_practices()]
+        nerc_practices = _all_practices(registry.require("NERC CIP"))
         _print_top3_candidates(nerc_practices, "NERC CIP", c2m2_practices, "C2M2", embedder)
     elif pair == "iso":
-        nerc = registry.require("NERC CIP")
-        nerc_practices = [practice for domain in nerc.domains for practice in domain.all_practices()]
-        iso = registry.require("ISO 27001")
-        iso_practices = [practice for domain in iso.domains for practice in domain.all_practices()]
+        nerc_practices = _all_practices(registry.require("NERC CIP"))
+        iso_practices = _all_practices(registry.require("ISO 27001"))
         _print_top3_candidates(nerc_practices, "NERC CIP", iso_practices, "ISO 27001", embedder)
     elif pair == "cis":
-        nerc = registry.require("NERC CIP")
-        nerc_practices = [practice for domain in nerc.domains for practice in domain.all_practices()]
-        cis = registry.require("CIS Controls")
-        cis_practices = [practice for domain in cis.domains for practice in domain.all_practices()]
-        _print_top3_candidates(nerc_practices, "NERC CIP", cis_practices, "CIS Controls", embedder)
+        nerc_practices = _all_practices(registry.require("NERC CIP"))
+        cis_practices = _all_practices(registry.require("CIS Controls"))
+        _print_top3_candidates(
+            nerc_practices, "NERC CIP", cis_practices, "CIS Controls", embedder
+        )
     elif pair == "soc2":
-        nerc = registry.require("NERC CIP")
-        nerc_practices = [practice for domain in nerc.domains for practice in domain.all_practices()]
-        soc2 = registry.require("SOC 2")
-        soc2_practices = [practice for domain in soc2.domains for practice in domain.all_practices()]
+        nerc_practices = _all_practices(registry.require("NERC CIP"))
+        soc2_practices = _all_practices(registry.require("SOC 2"))
         _print_top3_candidates(nerc_practices, "NERC CIP", soc2_practices, "SOC 2", embedder)
     elif pair == "pci":
-        nerc = registry.require("NERC CIP")
-        nerc_practices = [practice for domain in nerc.domains for practice in domain.all_practices()]
-        pci = registry.require("PCI DSS")
-        pci_practices = [practice for domain in pci.domains for practice in domain.all_practices()]
+        nerc_practices = _all_practices(registry.require("NERC CIP"))
+        pci_practices = _all_practices(registry.require("PCI DSS"))
         _print_top3_candidates(nerc_practices, "NERC CIP", pci_practices, "PCI DSS", embedder)
     elif pair == "nerc-nist":
-        nerc = registry.require("NERC CIP")
-        nerc_practices = [practice for domain in nerc.domains for practice in domain.all_practices()]
-        nist = registry.require("NIST CSF 2.0")
-        nist_practices = [practice for domain in nist.domains for practice in domain.all_practices()]
-        _print_top3_candidates(nerc_practices, "NERC CIP", nist_practices, "NIST CSF 2.0", embedder)
+        nerc_practices = _all_practices(registry.require("NERC CIP"))
+        nist_practices = _all_practices(registry.require("NIST CSF 2.0"))
+        _print_top3_candidates(
+            nerc_practices, "NERC CIP", nist_practices, "NIST CSF 2.0", embedder
+        )
     else:
         raise SystemExit(
-            f"Unknown pair {pair!r} — expected 'nist', 'nerc', 'iso', 'cis', 'soc2', 'pci', or 'nerc-nist'."
+            f"Unknown pair {pair!r} — expected 'nist', 'nerc', 'iso', 'cis', 'soc2', "
+            "'pci', or 'nerc-nist'."
         )
 
 

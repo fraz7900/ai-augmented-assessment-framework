@@ -188,7 +188,9 @@ def run_measurement() -> dict:
                 proposed_pairs.add(f"{name}|{link['practice_reference']}")
 
         correct_pairs = {
-            f"{name}|{practice}" for name, correct in correct_by_name.items() for practice in correct
+            f"{name}|{practice}"
+            for name, correct in correct_by_name.items()
+            for practice in correct
         }
         precision_recall = compute_evidence_precision_recall(proposed_pairs, correct_pairs)
 
