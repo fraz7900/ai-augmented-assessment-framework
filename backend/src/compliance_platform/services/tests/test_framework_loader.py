@@ -9,8 +9,10 @@ loader bug in the actual file this project ships.
 from __future__ import annotations
 
 import pytest
+import yaml
 
 from compliance_platform.core.config import get_settings
+from compliance_platform.services import framework_loader
 from compliance_platform.services.framework_loader import FrameworkNotFoundError, FrameworkRegistry
 
 
@@ -237,6 +239,146 @@ def test_get_returns_none_when_known_filename_is_missing_on_disk(tmp_path) -> No
     """
     registry = FrameworkRegistry(tmp_path)
     assert registry.get("C2M2") is None
+
+
+# --- Multi-version registry support (Sprint 18, ADR-0053) ---
+
+
+def _write_framework_yaml(
+    path, name: str, version: str, practice_id: str = "TF-1", practice_text: str = "text"
+) -> None:
+    """A minimal, valid FrameworkDefinition YAML -- synthetic, not real
+    transcribed content, since the point of these tests is the
+    registry's own version-resolution mechanism, not any framework's
+    actual data (that's what _registry()'s real-C2M2 tests above are
+    for).
+    """
+    data = {
+        "name": name,
+        "full_name": name,
+        "version": version,
+        "source_title": "n/a",
+        "source_publisher": "n/a",
+        "source_date": "n/a",
+        "source_url": "n/a",
+        "retrieved_date": "n/a",
+        "total_practices_in_source": 1,
+        "scoring_model": "coverage",
+        "mil_levels": [{"level": 1, "name": "n/a", "description": "n/a"}],
+        "scoring_note": "n/a",
+        "domains": [
+            {
+                "short_code": "D1",
+                "full_name": "Domain One",
+                "purpose": "n/a",
+                "practices_populated": True,
+                "objectives": [
+                    {
+                        "number": 1,
+                        "title": "Objective One",
+                        "practices": [{"id": practice_id, "text": practice_text, "mil": None}],
+                    }
+                ],
+            }
+        ],
+    }
+    path.write_text(yaml.dump(data))
+
+
+def _register_two_versions(monkeypatch, tmp_path) -> None:
+    _write_framework_yaml(tmp_path / "testfw_v1.yaml", "TestFW", "1.0", practice_text="v1 text")
+    _write_framework_yaml(tmp_path / "testfw_v2.yaml", "TestFW", "2.0", practice_text="v2 text")
+    monkeypatch.setitem(
+        framework_loader._KNOWN_FRAMEWORKS,
+        "TestFW",
+        {"1.0": "testfw_v1.yaml", "2.0": "testfw_v2.yaml"},
+    )
+
+
+def test_get_with_no_version_resolves_to_the_latest_registered_version(
+    monkeypatch, tmp_path
+) -> None:
+    _register_two_versions(monkeypatch, tmp_path)
+    registry = FrameworkRegistry(tmp_path)
+    latest = registry.require("TestFW")
+    assert latest.version == "2.0"
+    assert latest.domains[0].objectives[0].practices[0].text == "v2 text"
+
+
+def test_get_with_an_explicit_version_resolves_that_specific_one(monkeypatch, tmp_path) -> None:
+    _register_two_versions(monkeypatch, tmp_path)
+    registry = FrameworkRegistry(tmp_path)
+    v1 = registry.require("TestFW", "1.0")
+    assert v1.version == "1.0"
+    assert v1.domains[0].objectives[0].practices[0].text == "v1 text"
+
+
+def test_loading_an_older_version_does_not_evict_the_already_cached_latest(
+    monkeypatch, tmp_path
+) -> None:
+    """The actual point of the multi-version cache (ADR-0053, distinct
+    from ADR-0031's version-PINNING alone): two versions of the same
+    framework name must coexist in this registry's cache simultaneously,
+    not evict one another the way the pre-ADR-0053 bare-name-keyed cache
+    would have.
+    """
+    _register_two_versions(monkeypatch, tmp_path)
+    registry = FrameworkRegistry(tmp_path)
+    latest = registry.require("TestFW")  # caches (TestFW, 2.0)
+    v1 = registry.require("TestFW", "1.0")  # caches (TestFW, 1.0)
+    assert v1.version == "1.0"
+
+    latest_again = registry.get("TestFW")
+    assert latest_again is latest  # same cached object, not reloaded or evicted
+    assert latest_again.version == "2.0"
+
+
+def test_get_with_an_unknown_version_of_a_known_framework_returns_none(
+    monkeypatch, tmp_path
+) -> None:
+    _register_two_versions(monkeypatch, tmp_path)
+    registry = FrameworkRegistry(tmp_path)
+    assert registry.get("TestFW", "9.9") is None
+
+
+def test_require_with_an_unknown_version_raises_with_the_version_named(
+    monkeypatch, tmp_path
+) -> None:
+    _register_two_versions(monkeypatch, tmp_path)
+    registry = FrameworkRegistry(tmp_path)
+    with pytest.raises(FrameworkNotFoundError) as exc_info:
+        registry.require("TestFW", "9.9")
+    assert "9.9" in str(exc_info.value)
+
+
+def test_available_versions_lists_every_known_version_in_order(monkeypatch, tmp_path) -> None:
+    _register_two_versions(monkeypatch, tmp_path)
+    registry = FrameworkRegistry(tmp_path)
+    assert registry.available_versions("TestFW") == ["1.0", "2.0"]
+
+
+def test_available_versions_is_empty_for_an_unrecognized_name() -> None:
+    assert _registry().available_versions("Not A Real Framework") == []
+
+
+def test_real_frameworks_each_have_exactly_one_known_version_today() -> None:
+    """Confirms the current, real state this project ships: every real
+    framework has exactly one version loaded, so version=None's "latest"
+    resolution is a no-op distinction for all of them today -- the
+    multi-version mechanism above is exercised by synthetic fixtures
+    because no framework in this repo actually has a second version yet
+    (see ADR-0053's Consequences)."""
+    registry = _registry()
+    for name in [
+        "C2M2",
+        "NIST CSF 2.0",
+        "NERC CIP",
+        "ISO 27001",
+        "CIS Controls",
+        "SOC 2",
+        "PCI DSS",
+    ]:
+        assert len(registry.available_versions(name)) == 1
 
 
 # --- NERC CIP (ADR-0021 started the roadmap extension with CIP-004-7

@@ -1,6 +1,10 @@
 # ADR-0031: Assessments pin their framework's version at creation time
 
-**Status:** Accepted
+**Status:** Accepted — the multi-version-registry scope explicitly rejected below (Decision #3,
+Alternatives) was deliberately reopened and built in ADR-0053 (Sprint 18 follow-up, by direct
+project-owner instruction, not because this ADR's original reasoning was wrong at the time). Read
+ADR-0053 for the `FrameworkRegistry` redesign that makes an older pinned `framework_version` actually
+resolvable, not just recorded.
 **Sprint:** 17 (controlled-pilot readiness pass, alongside ADR-0030)
 **Deciders:** Fraz Ahmed (project-owner directive: controlled-pilot readiness pass)
 **Related:** ADR-0002 (data-as-code), ADR-0007 (SQLite via SQLModel, no migration framework), ADR-0030

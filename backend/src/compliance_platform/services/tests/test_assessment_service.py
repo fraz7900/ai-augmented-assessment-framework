@@ -50,6 +50,7 @@ from compliance_platform.services.assessment_service import (
     MissingFindingRationaleError,
     SanitizationApprovalStaleError,
     SanitizationNotApprovedError,
+    UnknownFrameworkVersionError,
 )
 
 
@@ -289,11 +290,34 @@ class _FakeEmbedder:
 
 
 class _FakeFrameworkRegistry:
-    def __init__(self, frameworks: dict[str, FrameworkDefinition] | None = None) -> None:
-        self._frameworks = frameworks or {}
+    """Keyed by (name, version), mirroring the real FrameworkRegistry's
+    cache shape closely enough (Sprint 18, ADR-0053) that tests
+    exercising version-pinned resolution behave the same way the real
+    registry does, not a bare-name dict that happens to ignore version.
+    Constructing with {name: framework} (every pre-ADR-0053 test's own
+    call shape) still works unchanged -- add_version() below is what
+    the new multi-version tests use to register a SECOND version under
+    the same name.
+    """
 
-    def get(self, name: str) -> FrameworkDefinition | None:
-        return self._frameworks.get(name)
+    def __init__(self, frameworks: dict[str, FrameworkDefinition] | None = None) -> None:
+        self._by_key: dict[tuple[str, str], FrameworkDefinition] = {}
+        self._latest: dict[str, str] = {}
+        for name, framework in (frameworks or {}).items():
+            self.add_version(name, framework)
+
+    def add_version(self, name: str, framework: FrameworkDefinition) -> None:
+        self._by_key[(name, framework.version)] = framework
+        self._latest[name] = framework.version  # last call wins -- "latest"
+
+    def get(self, name: str, version: str | None = None) -> FrameworkDefinition | None:
+        resolved = version if version is not None else self._latest.get(name)
+        if resolved is None:
+            return None
+        return self._by_key.get((name, resolved))
+
+    def available_versions(self, name: str) -> list[str]:
+        return [v for (n, v) in self._by_key if n == name]
 
 
 def _tiny_framework(name: str = "C2M2") -> FrameworkDefinition:
@@ -403,6 +427,92 @@ def test_create_assessment_framework_version_is_none_for_an_unrecognized_framewo
     service, _, _ = _make_service()  # no framework_registry configured
     assessment = service.create_assessment("Test Assessment", "Unrecognized Framework")
     assert assessment.framework_version is None
+
+
+# --- Multi-version registry support (Sprint 18, ADR-0053) ---
+
+
+def test_create_assessment_pins_the_explicitly_requested_version() -> None:
+    v1 = _tiny_framework()
+    v1.version = "1.0"
+    v2 = _tiny_framework()
+    v2.version = "2.0"
+    registry = _FakeFrameworkRegistry()
+    registry.add_version("C2M2", v1)
+    registry.add_version("C2M2", v2)  # added second -- "latest" is 2.0
+
+    service, _, _ = _make_service(framework_registry=registry)
+    assessment = service.create_assessment("A", "C2M2", framework_version="1.0")
+    assert assessment.framework_version == "1.0"
+
+
+def test_create_assessment_with_no_explicit_version_pins_latest() -> None:
+    v1 = _tiny_framework()
+    v1.version = "1.0"
+    v2 = _tiny_framework()
+    v2.version = "2.0"
+    registry = _FakeFrameworkRegistry()
+    registry.add_version("C2M2", v1)
+    registry.add_version("C2M2", v2)
+
+    service, _, _ = _make_service(framework_registry=registry)
+    assessment = service.create_assessment("A", "C2M2")
+    assert assessment.framework_version == "2.0"
+
+
+def test_create_assessment_raises_for_an_unknown_version_of_a_known_framework() -> None:
+    framework = _tiny_framework()
+    registry = _FakeFrameworkRegistry({"C2M2": framework})
+    service, _, _ = _make_service(framework_registry=registry)
+
+    with pytest.raises(UnknownFrameworkVersionError) as exc_info:
+        service.create_assessment("A", "C2M2", framework_version="99.0")
+    assert exc_info.value.framework_name == "C2M2"
+    assert exc_info.value.requested_version == "99.0"
+
+
+def test_create_assessment_with_a_version_but_unrecognized_framework_name_stays_tolerant() -> None:
+    """An explicit framework_version doesn't change the pre-existing,
+    deliberate tolerance for a totally unrecognized framework_name --
+    only "known name, unknown version" is a real, raisable mistake."""
+    service, _, _ = _make_service()  # no framework_registry configured at all
+    assessment = service.create_assessment(
+        "A", "Unrecognized Framework", framework_version="1.0"
+    )
+    assert assessment.framework_version is None
+
+
+def test_existing_assessment_operations_use_the_pinned_version_after_latest_changes() -> None:
+    """The actual regression this whole feature exists to prevent
+    (ADR-0031's own Alternatives named this exact scenario): an
+    assessment is pinned to version 1.0 at creation, then the registry
+    starts serving 2.0 as latest (a framework correction/update, the
+    same kind of change ADR-0029's PCI DSS depth extension or a future
+    NIST CSF revision would be) -- compute_scores/build_dashboard for
+    the EXISTING assessment must still resolve against its own pinned
+    1.0 schema, not silently start scoring against 2.0.
+    """
+    v1 = _tiny_framework()
+    v1.version = "1.0"
+    registry = _FakeFrameworkRegistry({"C2M2": v1})
+    service, _, _ = _make_service(framework_registry=registry)
+    assessment = service.create_assessment("A", "C2M2")
+    assert assessment.framework_version == "1.0"
+
+    # Simulate a framework update: v2 replaces what "latest" resolves to,
+    # but v1 must still be resolvable by version for the pinned assessment.
+    v2 = _tiny_framework()
+    v2.version = "2.0"
+    v2.domains[0].objectives[0].practices[0].text = "a materially different practice statement"
+    registry.add_version("C2M2", v2)
+    assert registry.get("C2M2").version == "2.0"  # confirm "latest" really did move
+
+    # The existing assessment's own operations still see its pinned 1.0 schema.
+    scores = service.compute_scores(assessment.id)
+    assert scores == {"TEST": 0.0}  # same result 1.0's schema always gave
+    dashboard = service.build_dashboard(assessment.id)
+    gap_texts = {gap.practice_text for group in dashboard.complication for gap in group.gaps}
+    assert "a materially different practice statement" not in gap_texts
 
 
 def test_get_assessment_raises_for_unknown_id() -> None:

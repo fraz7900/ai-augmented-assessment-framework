@@ -29,24 +29,59 @@ _EQUIVALENCE_FILENAME = "cross_framework_equivalence.yaml"
 
 
 class FrameworkNotFoundError(Exception):
-    def __init__(self, name: str) -> None:
+    def __init__(self, name: str, version: str | None = None) -> None:
         self.name = name
-        super().__init__(f"No framework definition loaded for '{name}'.")
+        self.version = version
+        if version is None:
+            super().__init__(f"No framework definition loaded for '{name}'.")
+        else:
+            super().__init__(f"No framework definition loaded for '{name}' version '{version}'.")
 
 
-# Maps the name an Assessment.framework_name might use to the YAML file
-# that defines it. Deliberately explicit rather than a filename-guessing
-# convention, so a framework_name is validated against this registry,
-# not against whatever happens to exist on disk.
-_KNOWN_FRAMEWORKS: dict[str, str] = {
-    "C2M2": "c2m2_v2_1.yaml",
-    "NIST CSF 2.0": "nist_csf_2_0.yaml",
-    "NERC CIP": "nerc_cip.yaml",
-    "ISO 27001": "iso_27001.yaml",
-    "CIS Controls": "cis_controls_v8.yaml",
-    "SOC 2": "soc2_tsc.yaml",
-    "PCI DSS": "pci_dss_v4.yaml",
+# Maps the name an Assessment.framework_name might use to the YAML
+# file(s) that define it, one entry per known VERSION (Sprint 18,
+# ADR-0053) — deliberately explicit rather than a filename-guessing
+# convention, so a framework_name/version pair is validated against this
+# registry, not against whatever happens to exist on disk. Every
+# framework here has exactly one version today; the dict-of-versions
+# shape exists so a future second version of a framework's YAML (a
+# correction, an updated standard) can be ADDED as a new entry without
+# evicting or overwriting the version(s) already there — the actual
+# mechanism ADR-0031's version-pinning depends on to mean anything once
+# framework content actually changes, not just a label.
+#
+# Version-key values are each framework's own real, loaded
+# FrameworkDefinition.version string (confirmed by loading every
+# framework once and reading it back — see ADR-0053) — including NERC
+# CIP's genuinely non-numeric "see each domain's own source_version"
+# placeholder, which is correct: NERC CIP has no single top-level
+# version (each of its 13 standards has its own independent revision),
+# and this registry treats version strings as opaque lookup keys, never
+# parsed or compared, so that placeholder works as a key exactly like
+# every other framework's real version number does.
+#
+# When adding a second version of a framework: APPEND a new key to that
+# name's dict, never insert before or replace the existing entry(ies) —
+# _latest_version() below resolves "latest" as the last-inserted key,
+# not a semver comparison (these version strings aren't uniformly
+# comparable across frameworks, e.g. "2.1" vs "4.0.1" vs SOC 2's prose
+# string above).
+_KNOWN_FRAMEWORKS: dict[str, dict[str, str]] = {
+    "C2M2": {"2.1": "c2m2_v2_1.yaml"},
+    "NIST CSF 2.0": {"2.0": "nist_csf_2_0.yaml"},
+    "NERC CIP": {"see each domain's own source_version": "nerc_cip.yaml"},
+    "ISO 27001": {"2022": "iso_27001.yaml"},
+    "CIS Controls": {"8": "cis_controls_v8.yaml"},
+    "SOC 2": {"2017 (criteria text, as amended March 2020)": "soc2_tsc.yaml"},
+    "PCI DSS": {"4.0.1": "pci_dss_v4.yaml"},
 }
+
+
+def _latest_version(name: str) -> str | None:
+    versions = _KNOWN_FRAMEWORKS.get(name)
+    if not versions:
+        return None
+    return next(reversed(versions))
 
 
 def load_framework_file(path: Path) -> FrameworkDefinition:
@@ -65,7 +100,13 @@ class FrameworkRegistry:
 
     def __init__(self, framework_mapping_dir: Path) -> None:
         self._dir = framework_mapping_dir
-        self._cache: dict[str, FrameworkDefinition] = {}
+        # Keyed by (name, resolved_version), not bare name (Sprint 18,
+        # ADR-0053) -- so a second version of a framework loaded later
+        # doesn't evict the first, and an assessment pinned to an older
+        # version keeps resolving to that exact FrameworkDefinition for
+        # the life of this (process-lifetime singleton, api/dependencies.py)
+        # registry instance.
+        self._cache: dict[tuple[str, str], FrameworkDefinition] = {}
         self._equivalence_entries: list[dict] | None = None
         # {(framework_name, practice_id): text} — built directly from the
         # raw YAML files (not through get()/the FrameworkDefinition cache)
@@ -78,18 +119,31 @@ class FrameworkRegistry:
         # data with the wrong framework name/text for the same ID string.
         self._practice_text_index: dict[tuple[str, str], str] | None = None
 
-    def get(self, name: str) -> FrameworkDefinition | None:
-        """Returns None (not an error) for a framework this registry
-        doesn't have a schema for — e.g. an assessment labeled "NIST CSF
-        2.0" before Sprint 4 builds that schema. Callers decide whether
-        an unknown framework name is acceptable; see
+    def get(self, name: str, version: str | None = None) -> FrameworkDefinition | None:
+        """Returns None (not an error) for a framework/version this
+        registry doesn't have a schema for — e.g. an assessment labeled
+        "NIST CSF 2.0" before Sprint 4 builds that schema. Callers
+        decide whether an unknown framework name is acceptable; see
         services/assessment_service.py, which only validates
         practice_reference when a schema is actually available, per
         Decision D-10.
+
+        version=None (Sprint 18, ADR-0053) resolves to whatever this
+        name's registered LATEST version is — the same behavior get()
+        always had before this parameter existed, so every pre-existing
+        caller (framework browsing, new-assessment creation) needs no
+        change. Pass an explicit version to resolve a SPECIFIC one — the
+        mechanism services/assessment_service.py uses to serve an
+        existing assessment its pinned Assessment.framework_version
+        rather than always whatever's currently latest.
         """
-        if name in self._cache:
-            return self._cache[name]
-        filename = _KNOWN_FRAMEWORKS.get(name)
+        resolved_version = version if version is not None else _latest_version(name)
+        if resolved_version is None:
+            return None
+        cache_key = (name, resolved_version)
+        if cache_key in self._cache:
+            return self._cache[cache_key]
+        filename = _KNOWN_FRAMEWORKS.get(name, {}).get(resolved_version)
         if filename is None:
             return None
         path = self._dir / filename
@@ -97,14 +151,27 @@ class FrameworkRegistry:
             return None
         framework = load_framework_file(path)
         self._merge_equivalents(framework)
-        self._cache[name] = framework
+        self._cache[cache_key] = framework
         return framework
 
-    def require(self, name: str) -> FrameworkDefinition:
-        framework = self.get(name)
+    def require(self, name: str, version: str | None = None) -> FrameworkDefinition:
+        framework = self.get(name, version)
         if framework is None:
-            raise FrameworkNotFoundError(name)
+            raise FrameworkNotFoundError(name, version)
         return framework
+
+    def available_versions(self, name: str) -> list[str]:
+        """Every version this registry knows a filename for, in the
+        order they were added (last = latest, per _latest_version's own
+        convention) — [] for an unrecognized name, never an error. Lets
+        a caller (services/assessment_service.py.create_assessment,
+        ADR-0053) distinguish "this framework_name isn't recognized at
+        all" (silently tolerated, pre-existing behavior) from "it's
+        recognized, but not at the specific version you asked for" (a
+        real, disclosable mistake) without reaching into this registry's
+        own private _KNOWN_FRAMEWORKS.
+        """
+        return list(_KNOWN_FRAMEWORKS.get(name, {}).keys())
 
     def _merge_equivalents(self, framework: FrameworkDefinition) -> None:
         entries = self._load_equivalence_entries()
@@ -158,10 +225,25 @@ class FrameworkRegistry:
         return self._equivalence_entries
 
     def _build_practice_text_index(self) -> dict[tuple[str, str], str]:
+        """Built from each framework's LATEST version only (Sprint 18,
+        ADR-0053) -- cross_framework_equivalence.yaml entries have no
+        version concept of their own (reviewed once, against whatever
+        was current at review time), so "latest" is the only defensible
+        default once a framework can have more than one version loaded.
+        A disclosed simplification, not a defect: if an older PINNED
+        version's practice IDs differ from latest, its equivalents may
+        not resolve correctly against this index -- no framework in this
+        project currently has more than one version, so this has never
+        been exercised against real drift (see ADR-0053's Consequences).
+        """
         if self._practice_text_index is not None:
             return self._practice_text_index
         index: dict[tuple[str, str], str] = {}
-        for name, filename in _KNOWN_FRAMEWORKS.items():
+        for name, versions in _KNOWN_FRAMEWORKS.items():
+            latest = _latest_version(name)
+            if latest is None:
+                continue
+            filename = versions[latest]
             path = self._dir / filename
             if not path.exists():
                 continue

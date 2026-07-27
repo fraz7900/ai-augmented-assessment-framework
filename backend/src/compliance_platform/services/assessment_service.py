@@ -146,7 +146,8 @@ class InvalidPracticeReferenceError(Exception):
 
 
 class FrameworkRegistryProtocol(Protocol):
-    def get(self, name: str) -> FrameworkDefinition | None: ...
+    def get(self, name: str, version: str | None = None) -> FrameworkDefinition | None: ...
+    def available_versions(self, name: str) -> list[str]: ...
 
 
 class FrameworkScoringUnavailableError(Exception):
@@ -248,6 +249,30 @@ class ChatEngineUnavailableError(Exception):
         super().__init__("No embedder configured; cannot answer questions over evidence.")
 
 
+class UnknownFrameworkVersionError(Exception):
+    """Raised only when framework_name IS recognized (the registry has
+    at least one known version for it) but an explicitly REQUESTED
+    version isn't among them (Sprint 18, ADR-0053) — deliberately
+    distinct from the pre-existing, unchanged tolerance for a totally
+    unrecognized framework_name (silently allowed, framework_version
+    stays None — see create_assessment's own docstring). A caller who
+    explicitly asked for a specific version made a real, checkable
+    mistake worth surfacing, not silently swallowed into "whatever's
+    latest" or a null pin.
+    """
+
+    def __init__(
+        self, framework_name: str, requested_version: str, known_versions: list[str]
+    ) -> None:
+        self.framework_name = framework_name
+        self.requested_version = requested_version
+        self.known_versions = known_versions
+        super().__init__(
+            f"'{framework_name}' has no version '{requested_version}' loaded; "
+            f"known versions: {', '.join(known_versions)}."
+        )
+
+
 class AssessmentRepositoryProtocol(Protocol):
     def create_assessment(
         self, name: str, framework_name: str, framework_version: str | None = None
@@ -323,7 +348,9 @@ class AssessmentService:
         self._chat_similarity_threshold = chat_similarity_threshold
         self._chat_result_limit = chat_result_limit
 
-    def create_assessment(self, name: str, framework_name: str) -> Assessment:
+    def create_assessment(
+        self, name: str, framework_name: str, framework_version: str | None = None
+    ) -> Assessment:
         """Pins FrameworkDefinition.version at creation time (ADR-0031),
         so this assessment's own record of what it was scored against
         survives a later framework_mapping/*.yaml content change.
@@ -331,8 +358,28 @@ class AssessmentService:
         recognized/loaded schema at creation time — the same graceful
         fallback InvalidPracticeReferenceError's docstring already
         documents for unrecognized framework names, not an error here.
+
+        framework_version (the PARAMETER, Sprint 18, ADR-0053): an
+        explicit request to pin against a SPECIFIC version, if the
+        registry has more than one loaded for framework_name — None
+        (the default) resolves to whatever's currently latest, matching
+        this method's pre-ADR-0053 behavior exactly. Only raises
+        UnknownFrameworkVersionError when framework_name IS recognized
+        but the requested version isn't among its known ones; an
+        unrecognized framework_name keeps its existing silent-None
+        tolerance regardless of what framework_version was passed.
         """
-        framework = self._frameworks.get(framework_name) if self._frameworks else None
+        if self._frameworks is not None and framework_version is not None:
+            known_versions = self._frameworks.available_versions(framework_name)
+            if known_versions and framework_version not in known_versions:
+                raise UnknownFrameworkVersionError(
+                    framework_name, framework_version, known_versions
+                )
+        framework = (
+            self._frameworks.get(framework_name, framework_version)
+            if self._frameworks
+            else None
+        )
         created = self._assessments.create_assessment(
             name=name,
             framework_name=framework_name,
@@ -423,7 +470,9 @@ class AssessmentService:
                 raise EvidenceDocumentNotIngestedError(document_id)
 
         if self._frameworks is not None:
-            framework = self._frameworks.get(assessment.framework_name)
+            framework = self._frameworks.get(
+                assessment.framework_name, assessment.framework_version
+            )
             if framework is not None and practice_reference not in framework.all_practice_ids():
                 raise InvalidPracticeReferenceError(practice_reference, assessment.framework_name)
 
@@ -471,7 +520,11 @@ class AssessmentService:
         (neither performed nor a gap).
         """
         assessment = self.get_assessment(assessment_id)
-        framework = self._frameworks.get(assessment.framework_name) if self._frameworks else None
+        framework = (
+            self._frameworks.get(assessment.framework_name, assessment.framework_version)
+            if self._frameworks
+            else None
+        )
         if framework is None:
             raise FrameworkScoringUnavailableError(assessment.framework_name)
 
@@ -493,7 +546,11 @@ class AssessmentService:
         practice findings — ADR-0030).
         """
         assessment = self.get_assessment(assessment_id)
-        framework = self._frameworks.get(assessment.framework_name) if self._frameworks else None
+        framework = (
+            self._frameworks.get(assessment.framework_name, assessment.framework_version)
+            if self._frameworks
+            else None
+        )
         if framework is None:
             raise FrameworkScoringUnavailableError(assessment.framework_name)
 
@@ -658,7 +715,9 @@ class AssessmentService:
                     "corrected_practice_reference is required when decision is 'edited'."
                 )
             if self._frameworks is not None:
-                framework = self._frameworks.get(assessment.framework_name)
+                framework = self._frameworks.get(
+                    assessment.framework_name, assessment.framework_version
+                )
                 if (
                     framework is not None
                     and corrected_practice_reference not in framework.all_practice_ids()
@@ -707,7 +766,9 @@ class AssessmentService:
             raise MissingFindingRationaleError(practice_reference)
 
         if self._frameworks is not None:
-            framework = self._frameworks.get(assessment.framework_name)
+            framework = self._frameworks.get(
+                assessment.framework_name, assessment.framework_version
+            )
             if framework is not None and practice_reference not in framework.all_practice_ids():
                 raise InvalidPracticeReferenceError(practice_reference, assessment.framework_name)
 
@@ -758,7 +819,9 @@ class AssessmentService:
             raise MissingEvidenceRequestNoteError(practice_reference)
 
         if self._frameworks is not None:
-            framework = self._frameworks.get(assessment.framework_name)
+            framework = self._frameworks.get(
+                assessment.framework_name, assessment.framework_version
+            )
             if framework is not None and practice_reference not in framework.all_practice_ids():
                 raise InvalidPracticeReferenceError(practice_reference, assessment.framework_name)
 
@@ -829,7 +892,11 @@ class AssessmentService:
         if self._embedder is None:
             raise MappingEngineUnavailableError()
 
-        framework = self._frameworks.get(assessment.framework_name) if self._frameworks else None
+        framework = (
+            self._frameworks.get(assessment.framework_name, assessment.framework_version)
+            if self._frameworks
+            else None
+        )
         if framework is None:
             raise FrameworkScoringUnavailableError(assessment.framework_name)
 

@@ -45,6 +45,11 @@ router = APIRouter(prefix="/assessments", tags=["assessments"])
 class CreateAssessmentRequest(BaseModel):
     name: str
     framework_name: str
+    # Explicit pin to a SPECIFIC framework version, if the registry has
+    # more than one loaded for framework_name (Sprint 18, ADR-0053).
+    # None (the default) resolves to whatever's currently latest -- the
+    # same behavior this endpoint always had before this field existed.
+    framework_version: str | None = None
 
 
 class StatusTransitionRequest(BaseModel):
@@ -89,7 +94,11 @@ def create_assessment(
     request: CreateAssessmentRequest,
     service: AssessmentService = Depends(get_assessment_service),
 ) -> Assessment:
-    return service.create_assessment(name=request.name, framework_name=request.framework_name)
+    return service.create_assessment(
+        name=request.name,
+        framework_name=request.framework_name,
+        framework_version=request.framework_version,
+    )
 
 
 @router.get("", response_model=list[Assessment])

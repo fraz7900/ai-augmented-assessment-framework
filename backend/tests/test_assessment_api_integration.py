@@ -854,6 +854,60 @@ def test_create_assessment_framework_version_none_for_unrecognized_framework(
     assert response.json()["framework_version"] is None
 
 
+# --- Multi-version registry support (Sprint 18, ADR-0053) ---
+
+
+def test_get_framework_versions_lists_the_real_currently_loaded_c2m2_version(
+    client: TestClient,
+) -> None:
+    response = client.get("/frameworks/C2M2/versions")
+    assert response.status_code == 200
+    versions = response.json()
+    assert isinstance(versions, list) and len(versions) == 1
+    assert versions[0]  # a real, non-empty version string
+
+
+def test_get_framework_versions_is_empty_for_an_unrecognized_name(client: TestClient) -> None:
+    response = client.get("/frameworks/Not A Real Framework/versions")
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+def test_get_framework_with_the_real_current_version_succeeds(client: TestClient) -> None:
+    current_version = client.get("/frameworks/C2M2/versions").json()[0]
+    response = client.get(f"/frameworks/C2M2?version={current_version}")
+    assert response.status_code == 200
+    assert response.json()["version"] == current_version
+
+
+def test_get_framework_with_an_unknown_version_404s(client: TestClient) -> None:
+    response = client.get("/frameworks/C2M2?version=not-a-real-version")
+    assert response.status_code == 404
+    assert "not-a-real-version" in response.json()["detail"]
+
+
+def test_create_assessment_pins_the_explicitly_requested_real_version(
+    client: TestClient,
+) -> None:
+    current_version = client.get("/frameworks/C2M2/versions").json()[0]
+    response = client.post(
+        "/assessments",
+        json={"name": "Test", "framework_name": "C2M2", "framework_version": current_version},
+    )
+    assert response.status_code == 200
+    assert response.json()["framework_version"] == current_version
+
+
+def test_create_assessment_with_an_unknown_version_of_a_real_framework_422s(
+    client: TestClient,
+) -> None:
+    response = client.post(
+        "/assessments",
+        json={"name": "Test", "framework_name": "C2M2", "framework_version": "not-a-real-version"},
+    )
+    assert response.status_code == 422
+
+
 # --- Practice findings (ADR-0030) ---
 
 

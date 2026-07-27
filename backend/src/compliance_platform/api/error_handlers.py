@@ -43,6 +43,7 @@ from compliance_platform.services.assessment_service import (
     MissingFindingRationaleError,
     SanitizationApprovalStaleError,
     SanitizationNotApprovedError,
+    UnknownFrameworkVersionError,
 )
 
 _STATUS_CODE_BY_EXCEPTION: dict[type[Exception], int] = {
@@ -57,6 +58,7 @@ _STATUS_CODE_BY_EXCEPTION: dict[type[Exception], int] = {
     FrameworkScoringUnavailableError: 422,
     EvidenceDocumentNotIngestedError: 422,
     InvalidPracticeReferenceError: 422,
+    UnknownFrameworkVersionError: 422,
     InvalidReviewDecisionError: 400,
     MissingFindingRationaleError: 400,
     MissingEvidenceRequestNoteError: 400,
