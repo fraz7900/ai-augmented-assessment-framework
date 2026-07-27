@@ -230,6 +230,21 @@ def test_document_superseded_by_reverse_lookup(tmp_path: Path) -> None:
     assert repo.document_superseded_by("doc-v2") is None
 
 
+def test_superseded_document_ids_returns_only_the_superseded_subset(tmp_path: Path) -> None:
+    repo = _repo(tmp_path)
+    repo.create_document(_document("doc-v1"))
+    repo.create_document(_document("doc-v2", supersedes="doc-v1"))
+    repo.create_document(_document("doc-standalone"))
+
+    result = repo.superseded_document_ids(["doc-v1", "doc-v2", "doc-standalone", "unknown-id"])
+    assert result == {"doc-v1"}
+
+
+def test_superseded_document_ids_empty_input_returns_empty_set(tmp_path: Path) -> None:
+    repo = _repo(tmp_path)
+    assert repo.superseded_document_ids([]) == set()
+
+
 # --- Evidence requests (Sprint 18, ADR-0043) ---
 
 

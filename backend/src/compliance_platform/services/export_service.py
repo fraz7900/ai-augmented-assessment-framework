@@ -58,8 +58,14 @@ def _status_label(status: PracticeFindingStatus) -> str:
 
 def _evidence_citation_summary(citations: list[EvidenceCitation]) -> str:
     # IDs/status only, per EvidenceCitation's own docstring -- never the
-    # underlying evidence text.
-    return "; ".join(f"{c.document_id} ({c.review_status.value})" for c in citations)
+    # underlying evidence text. [SUPERSEDED] (ADR-0050) surfaces in the
+    # export itself, not just via a separate API call a reviewer would
+    # have to think to make.
+    def _one(c: EvidenceCitation) -> str:
+        superseded_tag = " [SUPERSEDED]" if c.is_superseded else ""
+        return f"{c.document_id} ({c.review_status.value}){superseded_tag}"
+
+    return "; ".join(_one(c) for c in citations)
 
 
 def _line(pdf: FPDF, height: float, text: str) -> None:

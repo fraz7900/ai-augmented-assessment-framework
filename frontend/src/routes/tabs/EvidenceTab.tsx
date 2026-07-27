@@ -12,6 +12,7 @@ import EvidenceSourceBadge from '../../components/EvidenceSourceBadge'
 import EvidenceReviewControls from '../../components/EvidenceReviewControls'
 import ConfidenceMeter from '../../components/ConfidenceMeter'
 import EquivalentPractice from '../../components/EquivalentPractice'
+import SupersededDocumentBadge from '../../components/SupersededDocumentBadge'
 import type { AssessmentTabContext } from '../AssessmentDetailPage'
 import type { EvidenceLink } from '../../api/types'
 
@@ -59,7 +60,10 @@ export default function EvidenceTab() {
             <span className="font-mono text-xs text-slate-500">{link.practice_reference}</span>{' '}
             <span className="text-sm text-slate-800">{practice?.text ?? '(practice not found in framework)'}</span>
           </div>
-          <EvidenceSourceBadge source={link.source} reviewStatus={link.review_status} />
+          <div className="flex items-center gap-2">
+            <SupersededDocumentBadge documentId={link.document_id} />
+            <EvidenceSourceBadge source={link.source} reviewStatus={link.review_status} />
+          </div>
         </div>
         {practice != null && practice.applicability && (
           <p className="mt-1 text-xs text-slate-500">

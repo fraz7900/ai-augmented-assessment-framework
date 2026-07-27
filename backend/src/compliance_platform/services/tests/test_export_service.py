@@ -218,3 +218,50 @@ def test_xlsx_gaps_sheet_carries_status_rationale_and_cited_evidence() -> None:
     assert "plaintext" in first_row[7]
     assert "doc-incident-report" in first_row[8]
     assert "accepted" in first_row[8]
+
+
+# --- Document-supersession flagging (Sprint 18, ADR-0050) ---
+
+
+def _dashboard_with_superseded_citation() -> DashboardReport:
+    dashboard = _dashboard()
+    gap = dashboard.complication[0].gaps[0]
+    updated_gap = gap.model_copy(
+        update={
+            "cited_evidence": [
+                EvidenceCitation(
+                    evidence_link_id="link-1",
+                    document_id="doc-old-policy",
+                    review_status=EvidenceReviewStatus.ACCEPTED,
+                    is_superseded=True,
+                )
+            ],
+        }
+    )
+    dashboard.complication[0].gaps[0] = updated_gap
+    return dashboard
+
+
+def test_pdf_report_flags_superseded_cited_evidence() -> None:
+    pdf_bytes = build_pdf_report(_dashboard_with_superseded_citation())
+    reader = PdfReader(io.BytesIO(pdf_bytes))
+    text = "\n".join(page.extract_text() for page in reader.pages)
+    assert "doc-old-policy" in text
+    assert "SUPERSEDED" in text
+
+
+def test_pdf_report_does_not_flag_a_non_superseded_citation() -> None:
+    pdf_bytes = build_pdf_report(_dashboard_with_finding_and_citation())
+    reader = PdfReader(io.BytesIO(pdf_bytes))
+    text = "\n".join(page.extract_text() for page in reader.pages)
+    assert "SUPERSEDED" not in text
+
+
+def test_xlsx_gaps_sheet_flags_superseded_cited_evidence() -> None:
+    xlsx_bytes = build_xlsx_report(_dashboard_with_superseded_citation())
+    wb = openpyxl.load_workbook(io.BytesIO(xlsx_bytes))
+    ws = wb["Gaps"]
+    data_rows = list(ws.iter_rows(min_row=2, values_only=True))
+    first_row = next(row for row in data_rows if row[2] == "ACCESS-1d")
+    assert "doc-old-policy" in first_row[8]
+    assert "SUPERSEDED" in first_row[8]

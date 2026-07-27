@@ -13,6 +13,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+from collections.abc import Iterable
 from typing import Protocol
 
 from compliance_platform.ai.embeddings import Embedder
@@ -285,6 +286,7 @@ class AssessmentRepositoryProtocol(Protocol):
     def latest_sanitization_approval(self, assessment_id: str) -> SanitizationApproval | None: ...
     def get_document(self, document_id: str) -> Document | None: ...
     def document_superseded_by(self, document_id: str) -> Document | None: ...
+    def superseded_document_ids(self, document_ids: Iterable[str]) -> set[str]: ...
     def create_evidence_request(self, request: EvidenceRequest) -> EvidenceRequest: ...
     def get_evidence_request(self, request_id: str) -> EvidenceRequest | None: ...
     def evidence_requests_for_assessment(self, assessment_id: str) -> list[EvidenceRequest]: ...
@@ -497,7 +499,16 @@ class AssessmentService:
 
         evidence_links = self._assessments.evidence_for_assessment(assessment_id)
         findings = self._assessments.practice_findings_for_assessment(assessment_id)
-        return build_dashboard(assessment, framework, evidence_links, findings)
+        # Document-supersession flagging (Sprint 18, ADR-0050): closes the
+        # gap ADR-0039 disclosed ("a reviewer can query the endpoint but
+        # nothing proactively flags a superseded document... in an
+        # export"). One bulk lookup for every document cited by this
+        # assessment's evidence, not one query per citation.
+        cited_document_ids = {link.document_id for link in evidence_links}
+        superseded_document_ids = self._assessments.superseded_document_ids(cited_document_ids)
+        return build_dashboard(
+            assessment, framework, evidence_links, findings, superseded_document_ids
+        )
 
     def generate_dashboard_pdf(self, assessment_id: str, sanitized: bool = False) -> bytes:
         """PDF rendering of the same DashboardReport build_dashboard

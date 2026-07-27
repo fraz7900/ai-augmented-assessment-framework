@@ -31,6 +31,12 @@ class EvidenceCitation(BaseModel):
     evidence_link_id: str
     document_id: str
     review_status: EvidenceReviewStatus
+    # Document-supersession flagging (Sprint 18, ADR-0050): true if some
+    # OTHER document has explicitly declared it supersedes document_id
+    # (Document.supersedes_document_id, ADR-0039) -- closes the gap
+    # ADR-0039 itself disclosed as unfixed ("a reviewer can query the
+    # endpoint but nothing proactively flags a superseded document...").
+    is_superseded: bool = False
 
 
 class GapItem(BaseModel):

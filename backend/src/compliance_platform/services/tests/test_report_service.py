@@ -243,3 +243,39 @@ def test_cited_evidence_never_includes_a_satisfied_practices_links() -> None:
     gaps_by_practice = {g.practice_id: g for g in report.complication[0].gaps}
     assert "D1-1a" not in gaps_by_practice
     assert len(gaps_by_practice["D1-1b"].cited_evidence) == 1
+
+
+# --- Document-supersession flagging (Sprint 18, ADR-0050) ---
+
+
+def test_citation_is_flagged_superseded_when_its_document_id_is_in_the_set() -> None:
+    domain = _domain("D1", [_practice("D1-1a")])
+    framework = _framework([domain])
+    link = _evidence("D1-1a", EvidenceReviewStatus.REJECTED)  # document_id="d1"
+    report = build_dashboard(_assessment(), framework, [link], superseded_document_ids={"d1"})
+
+    assert report.complication[0].gaps[0].cited_evidence[0].is_superseded is True
+
+
+def test_citation_is_not_flagged_superseded_by_default() -> None:
+    domain = _domain("D1", [_practice("D1-1a")])
+    framework = _framework([domain])
+    link = _evidence("D1-1a", EvidenceReviewStatus.REJECTED)
+    report = build_dashboard(_assessment(), framework, [link])
+
+    assert report.complication[0].gaps[0].cited_evidence[0].is_superseded is False
+
+
+def test_citation_not_flagged_when_a_different_document_is_superseded() -> None:
+    # The superseded set is real but doesn't include THIS citation's
+    # document_id -- confirms is_superseded isn't a blanket "any
+    # supersession exists somewhere" flag, only "THIS evidence's own
+    # document is superseded."
+    domain = _domain("D1", [_practice("D1-1a")])
+    framework = _framework([domain])
+    link = _evidence("D1-1a", EvidenceReviewStatus.REJECTED)  # document_id="d1"
+    report = build_dashboard(
+        _assessment(), framework, [link], superseded_document_ids={"some-other-doc"}
+    )
+
+    assert report.complication[0].gaps[0].cited_evidence[0].is_superseded is False

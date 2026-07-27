@@ -9,11 +9,12 @@ a future sprint needs PostgreSQL for multi-tenant deployment.
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from datetime import UTC, datetime
 from pathlib import Path
 
 from sqlalchemy import text
-from sqlmodel import Session, SQLModel, create_engine, select
+from sqlmodel import Session, SQLModel, col, create_engine, select
 
 from compliance_platform.models.assessment import (
     Assessment,
@@ -310,6 +311,26 @@ class AssessmentRepository:
         with Session(self._engine) as session:
             statement = select(Document).where(Document.supersedes_document_id == document_id)
             return session.exec(statement).first()
+
+    def superseded_document_ids(self, document_ids: Iterable[str]) -> set[str]:
+        """Bulk form of document_superseded_by's reverse lookup, for
+        callers checking many documents at once (report_service.py's
+        dashboard/export citation flagging, ADR-0050) — one query
+        instead of one per document_id. Returns the subset of
+        document_ids that some OTHER document has declared it
+        supersedes; a document_id absent from the result is either not
+        superseded or not a real document at all (this method doesn't
+        distinguish the two, since callers already have the real
+        document_ids from their own EvidenceLink/Document rows).
+        """
+        ids = list(document_ids)
+        if not ids:
+            return set()
+        with Session(self._engine) as session:
+            statement = select(Document.supersedes_document_id).where(
+                col(Document.supersedes_document_id).in_(ids)
+            )
+            return {row for row in session.exec(statement) if row is not None}
 
     def create_evidence_request(self, request: EvidenceRequest) -> EvidenceRequest:
         with Session(self._engine) as session:

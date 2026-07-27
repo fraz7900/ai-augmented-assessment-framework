@@ -145,6 +145,7 @@ def _build_complication(
     domain_scores: dict[str, float],
     findings_by_practice: dict[str, PracticeFinding],
     evidence_links_by_practice: dict[str, list[EvidenceLink]],
+    superseded_document_ids: frozenset[str],
 ) -> list[DomainGapGroup]:
     groups: list[DomainGapGroup] = []
     for domain in framework.domains:
@@ -177,6 +178,7 @@ def _build_complication(
                             evidence_link_id=link.id,
                             document_id=link.document_id,
                             review_status=link.review_status,
+                            is_superseded=link.document_id in superseded_document_ids,
                         )
                         for link in evidence_links_by_practice.get(p.id, [])
                     ],
@@ -302,8 +304,10 @@ def build_dashboard(
     framework: FrameworkDefinition,
     evidence_links: list[EvidenceLink],
     findings: list[PracticeFinding] | None = None,
+    superseded_document_ids: frozenset[str] | set[str] | None = None,
 ) -> DashboardReport:
     findings = findings if findings is not None else []
+    superseded_document_ids = frozenset(superseded_document_ids or ())
     performed_practice_ids, excluded_practice_ids = performed_and_excluded_practice_ids(
         evidence_links, findings
     )
@@ -327,6 +331,7 @@ def build_dashboard(
         domain_scores,
         findings_by_practice,
         evidence_links_by_practice,
+        superseded_document_ids,
     )
     return DashboardReport(
         situation=_build_situation(assessment, framework, evidence_links),

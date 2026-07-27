@@ -1,6 +1,8 @@
 # ADR-0039: Document registry and explicit, human-declared versioning
 
-**Status:** Accepted
+**Status:** Accepted — the "nothing proactively flags a superseded document" follow-up disclosed below
+was closed in ADR-0050 (same-sprint follow-up); read ADR-0050 for the evidence-review-screen and
+export flagging built on `GET /documents/{id}`, the endpoint this ADR added.
 **Sprint:** 18 (controlled-pilot readiness pass, follow-up to ADR-0033/0034/0035/0036/0037/0038)
 **Deciders:** Fraz Ahmed (project-owner directive: "Start with document versioning," Section A #3 of
 `docs/architecture/02-controlled-pilot-readiness-audit.md`)

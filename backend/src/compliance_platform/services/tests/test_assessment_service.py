@@ -204,6 +204,14 @@ class _FakeAssessmentRepository:
                 return document
         return None
 
+    def superseded_document_ids(self, document_ids) -> set[str]:
+        wanted = set(document_ids)
+        return {
+            document.supersedes_document_id
+            for document in self._documents.values()
+            if document.supersedes_document_id in wanted
+        }
+
     def create_evidence_request(self, request: EvidenceRequest) -> EvidenceRequest:
         self._evidence_requests.setdefault(request.assessment_id, []).append(request)
         return request
@@ -1228,3 +1236,48 @@ def test_get_document_detail_surfaces_forward_and_reverse_supersession() -> None
     v2_detail = service.get_document_detail("doc-v2")
     assert v2_detail.supersedes_document_id == "doc-v1"
     assert v2_detail.superseded_by_document_id is None
+
+
+# --- Document-supersession flagging on the dashboard (Sprint 18, ADR-0050) ---
+
+
+def test_build_dashboard_flags_cited_evidence_from_a_superseded_document() -> None:
+    """End-to-end wiring test: build_dashboard() (the AssessmentService
+    method, not report_service's pure function directly) must actually
+    look up and pass along which cited documents are superseded, not
+    just leave every EvidenceCitation.is_superseded at its False
+    default.
+    """
+    framework = _tiny_framework()
+    service, assessment_repo, vector_repo = _make_service(
+        known_documents={"doc-old": ["chunk-1"]},
+        framework_registry=_FakeFrameworkRegistry({"C2M2": framework}),
+    )
+    assessment_repo.add_document(
+        Document(id="doc-old", filename="policy_v1.txt", file_type="txt", content_hash="h1")
+    )
+    assessment_repo.add_document(
+        Document(
+            id="doc-new",
+            filename="policy_v2.txt",
+            file_type="txt",
+            content_hash="h2",
+            supersedes_document_id="doc-old",
+        )
+    )
+    assessment = service.create_assessment("A", "C2M2")
+    link = service.link_evidence(
+        assessment.id, "doc-old", "TEST-1a", source=EvidenceSource.AI_PROPOSED
+    )
+    service.review_evidence(assessment.id, link.id, EvidenceReviewStatus.REJECTED)
+
+    dashboard = service.build_dashboard(assessment.id)
+    gap = next(
+        g
+        for group in dashboard.complication
+        for g in group.gaps
+        if g.practice_id == "TEST-1a"
+    )
+    assert len(gap.cited_evidence) == 1
+    assert gap.cited_evidence[0].document_id == "doc-old"
+    assert gap.cited_evidence[0].is_superseded is True

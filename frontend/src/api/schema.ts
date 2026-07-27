@@ -752,6 +752,11 @@ export interface components {
             /** Document Id */
             document_id: string;
             review_status: components["schemas"]["EvidenceReviewStatus"];
+            /**
+             * Is Superseded
+             * @default false
+             */
+            is_superseded: boolean;
         };
         /**
          * EvidenceLink
