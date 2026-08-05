@@ -25,6 +25,53 @@ def _has_structural_markup(text: str) -> bool:
     return bool(_HEADING_RE.search(text))
 
 
+# How far a window edge may move to land on whitespace. A cut is only
+# worth shifting if the word it splits is nearby; beyond this the text
+# has no usable boundary (a long URL, a base64 blob, an unspaced table
+# row) and the hard cut is kept rather than distorting the window size.
+_MAX_BOUNDARY_SHIFT_CHARS = 40
+
+
+def _snap_start_to_word(text: str, pos: int) -> int:
+    """Move `pos` forward to the start of the next whole word, so a chunk
+    never opens mid-word. The skipped characters are not lost: they belong
+    to the preceding window, which now ends on that same word boundary.
+    """
+    if pos <= 0 or pos >= len(text):
+        return pos
+    if text[pos - 1].isspace():
+        return pos  # already sitting at the start of a word
+
+    limit = min(pos + _MAX_BOUNDARY_SHIFT_CHARS, len(text))
+    cursor = pos
+    while cursor < limit and not text[cursor].isspace():
+        cursor += 1
+    if cursor >= limit:
+        return pos  # no boundary within budget -- keep the hard cut
+    while cursor < len(text) and text[cursor].isspace():
+        cursor += 1
+    return cursor
+
+
+def _snap_end_to_word(text: str, pos: int) -> int:
+    """Move `pos` backward to the end of the previous whole word, so a
+    chunk never closes mid-word. Never called with pos == len(text) as a
+    shift candidate: the end of the document is already a clean boundary.
+    """
+    if pos <= 0 or pos >= len(text):
+        return pos
+    if text[pos].isspace() or text[pos - 1].isspace():
+        return pos  # already sitting at the end of a word
+
+    limit = max(pos - _MAX_BOUNDARY_SHIFT_CHARS, 0)
+    cursor = pos
+    while cursor > limit and not text[cursor - 1].isspace():
+        cursor -= 1
+    if cursor <= limit:
+        return pos  # no boundary within budget -- keep the hard cut
+    return cursor
+
+
 def _fixed_window_chunks(
     text: str, target_chars: int, overlap_chars: int, min_chars: int
 ) -> list[tuple[str, int, int]]:
@@ -32,6 +79,20 @@ def _fixed_window_chunks(
     over `text`. Offsets are relative to `text`, not necessarily the whole
     document — callers that pass a section substring must add the
     section's own offset back in (see _structure_aware_chunks).
+
+    Both edges of each emitted window are snapped to the nearest word
+    boundary. A raw character window splits words at both ends ("esponse
+    Plan 9", "…a limited numb"), which costs little in retrieval but a
+    great deal in citation credibility: these chunks are quoted verbatim
+    to a reviewer verifying a gap (ADR-0051 renders them on the
+    Dashboard), and a quotation that begins mid-word reads as a bug in
+    the evidence rather than an artifact of chunking.
+
+    The *nominal* grid (`start`, and therefore `step`, iteration count,
+    and termination) is deliberately left unsnapped — only the emitted
+    offsets move. Advancing by a snapped position instead would let
+    rounding accumulate across a long document and drift the effective
+    overlap away from the configured value.
     """
     chunks: list[tuple[str, int, int]] = []
     if not text.strip():
@@ -42,9 +103,17 @@ def _fixed_window_chunks(
     text_len = len(text)
     while start < text_len:
         end = min(start + target_chars, text_len)
-        chunk_text = text[start:end].strip()
+
+        snapped_start = _snap_start_to_word(text, start)
+        snapped_end = _snap_end_to_word(text, end)
+        if snapped_end <= snapped_start:
+            # Degenerate: a single unbroken token longer than the window
+            # swallowed both edges. Emit the hard cut rather than nothing.
+            snapped_start, snapped_end = start, end
+
+        chunk_text = text[snapped_start:snapped_end].strip()
         if len(chunk_text) >= min_chars:
-            chunks.append((chunk_text, start, end))
+            chunks.append((chunk_text, snapped_start, snapped_end))
         if end == text_len:
             break
         start += step

@@ -53,6 +53,76 @@ def test_chunk_ids_are_unique_within_a_document() -> None:
     assert [c.chunk_index for c in chunks] == list(range(len(chunks)))
 
 
+# --- word-boundary snapping ---
+
+
+def _words(count: int) -> str:
+    # Uneven word lengths so window edges land mid-word rather than
+    # accidentally aligning to a repeating stride.
+    vocabulary = ["policy", "incident", "a", "response", "escalation", "the", "notified"]
+    return " ".join(vocabulary[i % len(vocabulary)] for i in range(count))
+
+
+def test_chunks_do_not_begin_or_end_mid_word() -> None:
+    text = _words(1200)
+    settings = _settings(chunk_target_chars=300, chunk_overlap_chars=40, chunk_min_chars=10)
+    chunks = chunking.chunk_document("doc-w1", text, settings)
+    assert len(chunks) > 1
+
+    for chunk in chunks:
+        if chunk.char_start > 0:
+            # The character before the chunk must be whitespace, i.e. the
+            # chunk opens on a whole word.
+            context = repr(text[chunk.char_start - 20 : chunk.char_start + 20])
+            assert text[chunk.char_start - 1].isspace(), context
+        if chunk.char_end < len(text):
+            assert text[chunk.char_end].isspace() or text[chunk.char_end - 1].isspace()
+
+
+def test_snapping_preserves_the_offsets_map_back_invariant() -> None:
+    # Snapping moves the recorded offsets, not just the text -- char_start/
+    # char_end remain a faithful citation range into the original document.
+    text = _words(800)
+    settings = _settings(chunk_target_chars=250, chunk_overlap_chars=30, chunk_min_chars=10)
+    chunks = chunking.chunk_document("doc-w2", text, settings)
+    assert chunks
+    for chunk in chunks:
+        assert chunk.text == text[chunk.char_start : chunk.char_end].strip()
+
+
+def test_snapping_does_not_lose_text_between_consecutive_chunks() -> None:
+    # A start snapped forward must not skip content: the previous window's
+    # (snapped) end has to reach at least as far as the next window's start.
+    text = _words(900)
+    settings = _settings(chunk_target_chars=280, chunk_overlap_chars=50, chunk_min_chars=10)
+    chunks = chunking.chunk_document("doc-w3", text, settings)
+    assert len(chunks) > 2
+    for previous, following in zip(chunks, chunks[1:], strict=False):
+        assert previous.char_end >= following.char_start
+
+
+def test_unbroken_token_longer_than_the_shift_budget_keeps_the_hard_cut() -> None:
+    # A base64 blob / long URL has no whitespace to snap to; the window
+    # must still be emitted rather than collapsing to nothing.
+    text = "B" * 400
+    settings = _settings(chunk_target_chars=150, chunk_overlap_chars=0, chunk_min_chars=10)
+    chunks = chunking.chunk_document("doc-w4", text, settings)
+    assert len(chunks) == 3
+    assert "".join(c.text for c in chunks) == text
+
+
+def test_snapping_leaves_a_single_window_document_untouched() -> None:
+    # Shorter than one window: both edges are already natural boundaries
+    # (start of text, end of text) and must not move.
+    text = "Exact body text that fits in a single window."
+    settings = _settings(chunk_target_chars=1000, chunk_overlap_chars=0, chunk_min_chars=5)
+    chunks = chunking.chunk_document("doc-w5", text, settings)
+    assert len(chunks) == 1
+    assert chunks[0].char_start == 0
+    assert chunks[0].char_end == len(text)
+    assert chunks[0].text == text
+
+
 # --- page_number (Sprint 18, ADR-0042) ---
 
 
