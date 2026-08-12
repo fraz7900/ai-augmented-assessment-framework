@@ -7,9 +7,10 @@ is updated every time status changes.
 ## What this is
 
 Local-first AI compliance assessment platform. MVP frameworks: C2M2, NIST CSF 2.0; extended
-post-MVP to NERC CIP, ISO 27001, CIS Controls v8, SOC 2, and PCI DSS (7 frameworks total as of
-Sprint 16 — see `docs/current_sprint.md`). Backend (`backend/src/compliance_platform`, FastAPI)
-plus a real frontend (`frontend/`, Vite/React/TypeScript, live since Sprint 10, ADR-0016) covering
+post-MVP to NERC CIP, ISO 27001, CIS Controls v8, SOC 2, and PCI DSS (7 frameworks total, complete
+since Sprint 16; `docs/current_sprint.md` has the current sprint, which is later than that). Backend
+(`backend/src/compliance_platform`, FastAPI) plus a real frontend (`frontend/`,
+Vite/React/TypeScript, live since Sprint 10, ADR-0016) covering
 every persona's primary flow end to end. Full problem statement: `PROJECT_CHARTER.md`. Architecture
 decisions: `docs/adr/` (read the relevant one before changing anything it covers — check filenames
 first, don't guess).
@@ -48,19 +49,24 @@ what you're touching before editing it:
 ## Commands
 
 ```
-cd backend && source .venv/bin/activate && pytest          # 215 tests as of Sprint 16 — run before finishing any backend change
+cd backend && source .venv/bin/activate && pytest          # 408 tests as of Sprint 19 — run before finishing any backend change
 cd backend && source .venv/bin/activate && ruff check .    # lint
 cd backend && source .venv/bin/activate && uvicorn compliance_platform.main:app --reload   # run the API, http://127.0.0.1:8000/docs
-cd frontend && npm run test    # vitest — run before finishing any frontend change
+cd frontend && npm run test    # vitest, 17 tests as of Sprint 19 — run before finishing any frontend change
 cd frontend && npm run dev     # run the UI, http://localhost:5173
 ```
 First `uvicorn` startup can take a couple of minutes if this checkout sits on a slow/synced
-filesystem (e.g. OneDrive) — not a hang, let it finish. On a fresh clone, `npm install` needs
-`--legacy-peer-deps` (a real `openapi-typescript`/TypeScript peer conflict, see ADR-0016) and, on
+filesystem (e.g. OneDrive) — not a hang, let it finish. The backend suite is slow for the same
+reason (~10 minutes for a full green run there; ADR-0044's complexity-scaling performance tests are
+deliberately part of it) — budget for that rather than assuming it has hung. On a fresh clone, `npm
+install` needs `--legacy-peer-deps` (a real `openapi-typescript`/TypeScript peer conflict, see
+ADR-0016) and, on
 this same class of slow/synced filesystem, can intermittently leave `node_modules/.bin` or
 transitive optional deps (e.g. `esbuild`) incompletely installed — if `npm run test`/`dev` reports
 a missing binary or vitest workers time out with no error, delete `node_modules` and reinstall
-rather than assuming the source is broken.
+rather than assuming the source is broken. Relatedly, a first `npm run test` there can report
+"no tests" plus a handful of errors and still pass cleanly on an immediate re-run — retry once
+before treating that as a real failure.
 
 ## Repo housekeeping
 

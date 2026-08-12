@@ -1,6 +1,42 @@
-Current sprint: Sprint 16 — PCI DSS extended to leaf-level transcription; NERC CIP <-> PCI DSS equivalence re-reviewed
-Status: Complete. Finished an in-progress prior-session extension of PCI DSS (ADR-0027, Sprint 14) from Section-level (63 statements) to full leaf-level "Defined Approach Requirement" transcription — 249 real leaf items, directly counted and re-verified against the source PDF (re-fetched and re-confirmed as genuine PCI SSC content via pypdf). Each Section (e.g. "9.2") is now modeled as a real Objective carrying the Section's own number and statement as its title, mirroring NERC CIP's own Objective pattern; each Defined Approach Requirement (e.g. "9.2.1") is a Practice. Six real extraction artifacts were found and corrected against the raw PDF text during this pass (merged requirement/testing-procedure table cells, and cross-referenced requirement numbers that fooled leaf-boundary detection). Restructuring PCI DSS's granularity broke all 80 existing NERC CIP<->PCI DSS equivalence entries (practice_b_id values were Section-level IDs no longer resolving to any Practice) — rather than withdraw the pairing, the project owner directed a full re-review at leaf granularity: 60 of the 80 NERC CIP practices retained a real leaf-level equivalent (61 entries, since CIP-005-1.3 now correctly matches two leaves), 20 were dropped with disclosed reasons (mostly PCI DSS's recurring "N.1" administrative-only Sections, which read as a match at the Section-statement level but have no substantive leaf backing it). NERC CIP's total reviewed-equivalent count across all six of its pairings is now 481 entries (was 500); the cross_framework_equivalence.yaml file's own total is 560 (481 NERC-CIP-side + 79 unrelated C2M2<->NIST CSF 2.0 entries). 215 backend tests passing (5 updated for the new leaf-level structure and equivalence counts). See docs/adr/ADR-0029-pci-dss-leaf-level-extension-and-equivalence-re-review.md.
-Next: Every named framework-breadth item and every reviewed cross-framework equivalence pairing in `PROJECT_CHARTER.md` Section 13 is once again fully delivered, now at PCI DSS's real leaf granularity. Remaining future roadmap items are all explicitly "Won't (for MVP)" scope (multi-tenant auth, cloud deployment, continuous monitoring) unless the project owner directs otherwise.
+Current sprint: Sprint 19 — live API testing against real policy PDFs; fixed-window chunk edges snapped to word boundaries
+Status: In progress. Sprint 19's only ADR so far (ADR-0054) sits on the unmerged branch
+`fix/chunker-word-boundary-snapping`, one commit ahead of `main` and not yet pushed — `main` itself
+is level with `origin/main`. Live API testing against eight real policy documents surfaced a real
+defect in `services/chunking.py`: `_fixed_window_chunks` slid a pure character window over the parsed
+text, so window edges landed mid-word. Structure-aware chunking only engages when `# Heading` markers
+exist (DOCX heading styles, XLSX/CSV sheet names), so PDF — the dominant real evidence format — always
+took the fixed-window path and always split words: 140 of 148 chunks across four policy PDFs began or
+ended mid-word. That text is quoted verbatim on the Dashboard (ADR-0051) and returned as the literal
+chat answer (ADR-0014), so it read as corrupted evidence. Both edges are now snapped to word
+boundaries with a bounded 40-char shift and a hard-cut fallback; `char_start`/`char_end` move with the
+text so ADR-0042's citation-provenance invariant still holds, and the nominal iteration grid stays
+unsnapped so overlap semantics are provably unchanged (re-ingesting all eight test documents produced
+identical chunk counts). Mid-word boundaries fell from 140 to 2, both intended hard-cut fallbacks
+inside URLs. Verified 2026-08-11: 408 backend tests passing (~10 min on this OneDrive-backed
+checkout), 17 frontend tests passing, `ruff check .` clean.
+Sprints 17-18 (ADR-0030 through ADR-0053) are complete and merged — a controlled-pilot readiness
+audit and the work it triggered: practice finding status and evidence audit trail, framework version
+pinning, a sanitization preview/approve/export pipeline, a scalability benchmark that found and fixed
+an O(total corpus) bug, CPES/AQS measurement scaffolding, a canonical-ontology feasibility probe, the
+reasoner go/no-go closed as permanently retrieval-only, security hardening, a document versioning
+registry with supersession flagging, evidence-link citations on gaps rendered through to exports,
+XLSX/CSV parsing with row/sheet and page/parser provenance, a request-more-evidence workflow,
+failure-injection and performance-regression tests, single-user deployment hardening with TLS, a
+GitHub Actions CI pipeline gated on ruff, and multi-version framework registry support.
+Next: Two follow-ups are explicitly disclosed in their own ADRs rather than silently dropped, and are
+the natural next items. (1) ADR-0053's multi-version framework registry is reachable only via direct
+API calls — `framework_version` on assessment creation, `?version=` and `/frameworks/{name}/versions`
+— with no UI wiring, and no real framework in this project has more than one version yet, so the
+mechanism is built and unit-verified but has never run against real multi-version data. (2) ADR-0054
+left a neighbouring `services/document_parsers.py` defect unaddressed: PDF extraction emits
+page-footer fragments followed by long runs of blank lines, which are now word-aligned but still
+low-value; it is a text-normalisation concern, not a chunking one. Also note ADR-0054 does not migrate
+existing chunks — documents ingested before it keep their old boundaries until an operator re-ingests
+them, deliberately, because re-chunking invalidates the `chunk_id`s that reviewed evidence links point
+at. Framework breadth itself remains fully delivered as of Sprint 16: every named item and every
+reviewed cross-framework equivalence pairing in `PROJECT_CHARTER.md` Section 13 is done. The charter's
+remaining roadmap items (continuous monitoring, multi-tenant auth, cloud deployment) are all
+explicitly "Won't (for MVP)" scope unless the project owner directs otherwise.
 Charter: PROJECT_CHARTER.md
 Constraint: local-first by default. Evidence content must not be sent
 to a cloud API unless explicitly opted in (see PROJECT_CHARTER.md Section 7).
