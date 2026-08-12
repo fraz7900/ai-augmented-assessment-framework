@@ -66,8 +66,23 @@ class FrameworkNotFoundError(Exception):
 # not a semver comparison (these version strings aren't uniformly
 # comparable across frameworks, e.g. "2.1" vs "4.0.1" vs SOC 2's prose
 # string above).
+# Version order within a name is significant: _latest_version takes the
+# LAST key, so versions must be listed oldest-first.
 _KNOWN_FRAMEWORKS: dict[str, dict[str, str]] = {
     "C2M2": {"2.1": "c2m2_v2_1.yaml"},
+    # The project's first framework with two real versions (ADR-0055).
+    # Until this, multi-version support (ADR-0053) had only ever run
+    # against a synthetic test fixture.
+    "NIST CSF": {"1.1": "nist_csf_1_1.yaml", "2.0": "nist_csf_2_0.yaml"},
+    # Legacy alias, deliberately retained. Every assessment created
+    # before ADR-0055 stored the literal framework_name "NIST CSF 2.0" —
+    # a name with the version baked into it, which is exactly why this
+    # framework could never hold two versions and why ADR-0053's
+    # mechanism had nothing real to operate on. Renaming the entry would
+    # orphan those rows: Assessment.framework_name is stored text, and
+    # nothing resolves it through an alias table. Kept as a
+    # single-version entry pointing at the same file, so old assessments
+    # keep resolving exactly as before while new ones use "NIST CSF".
     "NIST CSF 2.0": {"2.0": "nist_csf_2_0.yaml"},
     "NERC CIP": {"see each domain's own source_version": "nerc_cip.yaml"},
     "ISO 27001": {"2022": "iso_27001.yaml"},
@@ -225,33 +240,46 @@ class FrameworkRegistry:
         return self._equivalence_entries
 
     def _build_practice_text_index(self) -> dict[tuple[str, str], str]:
-        """Built from each framework's LATEST version only (Sprint 18,
-        ADR-0053) -- cross_framework_equivalence.yaml entries have no
-        version concept of their own (reviewed once, against whatever
-        was current at review time), so "latest" is the only defensible
-        default once a framework can have more than one version loaded.
-        A disclosed simplification, not a defect: if an older PINNED
-        version's practice IDs differ from latest, its equivalents may
-        not resolve correctly against this index -- no framework in this
-        project currently has more than one version, so this has never
-        been exercised against real drift (see ADR-0053's Consequences).
+        """Every known version of every framework, keyed by the framework
+        name each YAML file declares for ITSELF -- not by this registry's
+        key for it (ADR-0055).
+
+        That distinction is the whole fix. Before, this indexed each
+        framework's LATEST version only, keyed by registry key, and
+        ADR-0053 disclosed the consequence: a pinned older version whose
+        practice ids differ from latest would not resolve its equivalents.
+        NIST CSF 1.1 alongside 2.0 made that real -- the two versions
+        share no practice ids at all ("ID.AM-1" vs "ID.AM-01"), so a
+        1.1-pinned assessment looked up ids that the latest-only index
+        had never heard of.
+
+        Keying by the file's own `name` is what makes indexing every
+        version safe rather than ambiguous: each version declares a
+        distinct name ("NIST CSF 1.1" vs "NIST CSF 2.0"), so two versions
+        can never collide on the same key, and equivalence entries -- which
+        already reference frameworks by exactly that declared name -- keep
+        resolving unchanged for every framework that has only one version.
         """
         if self._practice_text_index is not None:
             return self._practice_text_index
         index: dict[tuple[str, str], str] = {}
-        for name, versions in _KNOWN_FRAMEWORKS.items():
-            latest = _latest_version(name)
-            if latest is None:
-                continue
-            filename = versions[latest]
+        # Several registry keys can point at one file (the "NIST CSF 2.0"
+        # legacy alias resolves to the same YAML as "NIST CSF" 2.0), so
+        # files are de-duplicated rather than parsed once per alias.
+        for filename in dict.fromkeys(
+            f for versions in _KNOWN_FRAMEWORKS.values() for f in versions.values()
+        ):
             path = self._dir / filename
             if not path.exists():
                 continue
             with path.open("r", encoding="utf-8") as f:
                 raw = yaml.safe_load(f)
+            declared_name = raw.get("name")
+            if not declared_name:
+                continue
             for domain in raw.get("domains", []):
                 for objective in domain.get("objectives", []):
                     for practice in objective.get("practices", []):
-                        index[(name, practice["id"])] = practice["text"]
+                        index[(declared_name, practice["id"])] = practice["text"]
         self._practice_text_index = index
         return index

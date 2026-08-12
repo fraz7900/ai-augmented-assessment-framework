@@ -139,7 +139,7 @@ Framed as hypotheses to validate during the sprints, not pre-claimed results:
 - Multi-tenant authentication and role-based access control.
 - NERC CIP, ISO 27001, CIS Controls, SOC 2, PCI DSS (deferred to roadmap).
 - Cloud deployment / hosted multi-user version.
-- OCR for scanned/image-only documents.
+- OCR for scanned/image-only documents. **Reversed and delivered, Sprint 19** — reopened by direct project-owner instruction on the grounds that scanned PDFs are ordinary real-world compliance evidence, and refusing them was the largest practical gap left in ingestion. Implemented as fully local OCR (pdfium rasterisation plus an ONNX recogniser whose weights ship inside its wheel), so the local-first guarantee in Section 7 is preserved by construction rather than by configuration — no OCR code path can transmit evidence anywhere. OCR-derived text is stored under a distinct parse status and provenance string, since it is approximate and a reviewer quoting it is entitled to know that. See `docs/adr/ADR-0055-local-ocr-pdf-normalisation-sentence-chunking-and-real-multi-version.md`.
 - Continuous/real-time compliance monitoring integrations.
 
 ## 13. Future Roadmap

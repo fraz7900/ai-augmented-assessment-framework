@@ -23,6 +23,14 @@ codebase that touches evidence content.
    gitignored directories — the rule is about what exists on disk during development, not only what
    gets committed, because a developer's local environment is itself a place real data could leak
    from (screen shares, backups, accidental commits before `.gitignore` catches up).
+   **As of ADR-0055 the application itself writes to `data/raw/`**: ingestion retains each uploaded
+   file there so a document can be re-chunked later (`services/original_store.py`). That does not
+   relax this rule — it tightens what it governs, because "only synthetic or public material may be
+   uploaded during development" is now a statement about the running application's own storage, not
+   just about what a developer copies into the tree by hand. It introduces no new class of exposure:
+   the same content is already persisted as chunk text under `data/processed/`, and nothing in that
+   path transmits anything. Set `retain_original_uploads=false` for a deployment that must not keep a
+   second copy of every upload on disk.
 3. **Every AI-proposed claim is provisional until a human accepts it**, per the
    `assessment-generation` and `evidence-extraction` rules — privacy protection and hallucination
    mitigation are related but distinct concerns, and this rule governs the former.

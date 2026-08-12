@@ -10,9 +10,22 @@ import type { ParseStatus } from '../api/types'
 
 const parseStatusMessages: Record<ParseStatus, { tone: 'ok' | 'warn' | 'error'; message: string }> = {
   success: { tone: 'ok', message: 'Parsed successfully.' },
+  // ADR-0055. Deliberately 'warn', not 'ok': the upload succeeded, but
+  // OCR output is approximate, and the person uploading is the last one
+  // in a position to notice that a page came back wrong. Telling them
+  // here is cheaper than a reviewer discovering it inside a citation.
+  success_ocr: {
+    tone: 'warn',
+    message:
+      'Parsed successfully, but this document had no text layer — the text was recovered by ' +
+      'local OCR and is approximate. Check any passage against the source page before relying ' +
+      'on it as evidence.',
+  },
   unsupported_scanned: {
     tone: 'warn',
-    message: 'This looks like a scanned document with no extractable text layer — OCR is not supported.',
+    message:
+      'This looks like a scanned document, and OCR could not recover usable text from it ' +
+      '(it may be too low-resolution, blank, or handwritten).',
   },
   encoding_failure: { tone: 'error', message: 'The file could not be decoded (unsupported encoding).' },
   empty: { tone: 'warn', message: 'No text content was found in this document.' },

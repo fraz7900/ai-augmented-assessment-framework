@@ -8,6 +8,18 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
+# OCR (ADR-0055) pulls in opencv-python via rapidocr-onnxruntime, and
+# cv2 links against libGL and glib at import time. python:3.12-slim ships
+# neither, so without these the image builds successfully and then fails
+# on the first import of the OCR path - a runtime failure a build-time
+# check would never catch. Installed here rather than switching to
+# opencv-python-headless because rapidocr declares opencv-python by name;
+# installing the headless distribution alongside it would put two
+# providers of the same cv2 module in one environment.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libgl1 libglib2.0-0 \
+    && rm -rf /var/lib/apt/lists/*
+
 # Install the backend package (production deps only - the `dev` extras
 # group in pyproject.toml, pytest/ruff/httpx, is never installed here).
 COPY backend/pyproject.toml ./pyproject.toml

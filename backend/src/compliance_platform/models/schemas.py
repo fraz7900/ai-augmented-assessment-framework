@@ -25,6 +25,14 @@ class FileType(StrEnum):
 
 class ParseStatus(StrEnum):
     SUCCESS = "success"
+    # Parsed successfully, but the text was recovered by OCR from a
+    # scanned/image-only PDF rather than read from a real text layer
+    # (ADR-0055). Distinct from SUCCESS on purpose: OCR output is
+    # approximate, and a reviewer quoting it as evidence is entitled to
+    # know that before relying on it. Downstream code that accepts
+    # SUCCESS must decide about this case explicitly rather than
+    # inheriting an answer.
+    SUCCESS_OCR = "success_ocr"
     UNSUPPORTED_SCANNED = "unsupported_scanned"
     ENCODING_FAILURE = "encoding_failure"
     EMPTY = "empty"

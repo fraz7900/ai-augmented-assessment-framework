@@ -42,13 +42,54 @@ def sample_pdf_bytes() -> bytes:
 
 @pytest.fixture
 def scanned_like_pdf_bytes() -> bytes:
-    """A syntactically valid PDF with an essentially empty page, standing
-    in for a scanned/image-only PDF to test the UNSUPPORTED_SCANNED
-    detection heuristic in services/document_parsers.py without needing
-    a real scanned document or an OCR dependency the MVP doesn't have.
+    """A syntactically valid PDF with an essentially empty page: a scan
+    with nothing recoverable on it.
+
+    Exercises the UNSUPPORTED_SCANNED detection heuristic in
+    services/document_parsers.py, and, since ADR-0055 added OCR, also the
+    case where OCR runs and legitimately finds nothing. For a scan with
+    real readable content, use `scanned_image_pdf_bytes`.
     """
     pdf = FPDF()
     pdf.add_page()
+    return bytes(pdf.output())
+
+
+SCANNED_PDF_LINES = (
+    "All privileged accounts are reviewed quarterly.",
+    "Incidents are escalated within one hour.",
+)
+
+
+@pytest.fixture
+def scanned_image_pdf_bytes() -> bytes:
+    """A PDF whose text exists ONLY as pixels -- no text layer at all.
+
+    Distinct from `scanned_like_pdf_bytes` (an empty page, which stands in
+    for a scan with nothing recoverable): this one has real, readable
+    content that OCR should be able to recover, which is what makes it a
+    test of OCR rather than of the detection heuristic. Generated at test
+    time for the same reason as every other fixture here -- reproducible,
+    not an opaque checked-in binary.
+    """
+    from PIL import Image, ImageDraw, ImageFont
+
+    image = Image.new("RGB", (1240, 400), "white")
+    draw = ImageDraw.Draw(image)
+    try:
+        font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 34)
+    except OSError:  # pragma: no cover - depends on the host's installed fonts
+        font = ImageFont.load_default(size=34)
+    for index, line in enumerate(SCANNED_PDF_LINES):
+        draw.text((40, 40 + index * 90), line, fill="black", font=font)
+
+    buffer = io.BytesIO()
+    image.save(buffer, format="PNG")
+    buffer.seek(0)
+
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.image(buffer, x=10, y=10, w=190)
     return bytes(pdf.output())
 
 

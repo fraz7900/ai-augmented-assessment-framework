@@ -53,6 +53,35 @@ class Settings(BaseSettings):
     # does. 20M characters is far beyond any real policy document.
     max_extracted_text_chars: int = 20_000_000
 
+    # OCR for scanned/image-only PDFs (see services/ocr.py, ADR-0055).
+    # On by default: a scanned policy PDF is ordinary real-world evidence,
+    # and leaving it unreadable was the single largest practical gap in
+    # the ingestion pipeline. Off is still a supported configuration --
+    # OCR is slow (seconds per page) and its output needs review, so a
+    # deployment that would rather reject scans than accept approximate
+    # text can say so.
+    ocr_enabled: bool = True
+    # 200 DPI is the usual floor for reliable recognition of body text;
+    # below it, small type degrades sharply, and above it the render cost
+    # grows quadratically for little accuracy gain.
+    ocr_render_dpi: int = 200
+    # Recognition confidence below which a detected line is discarded
+    # rather than stored as evidence text a reviewer might quote.
+    ocr_min_confidence: float = 0.5
+    # Wall-clock guard: OCR costs seconds per page, so a very large scan
+    # is truncated (with a warning naming what was skipped) rather than
+    # blocking a request for an unbounded time.
+    ocr_max_pages: int = 50
+
+    # Retention of original uploads (see services/original_store.py,
+    # ADR-0055). On by default: without it, a document whose chunks were
+    # produced by an older chunker can never be corrected, because
+    # re-chunking needs the source and the source was discarded at
+    # upload. Off is supported for a deployment that would rather not
+    # keep a second copy of every upload on disk, at the cost of making
+    # re-ingestion depend on the operator still holding the originals.
+    retain_original_uploads: bool = True
+
     # Embeddings (see ai/embeddings.py, ADR-0006, and ADR-0008).
     embedding_backend: str = "semantic_local_onnx"
     embedding_dimensions: int = 384

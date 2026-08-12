@@ -361,17 +361,14 @@ def test_available_versions_is_empty_for_an_unrecognized_name() -> None:
     assert _registry().available_versions("Not A Real Framework") == []
 
 
-def test_real_frameworks_each_have_exactly_one_known_version_today() -> None:
-    """Confirms the current, real state this project ships: every real
-    framework has exactly one version loaded, so version=None's "latest"
-    resolution is a no-op distinction for all of them today -- the
-    multi-version mechanism above is exercised by synthetic fixtures
-    because no framework in this repo actually has a second version yet
-    (see ADR-0053's Consequences)."""
+def test_every_real_framework_except_nist_csf_has_exactly_one_version() -> None:
+    """NIST CSF gained a real second version in ADR-0055; every other
+    framework still ships exactly one, so version=None's "latest"
+    resolution remains a no-op distinction for them."""
     registry = _registry()
     for name in [
         "C2M2",
-        "NIST CSF 2.0",
+        "NIST CSF 2.0",  # legacy alias, single-version by design
         "NERC CIP",
         "ISO 27001",
         "CIS Controls",
@@ -379,6 +376,110 @@ def test_real_frameworks_each_have_exactly_one_known_version_today() -> None:
         "PCI DSS",
     ]:
         assert len(registry.available_versions(name)) == 1
+
+
+# --- real multi-version coexistence (ADR-0055) ---
+# ADR-0053 built the mechanism and disclosed that it had only ever been
+# proven against a hand-built synthetic fixture, because no real
+# framework here had two versions. NIST CSF 1.1 alongside 2.0 is that
+# disclosure closed: these tests run on real, published framework data.
+
+
+def test_nist_csf_has_two_real_versions() -> None:
+    assert _registry().available_versions("NIST CSF") == ["1.1", "2.0"]
+
+
+def test_both_real_nist_csf_versions_load_and_coexist() -> None:
+    registry = _registry()
+    latest = registry.require("NIST CSF")
+    pinned = registry.require("NIST CSF", "1.1")
+
+    assert latest.version == "2.0"
+    assert pinned.version == "1.1"
+    # Loading the older version must not evict or mutate the newer one --
+    # the property ADR-0053's (name, version) cache key exists for, now
+    # verified on real data rather than a fixture.
+    assert registry.require("NIST CSF").version == "2.0"
+
+
+def test_the_two_real_versions_differ_structurally() -> None:
+    """CSF 2.0 introduced the Govern function; 1.1 has five, not six.
+    This is the difference that makes re-scoring a 1.1 assessment against
+    2.0 a genuine change of meaning rather than a cosmetic upgrade -- the
+    whole reason Assessment.framework_version is pinned (ADR-0031).
+    """
+    registry = _registry()
+    v11 = {d.short_code for d in registry.require("NIST CSF", "1.1").domains}
+    v20 = {d.short_code for d in registry.require("NIST CSF", "2.0").domains}
+    assert v11 == {"ID", "PR", "DE", "RS", "RC"}
+    assert v20 - v11 == {"GV"}
+
+
+def test_nist_csf_1_1_subcategory_count_matches_the_official_total() -> None:
+    framework = _registry().require("NIST CSF", "1.1")
+    practices = [p for d in framework.domains for p in d.all_practices()]
+    assert len(practices) == 108 == framework.total_practices_in_source
+    assert all(p.mil is None for p in practices)  # coverage-scored, no MILs
+
+
+def test_practice_ids_drift_between_the_two_real_versions() -> None:
+    """The drift ADR-0053 named as its own untested risk, now measured.
+
+    CSF 1.1 numbers subcategories "ID.AM-1"; CSF 2.0 zero-pads them to
+    "ID.AM-01". The two versions share NO practice ids at all, which is
+    what made a version-blind equivalence index a real defect rather
+    than a theoretical one.
+    """
+    registry = _registry()
+    ids_11 = {p.id for d in registry.require("NIST CSF", "1.1").domains for p in d.all_practices()}
+    ids_20 = {p.id for d in registry.require("NIST CSF", "2.0").domains for p in d.all_practices()}
+    assert "ID.AM-1" in ids_11 and "ID.AM-01" in ids_20
+    assert ids_11 & ids_20 == set()
+
+
+def test_a_pinned_older_version_resolves_its_own_equivalents() -> None:
+    """The fix for that drift (ADR-0055).
+
+    Two things had to change for this to hold: the practice-text index
+    now covers every known version keyed by each file's own declared
+    name (it was latest-only, so 1.1's ids were simply absent), and NIST
+    CSF 1.1 has real equivalence entries transcribed from NIST's own
+    published 1.1->2.0 crosswalk.
+    """
+    registry = _registry()
+    v11 = registry.require("NIST CSF", "1.1")
+    practices = [p for d in v11.domains for p in d.all_practices()]
+    with_equivalents = [p for p in practices if p.equivalents]
+
+    assert len(with_equivalents) > 100  # 106 of 108 at time of writing
+    equivalent = with_equivalents[0].equivalents[0]
+    assert equivalent.framework_name == "NIST CSF 2.0"
+    # Authoritative, not inferred -- the distinction framework-mapping.mdc
+    # cares about, so the rationale must say whose mapping this is.
+    assert "NIST" in equivalent.rationale
+    # And the equivalent carries the OTHER version's real practice text,
+    # which is only possible because the index knows both versions.
+    assert equivalent.practice_text
+
+
+def test_the_latest_version_still_resolves_its_own_equivalents() -> None:
+    """Regression guard for the index change: making it version-aware
+    must not disturb the pairings every other framework depends on."""
+    registry = _registry()
+    v20 = registry.require("NIST CSF", "2.0")
+    assert sum(len(p.equivalents) for d in v20.domains for p in d.all_practices()) > 0
+    c2m2 = registry.require("C2M2")
+    assert sum(len(p.equivalents) for d in c2m2.domains for p in d.all_practices()) > 0
+
+
+def test_the_legacy_nist_csf_2_0_name_still_resolves() -> None:
+    """Assessments created before ADR-0055 stored the literal name
+    "NIST CSF 2.0". That stored text must keep resolving to the same
+    definition, or their scores stop being reproducible.
+    """
+    registry = _registry()
+    assert registry.require("NIST CSF 2.0").version == "2.0"
+    assert registry.require("NIST CSF 2.0").name == registry.require("NIST CSF", "2.0").name
 
 
 # --- NERC CIP (ADR-0021 started the roadmap extension with CIP-004-7

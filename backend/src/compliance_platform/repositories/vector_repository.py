@@ -174,6 +174,26 @@ class VectorRepository:
             return []
         return table.search(query_vector).limit(limit).to_list()
 
+    def document_ids(self) -> list[str]:
+        """Every document_id that actually has chunks stored, sorted.
+
+        The vector store, not the Document table, is the authoritative
+        answer to "what is ingested": Document (ADR-0039) arrived long
+        after ingestion did, so documents chunked before it exist here
+        with no registry row at all.
+
+        Deliberately NOT on any hot path -- this is an O(total corpus)
+        scan, the exact cost ADR-0033 removed from chunks_for_document.
+        It exists for maintenance work that genuinely needs the whole
+        list (backend/scripts/reingest_documents.py), and callers on a
+        request path should keep using chunks_for_document instead.
+        """
+        table = self._open_existing_table()
+        if table is None:
+            return []
+        rows = table.search().select(["document_id"]).to_list()
+        return sorted({row["document_id"] for row in rows})
+
     def chunks_for_document(self, document_id: str) -> list[dict[str, Any]]:
         """Filtered read of one document's own chunks — deliberately a
         native LanceDB filter (`search().where(...)`), NOT

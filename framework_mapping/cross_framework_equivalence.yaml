@@ -4278,3 +4278,1106 @@
   similarity: 0.71
   rationale: Using non-disclosure agreements to protect sensitive information shared with a reviewer is
     the same confidentiality-protection concept as CIP-014-2.4, matching PR.DS-02.
+
+# --- NIST CSF 1.1 <-> NIST CSF 2.0 (ADR-0055, Sprint 19) ---
+# The only pairing in this file NOT produced by this project's own
+# similarity-then-human-review process. NIST publishes this mapping
+# itself: each CSF 2.0 Subcategory's Informative References name the CSF
+# 1.1 Subcategories it derives from. Transcribed from NIST's CSF 2.0
+# Reference Tool export (https://csrc.nist.gov/extensions/nudp/services/json/csf/download?olirids=all),
+# sheet "CSF 2.0", column "Informative References". Authoritative rather
+# than inferred, which is why every rationale below cites NIST instead of
+# paraphrasing a judgment no human here made.
+#
+# 155 entries covering 106 of 108 CSF 1.1
+# subcategories. Coverage is partial because NIST itself maps only
+# 90 of the 2.0 subcategories back to 1.1 -- concepts new in
+# 2.0 (most of the GOVERN function) have no 1.1 predecessor to cite, which
+# is a real property of the standards, not a gap in this transcription.
+# 1 reference(s) dropped: see the generator for the reasons.
+# Regenerate via backend/scripts/generate_nist_csf_version_crosswalk.py.
+- framework_a: NIST CSF 1.1
+  practice_a_id: DE.AE-2
+  framework_b: NIST CSF 2.0
+  practice_b_id: DE.AE-02
+  similarity: 0.738
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 DE.AE-2 as a source for DE.AE-02.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: DE.AE-3
+  framework_b: NIST CSF 2.0
+  practice_b_id: DE.AE-03
+  similarity: 0.843
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 DE.AE-3 as a source for DE.AE-03.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: DE.AE-4
+  framework_b: NIST CSF 2.0
+  practice_b_id: DE.AE-04
+  similarity: 0.79
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 DE.AE-4 as a source for DE.AE-04.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: DE.DP-4
+  framework_b: NIST CSF 2.0
+  practice_b_id: DE.AE-06
+  similarity: 0.664
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 DE.DP-4 as a source for DE.AE-06.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: DE.AE-3
+  framework_b: NIST CSF 2.0
+  practice_b_id: DE.AE-07
+  similarity: 0.692
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 DE.AE-3 as a source for DE.AE-07.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: DE.AE-5
+  framework_b: NIST CSF 2.0
+  practice_b_id: DE.AE-08
+  similarity: 0.751
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 DE.AE-5 as a source for DE.AE-08.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: DE.CM-1
+  framework_b: NIST CSF 2.0
+  practice_b_id: DE.CM-01
+  similarity: 0.857
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 DE.CM-1 as a source for DE.CM-01.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: DE.CM-4
+  framework_b: NIST CSF 2.0
+  practice_b_id: DE.CM-01
+  similarity: 0.607
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 DE.CM-4 as a source for DE.CM-01.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: DE.CM-5
+  framework_b: NIST CSF 2.0
+  practice_b_id: DE.CM-01
+  similarity: 0.531
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 DE.CM-5 as a source for DE.CM-01.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: DE.CM-7
+  framework_b: NIST CSF 2.0
+  practice_b_id: DE.CM-01
+  similarity: 0.784
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 DE.CM-7 as a source for DE.CM-01.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: DE.CM-2
+  framework_b: NIST CSF 2.0
+  practice_b_id: DE.CM-02
+  similarity: 0.856
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 DE.CM-2 as a source for DE.CM-02.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: DE.CM-3
+  framework_b: NIST CSF 2.0
+  practice_b_id: DE.CM-03
+  similarity: 0.851
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 DE.CM-3 as a source for DE.CM-03.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: DE.CM-7
+  framework_b: NIST CSF 2.0
+  practice_b_id: DE.CM-03
+  similarity: 0.84
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 DE.CM-7 as a source for DE.CM-03.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: DE.CM-6
+  framework_b: NIST CSF 2.0
+  practice_b_id: DE.CM-06
+  similarity: 0.884
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 DE.CM-6 as a source for DE.CM-06.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: DE.CM-7
+  framework_b: NIST CSF 2.0
+  practice_b_id: DE.CM-06
+  similarity: 0.763
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 DE.CM-7 as a source for DE.CM-06.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: DE.CM-4
+  framework_b: NIST CSF 2.0
+  practice_b_id: DE.CM-09
+  similarity: 0.647
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 DE.CM-4 as a source for DE.CM-09.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: DE.CM-5
+  framework_b: NIST CSF 2.0
+  practice_b_id: DE.CM-09
+  similarity: 0.525
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 DE.CM-5 as a source for DE.CM-09.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: DE.CM-7
+  framework_b: NIST CSF 2.0
+  practice_b_id: DE.CM-09
+  similarity: 0.8
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 DE.CM-7 as a source for DE.CM-09.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: PR.DS-6
+  framework_b: NIST CSF 2.0
+  practice_b_id: DE.CM-09
+  similarity: 0.736
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 PR.DS-6 as a source for DE.CM-09.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: PR.DS-8
+  framework_b: NIST CSF 2.0
+  practice_b_id: DE.CM-09
+  similarity: 0.746
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 PR.DS-8 as a source for DE.CM-09.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: ID.BE-2
+  framework_b: NIST CSF 2.0
+  practice_b_id: GV.OC-01
+  similarity: 0.752
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 ID.BE-2 as a source for GV.OC-01.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: ID.BE-3
+  framework_b: NIST CSF 2.0
+  practice_b_id: GV.OC-01
+  similarity: 0.743
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 ID.BE-3 as a source for GV.OC-01.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: ID.GV-2
+  framework_b: NIST CSF 2.0
+  practice_b_id: GV.OC-02
+  similarity: 0.79
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 ID.GV-2 as a source for GV.OC-02.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: ID.SC-2
+  framework_b: NIST CSF 2.0
+  practice_b_id: GV.OC-02
+  similarity: 0.699
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 ID.SC-2 as a source for GV.OC-02.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: ID.GV-3
+  framework_b: NIST CSF 2.0
+  practice_b_id: GV.OC-03
+  similarity: 0.986
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 ID.GV-3 as a source for GV.OC-03.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: ID.BE-4
+  framework_b: NIST CSF 2.0
+  practice_b_id: GV.OC-04
+  similarity: 0.791
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 ID.BE-4 as a source for GV.OC-04.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: ID.BE-5
+  framework_b: NIST CSF 2.0
+  practice_b_id: GV.OC-04
+  similarity: 0.638
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 ID.BE-5 as a source for GV.OC-04.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: ID.BE-1
+  framework_b: NIST CSF 2.0
+  practice_b_id: GV.OC-05
+  similarity: 0.8
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 ID.BE-1 as a source for GV.OC-05.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: ID.BE-4
+  framework_b: NIST CSF 2.0
+  practice_b_id: GV.OC-05
+  similarity: 0.758
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 ID.BE-4 as a source for GV.OC-05.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: ID.GV-1
+  framework_b: NIST CSF 2.0
+  practice_b_id: GV.PO-01
+  similarity: 0.916
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 ID.GV-1 as a source for GV.PO-01.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: ID.GV-1
+  framework_b: NIST CSF 2.0
+  practice_b_id: GV.PO-02
+  similarity: 0.841
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 ID.GV-1 as a source for GV.PO-02.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: ID.RM-1
+  framework_b: NIST CSF 2.0
+  practice_b_id: GV.RM-01
+  similarity: 0.923
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 ID.RM-1 as a source for GV.RM-01.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: ID.RM-2
+  framework_b: NIST CSF 2.0
+  practice_b_id: GV.RM-02
+  similarity: 0.845
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 ID.RM-2 as a source for GV.RM-02.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: ID.RM-3
+  framework_b: NIST CSF 2.0
+  practice_b_id: GV.RM-02
+  similarity: 0.761
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 ID.RM-3 as a source for GV.RM-02.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: ID.GV-4
+  framework_b: NIST CSF 2.0
+  practice_b_id: GV.RM-03
+  similarity: 0.885
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 ID.GV-4 as a source for GV.RM-03.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: ID.RM-2
+  framework_b: NIST CSF 2.0
+  practice_b_id: GV.RM-04
+  similarity: 0.745
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 ID.RM-2 as a source for GV.RM-04.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: ID.SC-1
+  framework_b: NIST CSF 2.0
+  practice_b_id: GV.RM-05
+  similarity: 0.772
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 ID.SC-1 as a source for GV.RM-05.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: ID.RM-1
+  framework_b: NIST CSF 2.0
+  practice_b_id: GV.RM-06
+  similarity: 0.708
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 ID.RM-1 as a source for GV.RM-06.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: DE.DP-1
+  framework_b: NIST CSF 2.0
+  practice_b_id: GV.RR-02
+  similarity: 0.734
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 DE.DP-1 as a source for GV.RR-02.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: ID.AM-6
+  framework_b: NIST CSF 2.0
+  practice_b_id: GV.RR-02
+  similarity: 0.793
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 ID.AM-6 as a source for GV.RR-02.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: ID.GV-2
+  framework_b: NIST CSF 2.0
+  practice_b_id: GV.RR-02
+  similarity: 0.827
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 ID.GV-2 as a source for GV.RR-02.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: ID.RM-1
+  framework_b: NIST CSF 2.0
+  practice_b_id: GV.RR-03
+  similarity: 0.688
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 ID.RM-1 as a source for GV.RR-03.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: PR.IP-11
+  framework_b: NIST CSF 2.0
+  practice_b_id: GV.RR-04
+  similarity: 0.944
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 PR.IP-11 as a source for GV.RR-04.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: ID.SC-1
+  framework_b: NIST CSF 2.0
+  practice_b_id: GV.SC-01
+  similarity: 0.906
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 ID.SC-1 as a source for GV.SC-01.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: ID.AM-6
+  framework_b: NIST CSF 2.0
+  practice_b_id: GV.SC-02
+  similarity: 0.889
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 ID.AM-6 as a source for GV.SC-02.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: ID.SC-2
+  framework_b: NIST CSF 2.0
+  practice_b_id: GV.SC-03
+  similarity: 0.858
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 ID.SC-2 as a source for GV.SC-03.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: ID.SC-2
+  framework_b: NIST CSF 2.0
+  practice_b_id: GV.SC-04
+  similarity: 0.755
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 ID.SC-2 as a source for GV.SC-04.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: ID.SC-3
+  framework_b: NIST CSF 2.0
+  practice_b_id: GV.SC-05
+  similarity: 0.866
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 ID.SC-3 as a source for GV.SC-05.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: ID.SC-1
+  framework_b: NIST CSF 2.0
+  practice_b_id: GV.SC-06
+  similarity: 0.705
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 ID.SC-1 as a source for GV.SC-06.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: ID.SC-2
+  framework_b: NIST CSF 2.0
+  practice_b_id: GV.SC-07
+  similarity: 0.737
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 ID.SC-2 as a source for GV.SC-07.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: ID.SC-4
+  framework_b: NIST CSF 2.0
+  practice_b_id: GV.SC-07
+  similarity: 0.715
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 ID.SC-4 as a source for GV.SC-07.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: ID.SC-5
+  framework_b: NIST CSF 2.0
+  practice_b_id: GV.SC-08
+  similarity: 0.864
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 ID.SC-5 as a source for GV.SC-08.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: ID.SC-1
+  framework_b: NIST CSF 2.0
+  practice_b_id: GV.SC-09
+  similarity: 0.814
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 ID.SC-1 as a source for GV.SC-09.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: ID.SC-1
+  framework_b: NIST CSF 2.0
+  practice_b_id: GV.SC-10
+  similarity: 0.828
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 ID.SC-1 as a source for GV.SC-10.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: ID.AM-1
+  framework_b: NIST CSF 2.0
+  practice_b_id: ID.AM-01
+  similarity: 0.872
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 ID.AM-1 as a source for ID.AM-01.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: ID.AM-2
+  framework_b: NIST CSF 2.0
+  practice_b_id: ID.AM-02
+  similarity: 0.868
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 ID.AM-2 as a source for ID.AM-02.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: DE.AE-1
+  framework_b: NIST CSF 2.0
+  practice_b_id: ID.AM-03
+  similarity: 0.815
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 DE.AE-1 as a source for ID.AM-03.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: ID.AM-3
+  framework_b: NIST CSF 2.0
+  practice_b_id: ID.AM-03
+  similarity: 0.845
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 ID.AM-3 as a source for ID.AM-03.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: ID.AM-4
+  framework_b: NIST CSF 2.0
+  practice_b_id: ID.AM-04
+  similarity: 0.705
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 ID.AM-4 as a source for ID.AM-04.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: ID.AM-5
+  framework_b: NIST CSF 2.0
+  practice_b_id: ID.AM-05
+  similarity: 0.835
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 ID.AM-5 as a source for ID.AM-05.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: PR.DS-3
+  framework_b: NIST CSF 2.0
+  practice_b_id: ID.AM-08
+  similarity: 0.695
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 PR.DS-3 as a source for ID.AM-08.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: PR.IP-2
+  framework_b: NIST CSF 2.0
+  practice_b_id: ID.AM-08
+  similarity: 0.826
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 PR.IP-2 as a source for ID.AM-08.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: PR.IP-6
+  framework_b: NIST CSF 2.0
+  practice_b_id: ID.AM-08
+  similarity: 0.566
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 PR.IP-6 as a source for ID.AM-08.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: PR.MA-1
+  framework_b: NIST CSF 2.0
+  practice_b_id: ID.AM-08
+  similarity: 0.69
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 PR.MA-1 as a source for ID.AM-08.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: PR.MA-2
+  framework_b: NIST CSF 2.0
+  practice_b_id: ID.AM-08
+  similarity: 0.653
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 PR.MA-2 as a source for ID.AM-08.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: DE.DP-3
+  framework_b: NIST CSF 2.0
+  practice_b_id: ID.IM-02
+  similarity: 0.695
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 DE.DP-3 as a source for ID.IM-02.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: ID.SC-5
+  framework_b: NIST CSF 2.0
+  practice_b_id: ID.IM-02
+  similarity: 0.756
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 ID.SC-5 as a source for ID.IM-02.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: PR.IP-10
+  framework_b: NIST CSF 2.0
+  practice_b_id: ID.IM-02
+  similarity: 0.664
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 PR.IP-10 as a source for ID.IM-02.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: DE.DP-5
+  framework_b: NIST CSF 2.0
+  practice_b_id: ID.IM-03
+  similarity: 0.756
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 DE.DP-5 as a source for ID.IM-03.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: PR.IP-7
+  framework_b: NIST CSF 2.0
+  practice_b_id: ID.IM-03
+  similarity: 0.772
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 PR.IP-7 as a source for ID.IM-03.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: PR.IP-8
+  framework_b: NIST CSF 2.0
+  practice_b_id: ID.IM-03
+  similarity: 0.625
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 PR.IP-8 as a source for ID.IM-03.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: RC.IM-1
+  framework_b: NIST CSF 2.0
+  practice_b_id: ID.IM-03
+  similarity: 0.659
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 RC.IM-1 as a source for ID.IM-03.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: RC.IM-2
+  framework_b: NIST CSF 2.0
+  practice_b_id: ID.IM-03
+  similarity: 0.69
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 RC.IM-2 as a source for ID.IM-03.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: RS.IM-1
+  framework_b: NIST CSF 2.0
+  practice_b_id: ID.IM-03
+  similarity: 0.677
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 RS.IM-1 as a source for ID.IM-03.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: RS.IM-2
+  framework_b: NIST CSF 2.0
+  practice_b_id: ID.IM-03
+  similarity: 0.667
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 RS.IM-2 as a source for ID.IM-03.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: PR.IP-10
+  framework_b: NIST CSF 2.0
+  practice_b_id: ID.IM-04
+  similarity: 0.726
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 PR.IP-10 as a source for ID.IM-04.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: PR.IP-9
+  framework_b: NIST CSF 2.0
+  practice_b_id: ID.IM-04
+  similarity: 0.786
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 PR.IP-9 as a source for ID.IM-04.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: RC.IM-1
+  framework_b: NIST CSF 2.0
+  practice_b_id: ID.IM-04
+  similarity: 0.651
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 RC.IM-1 as a source for ID.IM-04.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: RS.IM-1
+  framework_b: NIST CSF 2.0
+  practice_b_id: ID.IM-04
+  similarity: 0.728
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 RS.IM-1 as a source for ID.IM-04.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: DE.CM-8
+  framework_b: NIST CSF 2.0
+  practice_b_id: ID.RA-01
+  similarity: 0.828
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 DE.CM-8 as a source for ID.RA-01.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: ID.RA-1
+  framework_b: NIST CSF 2.0
+  practice_b_id: ID.RA-01
+  similarity: 0.952
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 ID.RA-1 as a source for ID.RA-01.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: PR.IP-12
+  framework_b: NIST CSF 2.0
+  practice_b_id: ID.RA-01
+  similarity: 0.761
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 PR.IP-12 as a source for ID.RA-01.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: ID.RA-2
+  framework_b: NIST CSF 2.0
+  practice_b_id: ID.RA-02
+  similarity: 1.0
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 ID.RA-2 as a source for ID.RA-02.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: ID.RA-3
+  framework_b: NIST CSF 2.0
+  practice_b_id: ID.RA-03
+  similarity: 0.928
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 ID.RA-3 as a source for ID.RA-03.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: ID.RA-4
+  framework_b: NIST CSF 2.0
+  practice_b_id: ID.RA-04
+  similarity: 0.784
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 ID.RA-4 as a source for ID.RA-04.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: ID.RA-5
+  framework_b: NIST CSF 2.0
+  practice_b_id: ID.RA-05
+  similarity: 0.897
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 ID.RA-5 as a source for ID.RA-05.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: ID.RA-6
+  framework_b: NIST CSF 2.0
+  practice_b_id: ID.RA-06
+  similarity: 0.917
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 ID.RA-6 as a source for ID.RA-06.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: RS.MI-3
+  framework_b: NIST CSF 2.0
+  practice_b_id: ID.RA-06
+  similarity: 0.726
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 RS.MI-3 as a source for ID.RA-06.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: PR.IP-3
+  framework_b: NIST CSF 2.0
+  practice_b_id: ID.RA-07
+  similarity: 0.648
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 PR.IP-3 as a source for ID.RA-07.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: RS.AN-5
+  framework_b: NIST CSF 2.0
+  practice_b_id: ID.RA-08
+  similarity: 0.824
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 RS.AN-5 as a source for ID.RA-08.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: PR.DS-8
+  framework_b: NIST CSF 2.0
+  practice_b_id: ID.RA-09
+  similarity: 0.798
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 PR.DS-8 as a source for ID.RA-09.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: ID.SC-2
+  framework_b: NIST CSF 2.0
+  practice_b_id: ID.RA-10
+  similarity: 0.735
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 ID.SC-2 as a source for ID.RA-10.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: ID.SC-4
+  framework_b: NIST CSF 2.0
+  practice_b_id: ID.RA-10
+  similarity: 0.663
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 ID.SC-4 as a source for ID.RA-10.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: PR.AC-1
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.AA-01
+  similarity: 0.884
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 PR.AC-1 as a source for PR.AA-01.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: PR.AC-6
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.AA-02
+  similarity: 0.98
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 PR.AC-6 as a source for PR.AA-02.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: PR.AC-3
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.AA-03
+  similarity: 0.715
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 PR.AC-3 as a source for PR.AA-03.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: PR.AC-7
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.AA-03
+  similarity: 0.76
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 PR.AC-7 as a source for PR.AA-03.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: PR.AC-1
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.AA-05
+  similarity: 0.665
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 PR.AC-1 as a source for PR.AA-05.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: PR.AC-3
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.AA-05
+  similarity: 0.6
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 PR.AC-3 as a source for PR.AA-05.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: PR.AC-4
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.AA-05
+  similarity: 0.922
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 PR.AC-4 as a source for PR.AA-05.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: PR.AC-2
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.AA-06
+  similarity: 0.906
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 PR.AC-2 as a source for PR.AA-06.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: PR.PT-4
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.AA-06
+  similarity: 0.716
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 PR.PT-4 as a source for PR.AA-06.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: PR.AT-1
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.AT-01
+  similarity: 0.684
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 PR.AT-1 as a source for PR.AT-01.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: PR.AT-3
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.AT-01
+  similarity: 0.643
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 PR.AT-3 as a source for PR.AT-01.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: RS.CO-1
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.AT-01
+  similarity: 0.759
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 RS.CO-1 as a source for PR.AT-01.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: PR.AT-2
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.AT-02
+  similarity: 0.736
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 PR.AT-2 as a source for PR.AT-02.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: PR.AT-3
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.AT-02
+  similarity: 0.669
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 PR.AT-3 as a source for PR.AT-02.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: PR.AT-4
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.AT-02
+  similarity: 0.697
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 PR.AT-4 as a source for PR.AT-02.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: PR.AT-5
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.AT-02
+  similarity: 0.863
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 PR.AT-5 as a source for PR.AT-02.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: PR.DS-1
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.DS-01
+  similarity: 0.848
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 PR.DS-1 as a source for PR.DS-01.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: PR.DS-5
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.DS-01
+  similarity: 0.835
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 PR.DS-5 as a source for PR.DS-01.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: PR.DS-6
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.DS-01
+  similarity: 0.714
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 PR.DS-6 as a source for PR.DS-01.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: PR.PT-2
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.DS-01
+  similarity: 0.698
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 PR.PT-2 as a source for PR.DS-01.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: PR.DS-2
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.DS-02
+  similarity: 0.91
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 PR.DS-2 as a source for PR.DS-02.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: PR.DS-5
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.DS-02
+  similarity: 0.835
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 PR.DS-5 as a source for PR.DS-02.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: PR.DS-5
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.DS-10
+  similarity: 0.852
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 PR.DS-5 as a source for PR.DS-10.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: PR.IP-4
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.DS-11
+  similarity: 0.928
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 PR.IP-4 as a source for PR.DS-11.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: PR.AC-3
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.IR-01
+  similarity: 0.747
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 PR.AC-3 as a source for PR.IR-01.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: PR.AC-5
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.IR-01
+  similarity: 0.841
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 PR.AC-5 as a source for PR.IR-01.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: PR.DS-7
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.IR-01
+  similarity: 0.574
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 PR.DS-7 as a source for PR.IR-01.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: PR.PT-4
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.IR-01
+  similarity: 0.851
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 PR.PT-4 as a source for PR.IR-01.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: PR.IP-5
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.IR-02
+  similarity: 0.756
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 PR.IP-5 as a source for PR.IR-02.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: PR.PT-5
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.IR-03
+  similarity: 0.919
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 PR.PT-5 as a source for PR.IR-03.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: PR.DS-4
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.IR-04
+  similarity: 0.971
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 PR.DS-4 as a source for PR.IR-04.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: PR.IP-1
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.PS-01
+  similarity: 0.715
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 PR.IP-1 as a source for PR.PS-01.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: PR.IP-3
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.PS-01
+  similarity: 0.828
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 PR.IP-3 as a source for PR.PS-01.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: PR.PT-2
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.PS-01
+  similarity: 0.536
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 PR.PT-2 as a source for PR.PS-01.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: PR.PT-3
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.PS-01
+  similarity: 0.633
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 PR.PT-3 as a source for PR.PS-01.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: PR.IP-12
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.PS-02
+  similarity: 0.663
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 PR.IP-12 as a source for PR.PS-02.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: PR.MA-2
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.PS-02
+  similarity: 0.694
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 PR.MA-2 as a source for PR.PS-02.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: PR.DS-3
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.PS-03
+  similarity: 0.699
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 PR.DS-3 as a source for PR.PS-03.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: PR.MA-1
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.PS-03
+  similarity: 0.708
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 PR.MA-1 as a source for PR.PS-03.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: PR.PT-1
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.PS-04
+  similarity: 0.791
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 PR.PT-1 as a source for PR.PS-04.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: PR.IP-2
+  framework_b: NIST CSF 2.0
+  practice_b_id: PR.PS-06
+  similarity: 0.724
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 PR.IP-2 as a source for PR.PS-06.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: RC.CO-3
+  framework_b: NIST CSF 2.0
+  practice_b_id: RC.CO-03
+  similarity: 0.923
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 RC.CO-3 as a source for RC.CO-03.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: RC.CO-1
+  framework_b: NIST CSF 2.0
+  practice_b_id: RC.CO-04
+  similarity: 0.673
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 RC.CO-1 as a source for RC.CO-04.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: RS.CO-2
+  framework_b: NIST CSF 2.0
+  practice_b_id: RC.CO-04
+  similarity: 0.71
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 RS.CO-2 as a source for RC.CO-04.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: RC.RP-1
+  framework_b: NIST CSF 2.0
+  practice_b_id: RC.RP-01
+  similarity: 0.831
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 RC.RP-1 as a source for RC.RP-01.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: RC.RP-1
+  framework_b: NIST CSF 2.0
+  practice_b_id: RC.RP-02
+  similarity: 0.775
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 RC.RP-1 as a source for RC.RP-02.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: RS.AN-3
+  framework_b: NIST CSF 2.0
+  practice_b_id: RS.AN-03
+  similarity: 0.686
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 RS.AN-3 as a source for RS.AN-03.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: RS.AN-3
+  framework_b: NIST CSF 2.0
+  practice_b_id: RS.AN-06
+  similarity: 0.744
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 RS.AN-3 as a source for RS.AN-06.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: RS.CO-2
+  framework_b: NIST CSF 2.0
+  practice_b_id: RS.CO-02
+  similarity: 0.743
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 RS.CO-2 as a source for RS.CO-02.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: RS.CO-3
+  framework_b: NIST CSF 2.0
+  practice_b_id: RS.CO-02
+  similarity: 0.654
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 RS.CO-3 as a source for RS.CO-02.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: RS.CO-3
+  framework_b: NIST CSF 2.0
+  practice_b_id: RS.CO-03
+  similarity: 0.753
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 RS.CO-3 as a source for RS.CO-03.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: RS.CO-5
+  framework_b: NIST CSF 2.0
+  practice_b_id: RS.CO-03
+  similarity: 0.794
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 RS.CO-5 as a source for RS.CO-03.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: RS.CO-4
+  framework_b: NIST CSF 2.0
+  practice_b_id: RS.MA-01
+  similarity: 0.815
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 RS.CO-4 as a source for RS.MA-01.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: RS.RP-1
+  framework_b: NIST CSF 2.0
+  practice_b_id: RS.MA-01
+  similarity: 0.868
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 RS.RP-1 as a source for RS.MA-01.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: RS.AN-1
+  framework_b: NIST CSF 2.0
+  practice_b_id: RS.MA-02
+  similarity: 0.7
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 RS.AN-1 as a source for RS.MA-02.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: RS.AN-2
+  framework_b: NIST CSF 2.0
+  practice_b_id: RS.MA-02
+  similarity: 0.745
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 RS.AN-2 as a source for RS.MA-02.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: RS.AN-2
+  framework_b: NIST CSF 2.0
+  practice_b_id: RS.MA-03
+  similarity: 0.778
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 RS.AN-2 as a source for RS.MA-03.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: RS.AN-4
+  framework_b: NIST CSF 2.0
+  practice_b_id: RS.MA-03
+  similarity: 0.853
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 RS.AN-4 as a source for RS.MA-03.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: RS.AN-2
+  framework_b: NIST CSF 2.0
+  practice_b_id: RS.MA-04
+  similarity: 0.787
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 RS.AN-2 as a source for RS.MA-04.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: RS.CO-4
+  framework_b: NIST CSF 2.0
+  practice_b_id: RS.MA-04
+  similarity: 0.656
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 RS.CO-4 as a source for RS.MA-04.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: RS.MI-1
+  framework_b: NIST CSF 2.0
+  practice_b_id: RS.MI-01
+  similarity: 1.0
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 RS.MI-1 as a source for RS.MI-01.
+    Transcribed from that published crosswalk, not inferred here.
+- framework_a: NIST CSF 1.1
+  practice_a_id: RS.MI-2
+  framework_b: NIST CSF 2.0
+  practice_b_id: RS.MI-02
+  similarity: 0.868
+  rationale: NIST's own CSF 2.0 Informative References list CSF v1.1 RS.MI-2 as a source for RS.MI-02.
+    Transcribed from that published crosswalk, not inferred here.

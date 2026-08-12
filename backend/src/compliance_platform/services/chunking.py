@@ -32,6 +32,137 @@ def _has_structural_markup(text: str) -> bool:
 _MAX_BOUNDARY_SHIFT_CHARS = 40
 
 
+# Sentence alignment. ADR-0054 snapped chunk edges to word boundaries and
+# named sentence alignment as the obvious next question, then deliberately
+# did not attempt it: it needs either a sentence tokenizer (a new
+# dependency, poorly suited to the heading-fragment, table-cell and
+# bullet-list text that dominates policy PDFs) or a regex that mishandles
+# abbreviations and numbered clauses. This implements the regex path with
+# the abbreviation and numbered-clause cases handled explicitly, and
+# degrades to ADR-0054's word snapping whenever no sentence boundary is
+# available -- so the worst case is exactly the previous behaviour, never
+# worse.
+_SENTENCE_TERMINATORS = ".!?"
+# Closing punctuation that may sit between a terminator and the space:
+# '... end of the clause."' or '(see Appendix A.)'
+_SENTENCE_CLOSERS = "\"')]}”’"
+
+# Tokens that end in a period without ending a sentence. Anything with an
+# internal period (U.S., a.m., e.g.) and any single letter (the "J." of an
+# initial) are caught structurally below, so this set only needs the
+# abbreviations that look like ordinary words.
+_ABBREVIATIONS = frozenset(
+    {
+        "etc", "vs", "cf", "al", "inc", "ltd", "co", "corp", "dept", "div",
+        "no", "nos", "sec", "secs", "fig", "figs", "ref", "refs", "rev",
+        "approx", "est", "min", "max", "vol", "ch", "chap", "pp", "para",
+        "mr", "mrs", "ms", "dr", "prof", "st", "jr", "sr",
+        "jan", "feb", "mar", "apr", "jun", "jul", "aug", "sep", "sept",
+        "oct", "nov", "dec",
+    }
+)
+
+# The ceiling on how far an edge may move to reach a sentence boundary.
+# The real budget is min(this, chunk_overlap_chars // 2) -- see
+# _sentence_shift_budget, which is what actually keeps ADR-0054's
+# no-text-lost property true.
+_MAX_SENTENCE_SHIFT_CHARS = 75
+
+
+def _sentence_shift_budget(overlap_chars: int) -> int:
+    """How far each edge may travel to find a sentence boundary.
+
+    ADR-0054's no-text-lost property is `previous.char_end >=
+    following.char_start`. Consecutive nominal windows overlap by exactly
+    `overlap_chars`, so that property survives edge-snapping only while
+    (backward end shift) + (forward start shift) <= overlap_chars.
+    Halving the overlap bounds both directions at once and keeps the
+    guarantee true for any configured overlap, instead of only for the
+    default 150 that happens to ship today.
+    """
+    return max(min(_MAX_SENTENCE_SHIFT_CHARS, overlap_chars // 2), 0)
+
+
+def _preceding_token(text: str, term_idx: int) -> str:
+    """The word immediately before a terminator, including any internal
+    periods, e.g. "U.S" for "U.S." and "approx" for "approx.".
+    """
+    cursor = term_idx
+    while cursor > 0 and (text[cursor - 1].isalnum() or text[cursor - 1] == "."):
+        cursor -= 1
+    return text[cursor:term_idx]
+
+
+def _is_sentence_end(text: str, term_idx: int) -> int | None:
+    """If `term_idx` holds a terminator that genuinely ends a sentence,
+    return the offset just past it (and past any closing quote/bracket).
+    None otherwise.
+    """
+    if text[term_idx] not in _SENTENCE_TERMINATORS:
+        return None
+
+    after = term_idx + 1
+    while after < len(text) and text[after] in _SENTENCE_CLOSERS:
+        after += 1
+    # A terminator not followed by whitespace is inside something -- a
+    # decimal, a version string, a numbered requirement id like "9.2.1".
+    if after >= len(text) or not text[after].isspace():
+        return None
+
+    if text[term_idx] == ".":
+        token = _preceding_token(text, term_idx)
+        if "." in token:
+            return None  # U.S., e.g., a.m. -- an acronym or abbreviation
+        if len(token) == 1 and token.isalpha():
+            return None  # an initial: "J. Smith"
+        if token.lower() in _ABBREVIATIONS:
+            return None
+
+    # A following lowercase letter means the "sentence" continued, which
+    # is the general catch for abbreviations not in the list above.
+    nxt = after
+    while nxt < len(text) and text[nxt].isspace():
+        nxt += 1
+    if nxt < len(text) and text[nxt].islower():
+        return None
+
+    return after
+
+
+def _snap_end_to_sentence(text: str, pos: int, budget: int) -> int | None:
+    """The end of the last sentence completed at or before `pos`, within
+    `budget` characters. None if there is no sentence boundary in reach.
+    """
+    if budget <= 0 or pos <= 0 or pos >= len(text):
+        return None
+    for term_idx in range(pos - 1, max(pos - budget, 0) - 1, -1):
+        end = _is_sentence_end(text, term_idx)
+        if end is not None and end <= pos:
+            return end
+    return None
+
+
+def _snap_start_to_sentence(text: str, pos: int, budget: int) -> int | None:
+    """The start of the first sentence beginning at or after `pos`, within
+    `budget` characters. None if there is no sentence boundary in reach.
+    """
+    if budget <= 0 or pos <= 0 or pos >= len(text):
+        return None
+    # Terminators before `pos` matter too: when a sentence ends just
+    # before `pos` and is followed by a run of whitespace spanning it, the
+    # sentence that starts after that whitespace is the one we want.
+    for term_idx in range(max(pos - budget, 0), min(pos + budget, len(text))):
+        end = _is_sentence_end(text, term_idx)
+        if end is None:
+            continue
+        start = end
+        while start < len(text) and text[start].isspace():
+            start += 1
+        if pos <= start <= pos + budget:
+            return start
+    return None
+
+
 def _snap_start_to_word(text: str, pos: int) -> int:
     """Move `pos` forward to the start of the next whole word, so a chunk
     never opens mid-word. The skipped characters are not lost: they belong
@@ -80,13 +211,16 @@ def _fixed_window_chunks(
     document — callers that pass a section substring must add the
     section's own offset back in (see _structure_aware_chunks).
 
-    Both edges of each emitted window are snapped to the nearest word
-    boundary. A raw character window splits words at both ends ("esponse
-    Plan 9", "…a limited numb"), which costs little in retrieval but a
-    great deal in citation credibility: these chunks are quoted verbatim
-    to a reviewer verifying a gap (ADR-0051 renders them on the
-    Dashboard), and a quotation that begins mid-word reads as a bug in
-    the evidence rather than an artifact of chunking.
+    Both edges of each emitted window are snapped to a sentence boundary
+    where one is in reach, and to a word boundary otherwise. A raw
+    character window splits words at both ends ("esponse Plan 9", "…a
+    limited numb"), which costs little in retrieval but a great deal in
+    citation credibility: these chunks are quoted verbatim to a reviewer
+    verifying a gap (ADR-0051 renders them on the Dashboard), and a
+    quotation that begins mid-word reads as a bug in the evidence rather
+    than an artifact of chunking. A quotation that begins mid-*sentence*
+    is not a bug, but it still forces the reviewer to reconstruct the
+    context, so a whole sentence is preferred where one is available.
 
     The *nominal* grid (`start`, and therefore `step`, iteration count,
     and termination) is deliberately left unsnapped — only the emitted
@@ -99,13 +233,21 @@ def _fixed_window_chunks(
         return chunks
 
     step = max(target_chars - overlap_chars, 1)
+    sentence_budget = _sentence_shift_budget(overlap_chars)
     start = 0
     text_len = len(text)
     while start < text_len:
         end = min(start + target_chars, text_len)
 
-        snapped_start = _snap_start_to_word(text, start)
-        snapped_end = _snap_end_to_word(text, end)
+        # Sentence boundary first, word boundary as the fallback. Both are
+        # bounded, so an edge with neither in reach keeps the hard cut --
+        # exactly the behaviour ADR-0054 shipped.
+        sentence_start = _snap_start_to_sentence(text, start, sentence_budget)
+        snapped_start = (
+            sentence_start if sentence_start is not None else _snap_start_to_word(text, start)
+        )
+        sentence_end = _snap_end_to_sentence(text, end, sentence_budget)
+        snapped_end = sentence_end if sentence_end is not None else _snap_end_to_word(text, end)
         if snapped_end <= snapped_start:
             # Degenerate: a single unbroken token longer than the window
             # swallowed both edges. Emit the hard cut rather than nothing.

@@ -40,7 +40,7 @@ what you're touching before editing it:
 | `services/scoring_service.py`, `services/assessment_service.py` | `.cursor/rules/assessment-generation.mdc` |
 | `ai/`, `services/mapping_service.py` | `.cursor/rules/evidence-extraction.mdc` |
 | `services/report_service.py`, dashboard/report output, `frontend/` | `.cursor/rules/executive-reporting.mdc` |
-| `services/document_parsers.py` | `.cursor/rules/document-parsing.mdc` |
+| `services/document_parsers.py`, `services/ocr.py` | `.cursor/rules/document-parsing.mdc` |
 | `services/chunking.py`, `services/ingestion_service.py` | `.cursor/rules/data-cleaning.mdc` |
 | Anything that could send data to a cloud API, `data/`, `assessments/`, `reports/` | `.cursor/rules/privacy-protection.mdc` |
 | `prompts/` | `.cursor/rules/prompt-engineering.mdc` |
@@ -49,10 +49,10 @@ what you're touching before editing it:
 ## Commands
 
 ```
-cd backend && source .venv/bin/activate && pytest          # 408 tests as of Sprint 19 — run before finishing any backend change
+cd backend && source .venv/bin/activate && pytest          # 449 tests as of Sprint 19 — run before finishing any backend change
 cd backend && source .venv/bin/activate && ruff check .    # lint
 cd backend && source .venv/bin/activate && uvicorn compliance_platform.main:app --reload   # run the API, http://127.0.0.1:8000/docs
-cd frontend && npm run test    # vitest, 17 tests as of Sprint 19 — run before finishing any frontend change
+cd frontend && npm run test    # vitest, 22 tests as of Sprint 19 — run before finishing any frontend change
 cd frontend && npm run dev     # run the UI, http://localhost:5173
 ```
 First `uvicorn` startup can take a couple of minutes if this checkout sits on a slow/synced

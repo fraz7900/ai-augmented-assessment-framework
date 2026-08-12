@@ -12,19 +12,26 @@ import csv
 import hashlib
 import importlib.metadata
 import io
+import logging
+import math
+import re
 import uuid
 import zipfile
+from collections import Counter
 
 import openpyxl
 from docx import Document as DocxDocument
 from pypdf import PdfReader
 
+from compliance_platform.core.config import Settings
 from compliance_platform.models.schemas import (
     FileType,
     ParsedDocument,
     ParseStatus,
     SourceDocumentMetadata,
 )
+
+_logger = logging.getLogger(__name__)
 
 # Reproducibility provenance (Sprint 18, ADR-0042): the real, installed
 # version of whichever library actually parsed a document, read via
@@ -51,9 +58,30 @@ ParseResult = tuple[
 ]
 
 
-def _parser_version(file_type: FileType) -> str:
+# PDF text is normalised by this module after pypdf extracts it (see
+# _normalise_page_texts), so "which pypdf version parsed this" is no
+# longer the whole provenance story for a PDF chunk -- the normaliser's
+# own version is part of what produced the stored text. Tracked
+# separately from _PARSER_MODULE_VERSION so that changing PDF
+# normalisation does not falsely signal a behaviour change in the
+# TXT/MD/CSV parsers, which share nothing with it. Bump when
+# _normalise_page_texts's actual output changes.
+_PDF_NORMALIZER_VERSION = "1"
+
+
+def _parser_version(file_type: FileType, *, ocr_used: bool = False) -> str:
     if file_type == FileType.PDF:
-        return f"pypdf=={importlib.metadata.version('pypdf')}"
+        if ocr_used:
+            # pypdf never produced this text -- pdfium rendered the page
+            # and the OCR recogniser read it. Naming pypdf here would be
+            # wrong, not just incomplete.
+            from compliance_platform.services import ocr
+
+            return f"{ocr.engine_version()}+cp_pdf_normalizer=={_PDF_NORMALIZER_VERSION}"
+        return (
+            f"pypdf=={importlib.metadata.version('pypdf')}"
+            f"+cp_pdf_normalizer=={_PDF_NORMALIZER_VERSION}"
+        )
     if file_type == FileType.DOCX:
         return f"python-docx=={importlib.metadata.version('python-docx')}"
     if file_type == FileType.XLSX:
@@ -62,8 +90,11 @@ def _parser_version(file_type: FileType) -> str:
 
 # Below this many characters per page, a "successfully parsed" PDF is
 # almost certainly a scanned/image-only document that happened to extract
-# a few stray characters (e.g. a running header), not real text. OCR is
-# explicitly out of scope for the MVP (see PROJECT_CHARTER.md MVP scope).
+# a few stray characters (e.g. a running header), not real text. Such a
+# document is handed to OCR (ADR-0055) and only reported as
+# UNSUPPORTED_SCANNED if that also fails to recover usable text. The same
+# threshold is reused to judge the OCR output, so "usable" means the same
+# thing on both paths.
 _MIN_CHARS_PER_PAGE = 20
 
 # Content-sniffing (controlled-pilot readiness audit §A.12, security
@@ -138,7 +169,170 @@ def _new_document_id() -> str:
     return str(uuid.uuid4())
 
 
-def parse_pdf(content: bytes) -> ParseResult:
+# PDF text normalisation (ADR-0054 disclosed this as a real, separate
+# defect and deliberately left it: chunk edges were word-aligned, but the
+# text between them still carried running headers/footers and long runs
+# of blank lines, e.g. "Plan 9" followed by ~30 newlines). A chunk made
+# mostly of a repeated page footer is word-aligned nonsense -- it embeds
+# poorly, and when a reviewer opens it as cited evidence it says nothing
+# about the control it was retrieved for.
+#
+# Only the first/last few non-blank lines of each page are candidates,
+# because that is where running headers and footers live; a repeated line
+# in the middle of a page is body text (a table row, a repeated clause)
+# and is left alone.
+_HEADER_FOOTER_EDGE_LINES = 3
+# Fewer than 3 pages is not enough evidence that a line is *running*
+# rather than coincidentally repeated.
+_HEADER_FOOTER_MIN_PAGES = 3
+# A line must appear in the edge region of at least this share of pages.
+_HEADER_FOOTER_MIN_RATIO = 0.6
+# Running headers/footers are short. This ceiling is the main guard
+# against deleting real content: a long paragraph that happens to repeat
+# across pages (boilerplate legal text, a repeated definition block) is
+# never treated as a header, because losing it would be a genuine
+# evidence loss rather than noise removal.
+_HEADER_FOOTER_MAX_CHARS = 120
+
+_BLANK_RUN_RE = re.compile(r"\n{3,}")
+_DIGIT_RUN_RE = re.compile(r"\d+")
+
+
+def _running_line_signature(line: str) -> str:
+    """Collapse a line to a repeat-detection key: whitespace normalised,
+    digit runs replaced, case folded. "Incident Response Plan 9" and
+    "Incident Response Plan 10" share one signature, which is the whole
+    point -- a page footer differs by its page number on every page and
+    would otherwise never look repeated.
+    """
+    return _DIGIT_RUN_RE.sub("#", " ".join(line.split())).strip().lower()
+
+
+def _edge_line_indices(lines: list[str]) -> set[int]:
+    """Indices of the first and last few NON-BLANK lines. Computed over
+    non-blank lines specifically so a page whose footer is preceded by
+    blank lines still has that footer counted as an edge line -- which is
+    exactly the case this normalisation exists to handle.
+    """
+    non_blank = [i for i, line in enumerate(lines) if line.strip()]
+    return set(non_blank[:_HEADER_FOOTER_EDGE_LINES] + non_blank[-_HEADER_FOOTER_EDGE_LINES:])
+
+
+def _detect_running_lines(page_texts: list[str]) -> set[str]:
+    """Signatures of lines that recur in the edge region of most pages."""
+    if len(page_texts) < _HEADER_FOOTER_MIN_PAGES:
+        return set()
+
+    counts: Counter[str] = Counter()
+    for page_text in page_texts:
+        lines = page_text.splitlines()
+        edge = _edge_line_indices(lines)
+        # A set per page: a header repeated twice on one page still only
+        # counts as one page's worth of evidence that it is running.
+        signatures = {
+            _running_line_signature(lines[i])
+            for i in edge
+            if len(lines[i].strip()) <= _HEADER_FOOTER_MAX_CHARS
+        }
+        counts.update(sig for sig in signatures if sig)
+
+    threshold = max(
+        _HEADER_FOOTER_MIN_PAGES, math.ceil(len(page_texts) * _HEADER_FOOTER_MIN_RATIO)
+    )
+    return {sig for sig, seen_on in counts.items() if seen_on >= threshold}
+
+
+def _normalise_page_text(page_text: str, running: set[str]) -> str:
+    """Drop this page's running header/footer lines, strip trailing
+    whitespace, and collapse blank-line runs to a single blank line.
+
+    If dropping running lines would empty the page, nothing is dropped.
+    On a short page every line is an "edge" line, so a document whose
+    pages genuinely repeat each other (a form, a signature sheet, a
+    two-line-per-page appendix) could otherwise have whole pages deleted
+    as though they were headers. Losing a page of real evidence is a far
+    worse failure than leaving a footer in one, so this fallback is
+    unconditional rather than heuristic.
+    """
+    lines = page_text.splitlines()
+    edge = _edge_line_indices(lines)
+    kept = [
+        line.rstrip()
+        for i, line in enumerate(lines)
+        if not (i in edge and line.strip() and _running_line_signature(line) in running)
+    ]
+    if page_text.strip() and not any(line.strip() for line in kept):
+        kept = [line.rstrip() for line in lines]
+    return _BLANK_RUN_RE.sub("\n\n", "\n".join(kept)).strip()
+
+
+def _normalise_page_texts(page_texts: list[str]) -> list[str]:
+    """Normalise every page, detecting running lines across the whole
+    document first (a header is only identifiable by comparing pages).
+
+    Returns normalised page texts rather than a joined string on purpose:
+    parse_pdf builds page_boundaries from exactly the list it joins, so
+    normalising before that step keeps offsets and text in sync by
+    construction rather than by a second, drift-prone calculation.
+    """
+    running = _detect_running_lines(page_texts)
+    return [_normalise_page_text(page_text, running) for page_text in page_texts]
+
+
+def _page_boundaries_for(page_texts: list[str]) -> list[tuple[int, int]]:
+    """Char offsets into "\\n\\n".join(page_texts) for each page.
+
+    Shared by the text-layer and OCR paths so the two can never compute
+    offsets differently -- the ADR-0042 invariant is that boundaries are
+    derived from exactly the list that gets joined, and having that
+    arithmetic in one place is what keeps it true.
+    """
+    boundaries: list[tuple[int, int]] = []
+    cursor = 0
+    for page_text in page_texts:
+        start = cursor
+        end = start + len(page_text)
+        boundaries.append((start, end))
+        cursor = end + 2  # the "\n\n" separator between pages
+    return boundaries
+
+
+def _ocr_pdf(content: bytes, page_count: int, settings: Settings) -> ParseResult | None:
+    """Attempt OCR on a PDF with no usable text layer.
+
+    Returns None when OCR is unavailable, disabled, or produced too
+    little text to be worth storing -- in every one of those cases the
+    caller falls back to UNSUPPORTED_SCANNED, i.e. to the exact behaviour
+    that shipped before OCR existed.
+    """
+    from compliance_platform.services import ocr  # deferred: loads ONNX models
+
+    try:
+        page_texts, warnings = ocr.ocr_pdf_page_texts(
+            content,
+            dpi=settings.ocr_render_dpi,
+            min_confidence=settings.ocr_min_confidence,
+            max_pages=settings.ocr_max_pages,
+        )
+    except ocr.OcrUnavailableError as exc:
+        _logger.warning("ocr unavailable: %s", exc)
+        return None
+
+    page_texts = _normalise_page_texts(page_texts)
+    text = "\n\n".join(page_texts)
+    if len(text) / page_count < _MIN_CHARS_PER_PAGE:
+        return None
+
+    warnings.append(
+        "Text was recovered by local OCR because this PDF has no text layer. OCR output is "
+        "approximate -- verify any passage against the source page before relying on it as "
+        "evidence."
+    )
+    return text, ParseStatus.SUCCESS_OCR, warnings, _page_boundaries_for(page_texts), None
+
+
+def parse_pdf(content: bytes, settings: Settings | None = None) -> ParseResult:
+    settings = settings if settings is not None else Settings()
     warnings: list[str] = []
     try:
         reader = PdfReader(io.BytesIO(content))
@@ -157,6 +351,11 @@ def parse_pdf(content: bytes) -> ParseResult:
             warnings.append(f"Failed to extract text from page {i + 1}: {exc}")
             page_texts.append("")
 
+    # Normalise BEFORE joining and before computing page_boundaries, so
+    # offsets describe the text that is actually stored and cited, not
+    # the pre-normalisation text that no longer exists anywhere.
+    page_texts = _normalise_page_texts(page_texts)
+
     text = "\n\n".join(page_texts)
 
     # Page boundaries (Sprint 18, ADR-0042): char offsets into `text`
@@ -164,22 +363,26 @@ def parse_pdf(content: bytes) -> ParseResult:
     # this function already builds, so they can never drift out of sync
     # with the actual joined text. Discarded before this sprint —
     # controlled-pilot readiness audit §A.3.
-    page_boundaries: list[tuple[int, int]] = []
-    cursor = 0
-    for page_text in page_texts:
-        start = cursor
-        end = start + len(page_text)
-        page_boundaries.append((start, end))
-        cursor = end + 2  # the "\n\n" separator between pages
+    page_boundaries = _page_boundaries_for(page_texts)
 
     avg_chars_per_page = len(text) / page_count
 
     if avg_chars_per_page < _MIN_CHARS_PER_PAGE:
         warnings.append(
             f"Average {avg_chars_per_page:.1f} extracted characters per page "
-            f"across {page_count} page(s); this looks like a scanned or "
-            "image-only PDF, which the MVP does not support (no OCR)."
+            f"across {page_count} page(s); this looks like a scanned or image-only PDF."
         )
+        if settings.ocr_enabled:
+            ocr_result = _ocr_pdf(content, page_count, settings)
+            if ocr_result is not None:
+                ocr_text, status, ocr_warnings, ocr_boundaries, _ = ocr_result
+                return ocr_text, status, warnings + ocr_warnings, ocr_boundaries, None
+            warnings.append(
+                "OCR was attempted and did not recover usable text; treating this document as "
+                "unsupported rather than storing near-empty content as if it had parsed."
+            )
+        else:
+            warnings.append("OCR is disabled by configuration (ocr_enabled=false).")
         return text, ParseStatus.UNSUPPORTED_SCANNED, warnings, page_boundaries, None
 
     return text, ParseStatus.SUCCESS, warnings, page_boundaries, None
@@ -399,12 +602,17 @@ def parse_document(
     filename: str,
     content: bytes,
     submitter: str | None = None,
+    settings: Settings | None = None,
 ) -> ParsedDocument:
     """Dispatch to the correct parser and wrap the result as a ParsedDocument.
 
     This is the single entry point services/ingestion_service.py calls. It
     never raises for a malformed document (see parser functions above) —
     it returns a status the caller must handle explicitly instead.
+
+    `settings` is only consulted by the PDF path, for OCR (ADR-0055).
+    Optional so existing callers and tests keep working unchanged; the
+    real ingestion path passes the app's own Settings.
     """
     file_type = file_type_from_extension(filename)
 
@@ -420,6 +628,9 @@ def parse_document(
             None,
             None,
         )
+    elif file_type == FileType.PDF:
+        # The only parser that takes settings (OCR configuration).
+        text, status, warnings, page_boundaries, row_boundaries = parse_pdf(content, settings)
     else:
         parser = _PARSERS[file_type]
         text, status, warnings, page_boundaries, row_boundaries = parser(content)
@@ -430,7 +641,7 @@ def parse_document(
         file_type=file_type,
         submitter=submitter,
         content_hash=_content_hash(content),
-        parser_version=_parser_version(file_type),
+        parser_version=_parser_version(file_type, ocr_used=status == ParseStatus.SUCCESS_OCR),
     )
 
     return ParsedDocument(

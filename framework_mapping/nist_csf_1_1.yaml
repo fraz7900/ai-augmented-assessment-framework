@@ -1,0 +1,415 @@
+# GENERATED FILE. Do not hand-edit — regenerate via
+# backend/scripts/generate_nist_csf_1_1_yaml.py, which is the source of
+# truth for this file's content and carries the source citation.
+name: NIST CSF 1.1
+full_name: NIST Cybersecurity Framework
+version: '1.1'
+source_title: Framework for Improving Critical Infrastructure Cybersecurity, Version 1.1
+source_publisher: National Institute of Standards and Technology
+source_date: '2018-04-16'
+source_url: https://nvlpubs.nist.gov/nistpubs/CSWP/NIST.CSWP.04162018.pdf
+retrieved_date: '2026-08-12'
+total_practices_in_source: 108
+scoring_model: coverage
+mil_levels: []
+scoring_note: 'NIST CSF 1.1 does not natively define maturity levels for its Functions, Categories, or
+  Subcategories (the Framework Implementation Tiers are an organization-wide risk-management characterization,
+  explicitly NOT a maturity model -- see the CSF 1.1 source document, Section 2.2). Scores for this framework
+  are a project-defined coverage measure: the fraction of a Function''s Subcategories with accepted or
+  edited evidence, computed by services/scoring_service.py''s compute_domain_coverage. This is NOT part
+  of the NIST standard itself and must always be presented as such.'
+domains:
+- short_code: ID
+  full_name: Identify
+  purpose: Develop an organizational understanding to manage cybersecurity risk to systems, people, assets,
+    data, and capabilities.
+  practices_populated: true
+  objectives:
+  - number: 1
+    title: Asset Management (ID.AM)
+    purpose: The data, personnel, devices, systems, and facilities that enable the organization to achieve
+      business purposes are identified and managed consistent with their relative importance to organizational
+      objectives and the organization’s risk strategy.
+    practices:
+    - id: ID.AM-1
+      text: Physical devices and systems within the organization are inventoried
+    - id: ID.AM-2
+      text: Software platforms and applications within the organization are inventoried
+    - id: ID.AM-3
+      text: Organizational communication and data flows are mapped
+    - id: ID.AM-4
+      text: External information systems are catalogued
+    - id: ID.AM-5
+      text: Resources (e.g., hardware, devices, data, time, personnel, and software) are prioritized based
+        on their classification, criticality, and business value
+    - id: ID.AM-6
+      text: Cybersecurity roles and responsibilities for the entire workforce and third-party stakeholders
+        (e.g., suppliers, customers, partners) are established
+  - number: 2
+    title: Business Environment (ID.BE)
+    purpose: The organization’s mission, objectives, stakeholders, and activities are understood and prioritized;
+      this information is used to inform cybersecurity roles, responsibilities, and risk management decisions.
+    practices:
+    - id: ID.BE-1
+      text: The organization’s role in the supply chain is identified and communicated
+    - id: ID.BE-2
+      text: The organization’s place in critical infrastructure and its industry sector is identified
+        and communicated
+    - id: ID.BE-3
+      text: Priorities for organizational mission, objectives, and activities are established and communicated
+    - id: ID.BE-4
+      text: Dependencies and critical functions for delivery of critical services are established
+    - id: ID.BE-5
+      text: Resilience requirements to support delivery of critical services are established for all operating
+        states (e.g. under duress/attack, during recovery, normal operations)
+  - number: 3
+    title: Governance (ID.GV)
+    purpose: The policies, procedures, and processes to manage and monitor the organization’s regulatory,
+      legal, risk, environmental, and operational requirements are understood and inform the management
+      of cybersecurity risk.
+    practices:
+    - id: ID.GV-1
+      text: Organizational cybersecurity policy is established and communicated
+    - id: ID.GV-2
+      text: Cybersecurity roles and responsibilities are coordinated and aligned with internal roles and
+        external partners
+    - id: ID.GV-3
+      text: Legal and regulatory requirements regarding cybersecurity, including privacy and civil liberties
+        obligations, are understood and managed
+    - id: ID.GV-4
+      text: Governance and risk management processes address cybersecurity risks
+  - number: 4
+    title: Risk Assessment (ID.RA)
+    purpose: The organization understands the cybersecurity risk to organizational operations (including
+      mission, functions, image, or reputation), organizational assets, and individuals.
+    practices:
+    - id: ID.RA-1
+      text: Asset vulnerabilities are identified and documented
+    - id: ID.RA-2
+      text: Cyber threat intelligence is received from information sharing forums and sources
+    - id: ID.RA-3
+      text: Threats, both internal and external, are identified and documented
+    - id: ID.RA-4
+      text: Potential business impacts and likelihoods are identified
+    - id: ID.RA-5
+      text: Threats, vulnerabilities, likelihoods, and impacts are used to determine risk
+    - id: ID.RA-6
+      text: Risk responses are identified and prioritized
+  - number: 5
+    title: Risk Management Strategy (ID.RM)
+    purpose: The organization’s priorities, constraints, risk tolerances, and assumptions are established
+      and used to support operational risk decisions.
+    practices:
+    - id: ID.RM-1
+      text: Risk management processes are established, managed, and agreed to by organizational stakeholders
+    - id: ID.RM-2
+      text: Organizational risk tolerance is determined and clearly expressed
+    - id: ID.RM-3
+      text: The organization’s determination of risk tolerance is informed by its role in critical infrastructure
+        and sector specific risk analysis
+  - number: 6
+    title: Supply Chain Risk Management (ID.SC)
+    purpose: The organization’s priorities, constraints, risk tolerances, and assumptions are established
+      and used to support risk decisions associated with managing supply chain risk. The organization
+      has established and implemented the processes to identify, assess and manage supply chain risks.
+    practices:
+    - id: ID.SC-1
+      text: Cyber supply chain risk management processes are identified, established, assessed, managed,
+        and agreed to by organizational stakeholders
+    - id: ID.SC-2
+      text: Suppliers and third party partners of information systems, components, and services are identified,
+        prioritized, and assessed using a cyber supply chain risk assessment process
+    - id: ID.SC-3
+      text: Contracts with suppliers and third-party partners are used to implement appropriate measures
+        designed to meet the objectives of an organization’s cybersecurity program and Cyber Supply Chain
+        Risk Management Plan.
+    - id: ID.SC-4
+      text: Suppliers and third-party partners are routinely assessed using audits, test results, or other
+        forms of evaluations to confirm they are meeting their contractual obligations.
+    - id: ID.SC-5
+      text: Response and recovery planning and testing are conducted with suppliers and third-party providers
+- short_code: PR
+  full_name: Protect
+  purpose: Develop and implement appropriate safeguards to ensure delivery of critical services.
+  practices_populated: true
+  objectives:
+  - number: 1
+    title: Identity Management, Authentication and Access Control (PR.AC)
+    purpose: Access to physical and logical assets and associated facilities is limited to authorized
+      users, processes, and devices, and is managed consistent with the assessed risk of unauthorized
+      access to authorized activities and transactions.
+    practices:
+    - id: PR.AC-1
+      text: Identities and credentials are issued, managed, verified, revoked, and audited for authorized
+        devices, users and processes
+    - id: PR.AC-2
+      text: Physical access to assets is managed and protected
+    - id: PR.AC-3
+      text: Remote access is managed
+    - id: PR.AC-4
+      text: Access permissions and authorizations are managed, incorporating the principles of least privilege
+        and separation of duties
+    - id: PR.AC-5
+      text: Network integrity is protected (e.g., network segregation, network segmentation)
+    - id: PR.AC-6
+      text: Identities are proofed and bound to credentials and asserted in interactions
+    - id: PR.AC-7
+      text: Users, devices, and other assets are authenticated (e.g., single-factor, multi-factor) commensurate
+        with the risk of the transaction (e.g., individuals’ security and privacy risks and other organizational
+        risks)
+  - number: 2
+    title: Awareness and Training (PR.AT)
+    purpose: The organization’s personnel and partners are provided cybersecurity awareness education
+      and are trained to perform their cybersecurity-related duties and responsibilities consistent with
+      related policies, procedures, and agreements.
+    practices:
+    - id: PR.AT-1
+      text: All users are informed and trained
+    - id: PR.AT-2
+      text: Privileged users understand their roles and responsibilities
+    - id: PR.AT-3
+      text: Third-party stakeholders (e.g., suppliers, customers, partners) understand their roles and
+        responsibilities
+    - id: PR.AT-4
+      text: Senior executives understand their roles and responsibilities
+    - id: PR.AT-5
+      text: Physical and cybersecurity personnel understand their roles and responsibilities
+  - number: 3
+    title: Data Security (PR.DS)
+    purpose: Information and records (data) are managed consistent with the organization’s risk strategy
+      to protect the confidentiality, integrity, and availability of information.
+    practices:
+    - id: PR.DS-1
+      text: Data-at-rest is protected
+    - id: PR.DS-2
+      text: Data-in-transit is protected
+    - id: PR.DS-3
+      text: Assets are formally managed throughout removal, transfers, and disposition
+    - id: PR.DS-4
+      text: Adequate capacity to ensure availability is maintained
+    - id: PR.DS-5
+      text: Protections against data leaks are implemented
+    - id: PR.DS-6
+      text: Integrity checking mechanisms are used to verify software, firmware, and information integrity
+    - id: PR.DS-7
+      text: The development and testing environment(s) are separate from the production environment
+    - id: PR.DS-8
+      text: Integrity checking mechanisms are used to verify hardware integrity
+  - number: 4
+    title: Information Protection Processes and Procedures (PR.IP)
+    purpose: Security policies (that address purpose, scope, roles, responsibilities, management commitment,
+      and coordination among organizational entities), processes, and procedures are maintained and used
+      to manage protection of information systems and assets.
+    practices:
+    - id: PR.IP-1
+      text: A baseline configuration of information technology/industrial control systems is created and
+        maintained incorporating security principles (e.g. concept of least functionality)
+    - id: PR.IP-2
+      text: A System Development Life Cycle to manage systems is implemented
+    - id: PR.IP-3
+      text: Configuration change control processes are in place
+    - id: PR.IP-4
+      text: Backups of information are conducted, maintained, and tested
+    - id: PR.IP-5
+      text: Policy and regulations regarding the physical operating environment for organizational assets
+        are met
+    - id: PR.IP-6
+      text: Data is destroyed according to policy
+    - id: PR.IP-7
+      text: Protection processes are improved
+    - id: PR.IP-8
+      text: Effectiveness of protection technologies is shared
+    - id: PR.IP-9
+      text: Response plans (Incident Response and Business Continuity) and recovery plans (Incident Recovery
+        and Disaster Recovery) are in place and managed
+    - id: PR.IP-10
+      text: Response and recovery plans are tested
+    - id: PR.IP-11
+      text: Cybersecurity is included in human resources practices (e.g., deprovisioning, personnel screening)
+    - id: PR.IP-12
+      text: A vulnerability management plan is developed and implemented
+  - number: 5
+    title: Maintenance (PR.MA)
+    purpose: Maintenance and repairs of industrial control and information system components are performed
+      consistent with policies and procedures.
+    practices:
+    - id: PR.MA-1
+      text: Maintenance and repair of organizational assets are performed and logged, with approved and
+        controlled tools
+    - id: PR.MA-2
+      text: Remote maintenance of organizational assets is approved, logged, and performed in a manner
+        that prevents unauthorized access
+  - number: 6
+    title: Protective Technology (PR.PT)
+    purpose: Technical security solutions are managed to ensure the security and resilience of systems
+      and assets, consistent with related policies, procedures, and agreements.
+    practices:
+    - id: PR.PT-1
+      text: Audit/log records are determined, documented, implemented, and reviewed in accordance with
+        policy
+    - id: PR.PT-2
+      text: Removable media is protected and its use restricted according to policy
+    - id: PR.PT-3
+      text: The principle of least functionality is incorporated by configuring systems to provide only
+        essential capabilities
+    - id: PR.PT-4
+      text: Communications and control networks are protected
+    - id: PR.PT-5
+      text: Mechanisms (e.g., failsafe, load balancing, hot swap) are implemented to achieve resilience
+        requirements in normal and adverse situations
+- short_code: DE
+  full_name: Detect
+  purpose: Develop and implement appropriate activities to identify the occurrence of a cybersecurity
+    event.
+  practices_populated: true
+  objectives:
+  - number: 1
+    title: Anomalies and Events (DE.AE)
+    purpose: Anomalous activity is detected and the potential impact of events is understood.
+    practices:
+    - id: DE.AE-1
+      text: A baseline of network operations and expected data flows for users and systems is established
+        and managed
+    - id: DE.AE-2
+      text: Detected events are analyzed to understand attack targets and methods
+    - id: DE.AE-3
+      text: Event data are collected and correlated from multiple sources and sensors
+    - id: DE.AE-4
+      text: Impact of events is determined
+    - id: DE.AE-5
+      text: Incident alert thresholds are established
+  - number: 2
+    title: Security Continuous Monitoring (DE.CM)
+    purpose: The information system and assets are monitored to identify cybersecurity events and verify
+      the effectiveness of protective measures.
+    practices:
+    - id: DE.CM-1
+      text: The network is monitored to detect potential cybersecurity events
+    - id: DE.CM-2
+      text: The physical environment is monitored to detect potential cybersecurity events
+    - id: DE.CM-3
+      text: Personnel activity is monitored to detect potential cybersecurity events
+    - id: DE.CM-4
+      text: Malicious code is detected
+    - id: DE.CM-5
+      text: Unauthorized mobile code is detected
+    - id: DE.CM-6
+      text: External service provider activity is monitored to detect potential cybersecurity events
+    - id: DE.CM-7
+      text: Monitoring for unauthorized personnel, connections, devices, and software is performed
+    - id: DE.CM-8
+      text: Vulnerability scans are performed
+  - number: 3
+    title: Detection Processes (DE.DP)
+    purpose: Detection processes and procedures are maintained and tested to ensure awareness of anomalous
+      events.
+    practices:
+    - id: DE.DP-1
+      text: Roles and responsibilities for detection are well defined to ensure accountability
+    - id: DE.DP-2
+      text: Detection activities comply with all applicable requirements
+    - id: DE.DP-3
+      text: Detection processes are tested
+    - id: DE.DP-4
+      text: Event detection information is communicated
+    - id: DE.DP-5
+      text: Detection processes are continuously improved
+- short_code: RS
+  full_name: Respond
+  purpose: Develop and implement appropriate activities to take action regarding a detected cybersecurity
+    incident.
+  practices_populated: true
+  objectives:
+  - number: 1
+    title: Response Planning (RS.RP)
+    purpose: Response processes and procedures are executed and maintained, to ensure response to detected
+      cybersecurity incidents.
+    practices:
+    - id: RS.RP-1
+      text: Response plan is executed during or after an incident
+  - number: 2
+    title: Communications (RS.CO)
+    purpose: Response activities are coordinated with internal and external stakeholders (e.g. external
+      support from law enforcement agencies).
+    practices:
+    - id: RS.CO-1
+      text: Personnel know their roles and order of operations when a response is needed
+    - id: RS.CO-2
+      text: Incidents are reported consistent with established criteria
+    - id: RS.CO-3
+      text: Information is shared consistent with response plans
+    - id: RS.CO-4
+      text: Coordination with stakeholders occurs consistent with response plans
+    - id: RS.CO-5
+      text: Voluntary information sharing occurs with external stakeholders to achieve broader cybersecurity
+        situational awareness
+  - number: 3
+    title: Analysis (RS.AN)
+    purpose: Analysis is conducted to ensure effective response and support recovery activities.
+    practices:
+    - id: RS.AN-1
+      text: Notifications from detection systems are investigated
+    - id: RS.AN-2
+      text: The impact of the incident is understood
+    - id: RS.AN-3
+      text: Forensics are performed
+    - id: RS.AN-4
+      text: Incidents are categorized consistent with response plans
+    - id: RS.AN-5
+      text: Processes are established to receive, analyze and respond to vulnerabilities disclosed to
+        the organization from internal and external sources (e.g. internal testing, security bulletins,
+        or security researchers)
+  - number: 4
+    title: Mitigation (RS.MI)
+    purpose: Activities are performed to prevent expansion of an event, mitigate its effects, and resolve
+      the incident.
+    practices:
+    - id: RS.MI-1
+      text: Incidents are contained
+    - id: RS.MI-2
+      text: Incidents are mitigated
+    - id: RS.MI-3
+      text: Newly identified vulnerabilities are mitigated or documented as accepted risks
+  - number: 5
+    title: Improvements (RS.IM)
+    purpose: Organizational response activities are improved by incorporating lessons learned from current
+      and previous detection/response activities.
+    practices:
+    - id: RS.IM-1
+      text: Response plans incorporate lessons learned
+    - id: RS.IM-2
+      text: Response strategies are updated
+- short_code: RC
+  full_name: Recover
+  purpose: Develop and implement appropriate activities to maintain plans for resilience and to restore
+    any capabilities or services that were impaired due to a cybersecurity incident.
+  practices_populated: true
+  objectives:
+  - number: 1
+    title: Recovery Planning (RC.RP)
+    purpose: Recovery processes and procedures are executed and maintained to ensure restoration of systems
+      or assets affected by cybersecurity incidents.
+    practices:
+    - id: RC.RP-1
+      text: Recovery plan is executed during or after a cybersecurity incident
+  - number: 2
+    title: Improvements (RC.IM)
+    purpose: Recovery planning and processes are improved by incorporating lessons learned into future
+      activities.
+    practices:
+    - id: RC.IM-1
+      text: Recovery plans incorporate lessons learned
+    - id: RC.IM-2
+      text: Recovery strategies are updated
+  - number: 3
+    title: Communications (RC.CO)
+    purpose: Restoration activities are coordinated with internal and external parties (e.g. coordinating
+      centers, Internet Service Providers, owners of attacking systems, victims, other CSIRTs, and vendors).
+    practices:
+    - id: RC.CO-1
+      text: Public relations are managed
+    - id: RC.CO-2
+      text: Reputation is repaired after an incident
+    - id: RC.CO-3
+      text: Recovery activities are communicated to internal and external stakeholders as well as executive
+        and management teams

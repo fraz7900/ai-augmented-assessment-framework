@@ -9,6 +9,7 @@ from docx import Document as DocxDocument
 from fpdf import FPDF
 from pypdf import PdfWriter
 
+from compliance_platform.core.config import Settings
 from compliance_platform.models.schemas import FileType, ParseStatus
 from compliance_platform.services import document_parsers
 
@@ -284,10 +285,17 @@ def test_parse_csv_extension_with_binary_content_is_caught_by_content_sniffing()
 
 
 def test_parser_version_reports_the_real_installed_pypdf_version(sample_pdf_bytes: bytes) -> None:
+    """PDF provenance names pypdf AND this module's own normaliser: the
+    stored text is pypdf's extraction *after* _normalise_page_texts ran,
+    so pypdf's version alone would not identify what produced it.
+    """
     import pypdf
 
     parsed = document_parsers.parse_document("policy.pdf", sample_pdf_bytes)
-    assert parsed.metadata.parser_version == f"pypdf=={pypdf.__version__}"
+    assert parsed.metadata.parser_version == (
+        f"pypdf=={pypdf.__version__}"
+        f"+cp_pdf_normalizer=={document_parsers._PDF_NORMALIZER_VERSION}"
+    )
 
 
 def test_parser_version_reports_the_real_installed_python_docx_version(
@@ -393,3 +401,225 @@ def test_parse_csv_returns_row_boundaries_with_no_sheet_name(sample_csv_bytes: b
 def test_non_tabular_formats_have_no_row_boundaries(sample_docx_bytes: bytes) -> None:
     parsed = document_parsers.parse_document("policy.docx", sample_docx_bytes)
     assert parsed.row_boundaries is None
+
+
+# --- PDF text normalisation: running headers/footers and blank runs ---
+# (the defect ADR-0054 found while fixing chunk edges and deliberately
+# left for a separate change, since it is extraction, not chunking)
+
+
+# Body text must differ in WORDS between pages, not just in a page
+# number: _running_line_signature deliberately erases digits, so
+# "Section 1 content" and "Section 2 content" are one signature and are
+# genuinely indistinguishable from a running footer. Using such text here
+# would test the fallback guard rather than footer detection.
+_PAGE_BODIES = [
+    "Access control reviews are performed by the security team each quarter. ",
+    "Incident response duties are assigned to named on-call engineering staff. ",
+    "Vendor risk assessments are completed before any new contract is signed. ",
+    "Backup restoration is exercised annually against documented recovery targets. ",
+    "Change management approvals are recorded before production deployment. ",
+]
+
+
+def _footered_pdf_bytes(page_count: int, footer: str = "Incident Response Plan") -> bytes:
+    """A multi-page PDF with real body text and a page-numbered running
+    footer, i.e. the exact shape that produced ADR-0054's "'Plan 9' plus
+    thirty newlines" chunks.
+    """
+    pdf = FPDF()
+    # Without this, set_y(-25) trips FPDF's auto page break and every
+    # footer lands on a page of its own -- which is a different document
+    # shape than the one under test (a footer sharing a page with body
+    # text), and quietly halves the footer's per-page hit rate.
+    pdf.set_auto_page_break(auto=False)
+    pdf.set_font("Helvetica", size=12)
+    for page in range(1, page_count + 1):
+        pdf.add_page()
+        pdf.multi_cell(0, 10, _PAGE_BODIES[(page - 1) % len(_PAGE_BODIES)] * 3)
+        pdf.set_y(-25)
+        pdf.cell(0, 10, f"{footer} {page}")
+    return bytes(pdf.output())
+
+
+def test_running_page_footer_is_stripped_from_extracted_pdf_text() -> None:
+    parsed = document_parsers.parse_document("policy.pdf", _footered_pdf_bytes(4))
+    assert parsed.parse_status == ParseStatus.SUCCESS
+    assert "Incident Response Plan" not in parsed.raw_text
+    # The body text the footer sat next to is untouched.
+    assert "Access control reviews" in parsed.raw_text
+    assert "Vendor risk assessments" in parsed.raw_text
+
+
+def test_page_boundaries_still_reconstruct_raw_text_after_normalisation() -> None:
+    """The ADR-0042 invariant, re-asserted under normalisation: offsets
+    describe the stored text exactly. Normalising after computing
+    boundaries (rather than before) would silently break this.
+    """
+    parsed = document_parsers.parse_document("policy.pdf", _footered_pdf_bytes(4))
+    assert parsed.page_boundaries is not None
+    rebuilt = "\n\n".join(parsed.raw_text[start:end] for start, end in parsed.page_boundaries)
+    assert rebuilt == parsed.raw_text
+
+
+def test_blank_line_runs_are_collapsed_to_a_single_blank_line() -> None:
+    # Closing lines differ per page: an identical closing line on every
+    # page is a running footer by definition and would be stripped, which
+    # is a different behaviour than the one under test here.
+    pages = [f"{body}\n" + "\n" * 30 + f"Closing note about {body.split()[0].lower()}."
+             for body in _PAGE_BODIES[:3]]
+    normalised = document_parsers._normalise_page_texts(pages)
+    for page in normalised:
+        assert "\n\n\n" not in page
+        assert "Closing note about" in page
+
+
+def test_footer_differing_only_by_page_number_is_still_detected_as_running() -> None:
+    pages = [f"{body}\n\nAnnual Security Policy {n}" for n, body in enumerate(_PAGE_BODIES, 1)]
+    normalised = document_parsers._normalise_page_texts(pages)
+    assert not any("Annual Security Policy" in page for page in normalised)
+    assert all(body.strip() in page for body, page in zip(_PAGE_BODIES, normalised, strict=True))
+
+
+def test_a_page_is_never_emptied_by_running_line_removal() -> None:
+    """The content-loss fallback. Three identical short pages make every
+    line look like a running header; keeping them beats deleting the
+    document.
+    """
+    pages = ["Signature: ______\n\nDate: ______"] * 4
+    normalised = document_parsers._normalise_page_texts(pages)
+    assert all("Signature" in page for page in normalised)
+
+
+def test_a_long_repeated_paragraph_is_never_treated_as_a_running_header() -> None:
+    """The content-loss guard. Repeated boilerplate that is genuinely long
+    is real evidence text -- deleting it would be a worse bug than the
+    noise this normalisation removes.
+    """
+    long_line = (
+        "This policy applies to all information systems owned or operated by the organization "
+        "and to every third party granted access to those systems under contract."
+    )
+    assert len(long_line) > document_parsers._HEADER_FOOTER_MAX_CHARS
+    pages = [f"{long_line}\n\nPage-specific body {n}." for n in range(1, 5)]
+    normalised = document_parsers._normalise_page_texts(pages)
+    assert all(long_line in page for page in normalised)
+
+
+def test_a_line_repeated_in_the_middle_of_pages_is_kept() -> None:
+    """Only the edge region is header/footer territory. A repeated line
+    surrounded by other content is body text (a table row, a repeated
+    clause) and must survive.
+    """
+    pages = [
+        "\n".join(
+            [f"Opening line {n}", "alpha", "beta", "REPEATED MIDDLE LINE", "gamma", "delta",
+             f"Closing line {n}"]
+        )
+        for n in range(1, 5)
+    ]
+    normalised = document_parsers._normalise_page_texts(pages)
+    assert all("REPEATED MIDDLE LINE" in page for page in normalised)
+
+
+# --- OCR for scanned/image-only PDFs (ADR-0055) ---
+
+
+def test_scanned_pdf_text_is_recovered_by_local_ocr(scanned_image_pdf_bytes: bytes) -> None:
+    """The one test that runs the real recogniser end to end. Slow by
+    nature (model load plus per-page inference), so the surrounding
+    behaviours are covered by the stubbed tests below rather than by
+    repeating a real OCR pass.
+    """
+    parsed = document_parsers.parse_document("scan.pdf", scanned_image_pdf_bytes)
+
+    assert parsed.parse_status == ParseStatus.SUCCESS_OCR
+    assert "privileged accounts" in parsed.raw_text
+    assert "escalated" in parsed.raw_text
+    # Provenance names what actually produced the text. pypdf did not.
+    assert "rapidocr-onnxruntime==" in parsed.metadata.parser_version
+    assert "pypdf==" not in parsed.metadata.parser_version
+    assert any("recovered by local OCR" in w for w in parsed.parse_warnings)
+
+
+def test_ocr_output_keeps_page_boundaries_consistent_with_stored_text(
+    monkeypatch: pytest.MonkeyPatch, scanned_like_pdf_bytes: bytes
+) -> None:
+    from compliance_platform.services import ocr
+
+    monkeypatch.setattr(
+        ocr,
+        "ocr_pdf_page_texts",
+        lambda content, **kwargs: (["Recovered page text that is long enough to keep."], []),
+    )
+    parsed = document_parsers.parse_document("scan.pdf", scanned_like_pdf_bytes)
+
+    assert parsed.parse_status == ParseStatus.SUCCESS_OCR
+    assert parsed.page_boundaries is not None
+    rebuilt = "\n\n".join(parsed.raw_text[start:end] for start, end in parsed.page_boundaries)
+    assert rebuilt == parsed.raw_text
+
+
+def test_ocr_disabled_reports_the_document_as_unsupported_scanned(
+    scanned_image_pdf_bytes: bytes,
+) -> None:
+    settings = Settings(ocr_enabled=False)  # type: ignore[call-arg]
+    parsed = document_parsers.parse_document(
+        "scan.pdf", scanned_image_pdf_bytes, settings=settings
+    )
+    assert parsed.parse_status == ParseStatus.UNSUPPORTED_SCANNED
+    assert any("OCR is disabled by configuration" in w for w in parsed.parse_warnings)
+
+
+def test_missing_ocr_dependencies_fall_back_to_unsupported_scanned(
+    monkeypatch: pytest.MonkeyPatch, scanned_like_pdf_bytes: bytes
+) -> None:
+    """An install without the optional OCR extras must degrade to the
+    pre-OCR behaviour, not crash an upload.
+    """
+    from compliance_platform.services import ocr
+
+    def _unavailable(content: bytes, **kwargs: object) -> tuple[list[str], list[str]]:
+        raise ocr.OcrUnavailableError("rapidocr-onnxruntime is not installed")
+
+    monkeypatch.setattr(ocr, "ocr_pdf_page_texts", _unavailable)
+    parsed = document_parsers.parse_document("scan.pdf", scanned_like_pdf_bytes)
+    assert parsed.parse_status == ParseStatus.UNSUPPORTED_SCANNED
+
+
+def test_ocr_that_recovers_almost_nothing_is_still_unsupported_scanned(
+    monkeypatch: pytest.MonkeyPatch, scanned_like_pdf_bytes: bytes
+) -> None:
+    """A near-empty OCR result must not be stored as though the document
+    parsed -- that is precisely the "passed through as if successfully
+    parsed" failure the document-parsing rule forbids.
+    """
+    from compliance_platform.services import ocr
+
+    monkeypatch.setattr(ocr, "ocr_pdf_page_texts", lambda content, **kwargs: (["x"], []))
+    parsed = document_parsers.parse_document("scan.pdf", scanned_like_pdf_bytes)
+    assert parsed.parse_status == ParseStatus.UNSUPPORTED_SCANNED
+    assert any("did not recover usable text" in w for w in parsed.parse_warnings)
+
+
+def test_a_pdf_with_a_real_text_layer_never_invokes_ocr(
+    monkeypatch: pytest.MonkeyPatch, sample_pdf_bytes: bytes
+) -> None:
+    """OCR costs seconds per page; the common case must not pay for it."""
+    from compliance_platform.services import ocr
+
+    def _fail(content: bytes, **kwargs: object) -> tuple[list[str], list[str]]:
+        raise AssertionError("OCR must not run for a PDF that has a text layer")
+
+    monkeypatch.setattr(ocr, "ocr_pdf_page_texts", _fail)
+    parsed = document_parsers.parse_document("policy.pdf", sample_pdf_bytes)
+    assert parsed.parse_status == ParseStatus.SUCCESS
+
+
+def test_running_line_detection_requires_at_least_three_pages() -> None:
+    """Two pages sharing a line is not evidence of a running footer; it
+    could be a two-page document that legitimately repeats a heading.
+    """
+    pages = ["Body one.\n\nShared Footer 1", "Body two.\n\nShared Footer 2"]
+    normalised = document_parsers._normalise_page_texts(pages)
+    assert all("Shared Footer" in page for page in normalised)

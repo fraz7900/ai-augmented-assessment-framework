@@ -149,11 +149,84 @@ def test_ingest_raises_for_empty_document() -> None:
 
 
 def test_ingest_raises_for_unsupported_scanned_pdf(scanned_like_pdf_bytes: bytes) -> None:
-    svc, repo, _ = _make_service()
+    # ocr_enabled=False keeps this test on the detection heuristic it was
+    # written for (ADR-0055 added an OCR attempt on this same path; the
+    # OCR behaviour has its own tests in test_document_parsers.py).
+    svc, repo, _ = _make_service(ocr_enabled=False)
     with pytest.raises(UnsupportedDocumentError) as exc_info:
         svc.ingest("scanned.pdf", scanned_like_pdf_bytes)
     assert exc_info.value.status == ParseStatus.UNSUPPORTED_SCANNED
     assert repo.added == []
+
+
+def test_ingest_accepts_a_scanned_pdf_whose_text_ocr_recovered(
+    monkeypatch: pytest.MonkeyPatch, scanned_like_pdf_bytes: bytes
+) -> None:
+    """The gate change ADR-0055 forced: SUCCESS_OCR must be accepted for
+    ingestion instead of rejected as an unreadable scan.
+
+    OCR itself is stubbed -- this asserts the ingestion gate accepts the
+    new status and that the document is stored with provenance naming the
+    OCR engine, which is separate from whether the recogniser reads any
+    given page correctly.
+
+    parse_status is returned on IngestionResult but is NOT a column on
+    Document, so the durable "this text came from OCR" marker is
+    parser_version (ADR-0042) -- which is why that is what gets asserted
+    on the stored row.
+    """
+    from compliance_platform.services import ocr
+
+    monkeypatch.setattr(
+        ocr,
+        "ocr_pdf_page_texts",
+        lambda content, **kwargs: (
+            ["All privileged accounts are reviewed quarterly by the system owner."],
+            [],
+        ),
+    )
+    svc, repo, doc_repo = _make_service()
+    result = svc.ingest("scanned.pdf", scanned_like_pdf_bytes)
+
+    assert result.parse_status == ParseStatus.SUCCESS_OCR
+    assert result.chunk_count > 0
+    assert len(repo.added) == 1
+    stored = list(doc_repo.documents.values())
+    assert len(stored) == 1
+    assert "rapidocr-onnxruntime==" in stored[0].parser_version
+
+
+def test_ingest_retains_the_original_upload(tmp_path) -> None:
+    """ADR-0055: without this, a document whose chunks came from an older
+    chunker can never be corrected, because re-chunking needs the source.
+    """
+    from compliance_platform.services import original_store
+
+    svc, _, _ = _make_service(data_raw_dir=tmp_path / "raw")
+    result = svc.ingest("policy.txt", b"Access reviews occur quarterly and are documented.")
+
+    retained = original_store.path_for(svc._settings, result.document_id)
+    assert retained is not None
+    assert retained.read_bytes() == b"Access reviews occur quarterly and are documented."
+
+
+def test_ingest_retains_nothing_when_retention_is_disabled(tmp_path) -> None:
+    from compliance_platform.services import original_store
+
+    svc, _, _ = _make_service(data_raw_dir=tmp_path / "raw", retain_original_uploads=False)
+    result = svc.ingest("policy.txt", b"Access reviews occur quarterly and are documented.")
+    assert original_store.path_for(svc._settings, result.document_id) is None
+
+
+def test_a_rejected_document_leaves_no_retained_original(tmp_path) -> None:
+    """Retention happens only after the document is fully ingested, so a
+    rejected upload must not leave a stray file behind.
+    """
+    raw_dir = tmp_path / "raw"
+    svc, _, _ = _make_service(data_raw_dir=raw_dir)
+    with pytest.raises(UnsupportedDocumentError):
+        svc.ingest("empty.txt", b"   ")
+    assert not raw_dir.exists() or list(raw_dir.iterdir()) == []
 
 
 def test_ingest_rejects_extracted_text_beyond_the_decompression_bomb_ceiling() -> None:

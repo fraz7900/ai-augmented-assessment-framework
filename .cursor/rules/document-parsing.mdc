@@ -13,9 +13,16 @@ governs what happens after text is extracted) — this rule governs the extracti
 
 - **PDF text-extraction artifacts:** multi-column layouts extracted out of reading order, tables
   flattened into unreadable text runs, and scanned/image-only pages that yield empty or near-empty
-  text (the MVP explicitly does not support OCR — see `PROJECT_CHARTER.md` MVP scope — so these must
-  be detected and surfaced as "unsupported: scanned document," not passed through as if successfully
-  parsed).
+  text. Such a page is now passed to local OCR (ADR-0055, Sprint 19 — this reverses the MVP's
+  original "no OCR" scope, see `PROJECT_CHARTER.md` Section 12). The detect-and-surface rule still
+  governs the failure case: if OCR is disabled, unavailable, or recovers too little text, the
+  document must still be reported as "unsupported: scanned document," never passed through as if
+  successfully parsed. OCR-derived text is reported as a *distinct* status
+  (`ParseStatus.SUCCESS_OCR`) and carries OCR-naming `parser_version` provenance, because
+  approximate text a reviewer may quote as evidence must be identifiable as approximate.
+- **Running headers/footers and blank-line runs in PDFs:** page furniture repeated on every page
+  produces chunks that are structurally valid and evidentially worthless. Normalised out in
+  `_normalise_page_texts` (ADR-0055), subject to a hard rule: normalisation may never empty a page.
 - **DOCX structure loss:** headers, numbered lists, and section structure that a naive parser
   flattens to plain text, which directly harms the structure-aware chunking strategy in
   `data-cleaning`.

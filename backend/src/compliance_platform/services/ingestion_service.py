@@ -17,7 +17,7 @@ from compliance_platform.core.config import Settings
 from compliance_platform.models.assessment import Document
 from compliance_platform.models.schemas import IngestionResult, ParseStatus
 from compliance_platform.repositories.vector_repository import VectorRepository
-from compliance_platform.services import chunking, document_parsers
+from compliance_platform.services import chunking, document_parsers, original_store
 
 _logger = logging.getLogger(__name__)
 
@@ -58,6 +58,16 @@ class DocumentRepositoryProtocol(Protocol):
     def get_document(self, document_id: str) -> Document | None: ...
 
 
+# Parse outcomes that may proceed to chunking and embedding. SUCCESS_OCR
+# (ADR-0055) is accepted here rather than folded into SUCCESS so that the
+# distinction survives to storage: Document.parse_status records how the
+# text was obtained, and a reviewer reading an OCR-derived citation can
+# be told it is approximate. Every other status is a real, expected
+# failure the document-parsing rule requires be surfaced, not continued
+# past.
+_ACCEPTED_PARSE_STATUSES = frozenset({ParseStatus.SUCCESS, ParseStatus.SUCCESS_OCR})
+
+
 class IngestionService:
     def __init__(
         self,
@@ -93,9 +103,11 @@ class IngestionService:
         ):
             raise UnknownSupersededDocumentError(supersedes_document_id)
 
-        parsed = document_parsers.parse_document(filename, content, submitter=submitter)
+        parsed = document_parsers.parse_document(
+            filename, content, submitter=submitter, settings=self._settings
+        )
 
-        if parsed.parse_status != ParseStatus.SUCCESS:
+        if parsed.parse_status not in _ACCEPTED_PARSE_STATUSES:
             # A failed/unsupported/empty parse is a real, expected outcome
             # per the document-parsing skill — never silently continue past it.
             _logger.warning(
@@ -184,6 +196,16 @@ class IngestionService:
                     parsed.metadata.document_id,
                 )
             raise
+
+        # Retain the original AFTER the registry write succeeds (ADR-0055).
+        # Ordering is deliberate: writing it earlier would leave a stray
+        # file behind on every one of the failure paths above, including
+        # the compensating-delete path, which has no way to know a file
+        # had been written. By this point the document is fully ingested,
+        # so there is nothing left that can fail and orphan it.
+        original_store.store(
+            self._settings, parsed.metadata.document_id, filename, content
+        )
 
         _logger.info(
             "document ingested id=%s filename=%s file_type=%s chunk_count=%d supersedes=%s "

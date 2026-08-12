@@ -270,6 +270,82 @@ check .` clean. Two things are disclosed, not silently skipped: existing chunks 
 an explicit operator action), and sentence-boundary alignment was considered and deliberately not
 attempted. See `docs/adr/ADR-0054-word-boundary-chunk-snapping.md`.
 
+**Also Sprint 19: the disclosed-but-undone tail, closed — including OCR, a charter scope reversal.**
+Five items, taken together because four of them were limitations that earlier ADRs recorded about
+themselves rather than independent features (ADR-0055). **PDF running headers/footers** and blank-line
+runs are normalised out of extracted text — the defect ADR-0054 found and deliberately left — guarded
+by a rule that normalisation may never empty a page, which exists because the first version of the
+tests caught the algorithm deleting whole pages of a document whose pages legitimately repeat.
+**Sentence-boundary chunking**, which ADR-0054 considered and declined: chunk edges now snap to a
+sentence where one is in reach and fall back to its word snapping otherwise, so the worst case is
+exactly the previous behaviour. The abbreviation and numbered-clause cases ADR-0054 named as the
+reason not to try (`U.S.`, `e.g.`, `J. Smith`, PCI DSS's `9.2.1`) are handled explicitly, and the
+shift budget is *derived* — `min(75, chunk_overlap_chars // 2)` — because ADR-0054's no-text-lost
+property only survives while the two edge shifts fit inside the window overlap, making that class of
+bug unrepresentable rather than merely avoided today. Measured the same way ADR-0054 measured itself:
+chunks beginning mid-sentence fell **12 → 2**, chunk counts identical. **OCR for scanned PDFs**
+reverses `PROJECT_CHARTER.md` Section 12's explicit "out of scope" — scanned PDFs are ordinary
+real-world evidence, and refusing them was the largest practical gap left in ingestion. It is local
+*by construction*, not by configuration: pypdfium2 bundles pdfium (no system binary), rapidocr ships
+its ONNX weights inside its own wheel (nothing downloaded at runtime), and inference runs on the
+onnxruntime this project already depends on — so no OCR code path can transmit evidence anywhere,
+preserving the Section 7 guarantee structurally. OCR text is deliberately *not* folded into
+`SUCCESS`: it gets `ParseStatus.SUCCESS_OCR` and provenance naming the OCR engine instead of pypdf
+(which did not produce that text), and that distinction immediately forced two downstream decisions
+to be made explicitly, including a frontend status map that would not typecheck until OCR got its own
+copy. **NIST CSF 1.1** was transcribed from the official public-domain source — 5 Functions, 23
+Categories, 108 Subcategories, counts asserted by the generator — giving the project its first
+framework with two *real* versions and finally exercising ADR-0053's multi-version registry against
+something other than a synthetic fixture. Doing so exposed a modelling error: the registry key was
+`"NIST CSF 2.0"`, a name with the version baked into it, which is precisely why the framework could
+never hold two versions; it is now `"NIST CSF"` with `1.1` and `2.0`, keeping the old key as a legacy
+alias so pre-existing assessments still resolve. It also produced the finding ADR-0053 said it could
+not test: the two versions **share zero practice ids** (`ID.AM-1` vs `ID.AM-01`), so a 1.1-pinned
+assessment resolves 0 cross-framework equivalents against 2.0's 186 — asserted in a test rather than
+"fixed", since mechanically remapping ids would fabricate human equivalence review that never
+happened. The frontend now reaches all of it. Finally, **re-ingestion with evidence-link remapping**
+resolves ADR-0054's reason for not migrating stored chunks: because chunks record `char_start`/
+`char_end` (ADR-0042), a reviewed link can be *moved* to the new chunk covering the same span rather
+than broken. Run for real against this repo's own store: 24 of 30 documents re-ingested, **276
+evidence links relinked, 0 unmappable, 0 dangling**. The other 6 could not be re-ingested at all, and
+that is the sprint's most useful finding: **ingestion never retains the original upload**, so
+re-chunking anything requires the operator to still have the file. 437 backend tests passing (29
+new), 22 frontend tests passing (5 new), `ruff check .` clean, `tsc -b` and `npm run build` clean.
+One change is disclosed as *not* live-verified: the `libgl1`/`libglib2.0-0` addition to
+`backend.Dockerfile` (opencv, pulled in by rapidocr, links against them at import and
+`python:3.12-slim` ships neither) is statically reasoned only, since Docker is unavailable in this
+environment — the same disclosure ADR-0017 made before Docker Desktop was installed here. See
+`docs/adr/ADR-0055-local-ocr-pdf-normalisation-sentence-chunking-and-real-multi-version.md`.
+
+**And Sprint 19: the two findings that mattered most from the sprint above, closed.** ADR-0055 ended
+by disclosing two limitations rather than fixing them; ADR-0056 fixes both. **Ingestion now retains
+the original upload.** It never had — `data_raw_dir` pointed at `data/raw/` and nothing wrote to it —
+which is why 6 of 30 stored documents could not be re-ingested at all. Originals are written to
+`data/raw/<document_id>__<filename>` *after* the registry write succeeds, so no failure path can leave
+a stray file, and upload filenames are sanitised as a security boundary (a `../../etc/passwd` upload
+must not escape the directory), not for tidiness. Re-ingestion now prefers the retained original,
+keyed by document id so nothing can be matched wrongly, and verifies it against the recorded
+`content_hash` before rebuilding anything — refusing outright on a mismatch, which was confirmed by
+tampering with a retained file and watching `--apply` decline it. **Cross-framework equivalence is now
+version-aware.** The practice-text index covered only each framework's *latest* version and was keyed
+by the registry's name for it rather than the name each file declares for itself; fixing both is what
+lets a version-pinned assessment resolve its own practice ids. That alone would still have left CSF
+1.1 resolving nothing, so its equivalence to 2.0 was **transcribed from NIST's own published
+crosswalk** — every CSF 2.0 Subcategory's Informative References name the CSF 1.1 Subcategories it
+derives from. That makes it the only pairing in `cross_framework_equivalence.yaml` not produced by
+this project's own similarity-then-human-review process, and deliberately so: an authoritative mapping
+published by the standard's own author is stronger provenance than an internal judgment, and it is the
+opposite of the embedding inference `framework-mapping.mdc` forbids. 155 entries covering **106 of 108**
+CSF 1.1 subcategories — a 1.1-pinned assessment now resolves 155 equivalents where it resolved 0, and
+the file's whole-file total is 715 (was 560). Coverage is partial because *NIST's own* mapping is
+partial: only 90 of 106 CSF 2.0 subcategories cite a 1.1 predecessor, since concepts new in 2.0 (most
+of GOVERN) have none — a real property of the standards, not a transcription gap. One reference was
+dropped with its reason stated (NIST cites the *Category* `PR.DS`, not a Subcategory, which is not a
+Practice in this schema). Every pre-existing pairing resolves identically, verified count by count.
+Retention is **not** retroactive, and the 6 already-lost documents stay lost — stated here rather than
+left to be discovered. 449 backend tests passing (12 new), `ruff check .` clean. See
+`docs/adr/ADR-0056-upload-retention-and-version-aware-equivalence.md`.
+
 **Sprint 10: the platform gained a real frontend, not just an API.**
 A real FastAPI app (`backend/src/compliance_platform`) ingests documents, embeds them locally (ONNX, no PyTorch, no network calls), tracks assessments through a draft → in-review → finalized lifecycle, scores both C2M2 maturity and NIST CSF 2.0 coverage, proposes evidence-to-practice mappings via retrieval-based semantic matching with mandatory human review, produces a structured dashboard (`GET /assessments/{id}/dashboard`, see ADR-0012) exportable as PDF/XLSX (`.../report/pdf` / `.../report/xlsx`, see ADR-0013), and answers natural-language questions grounded only in an assessment's own reviewed evidence (`POST /assessments/{id}/chat`, retrieval-only, no LLM — see ADR-0014). Through Sprint 9 every one of those capabilities was reachable only via Swagger/curl; `frontend/` (Vite + React + TypeScript, ADR-0016) now covers every persona's primary flow end to end — upload, assessment create/status/history, evidence link + AI-propose + accept/edit/reject, the dashboard with PDF/XLSX download, and chat — and closes NFR-4's UI-level requirement (AI-proposed evidence must be visibly distinguishable from human-confirmed, not just at the data-model/API layers). Verified live against the real running backend via a Playwright-driven walkthrough, not just built: zero console errors on the final pass, and two real bugs (a React key collision, a stale-dev-server symptom traced to this repo's OneDrive/WSL2 filesystem — R-11) were found and fixed during that same verification. Run it yourself:
 
@@ -294,7 +370,7 @@ then open `http://localhost:5173`: upload a document (a sample is in `data/sampl
 - [`docs/product/`](./docs/product/) — PRD, personas, epics/user stories, requirements, assumptions log, decision log, risk register, prioritized backlog
 - [`docs/architecture/00-repository-architecture.md`](./docs/architecture/00-repository-architecture.md) — repository layout and rationale
 - [`docs/architecture/01-claude-code-workspace.md`](./docs/architecture/01-claude-code-workspace.md) — hooks, skills, and MCP design for this project's `.claude/` workspace
-- [`docs/adr/`](./docs/adr/) — Architecture Decision Records (54 as of Sprint 19)
+- [`docs/adr/`](./docs/adr/) — Architecture Decision Records (56 as of Sprint 19)
 - [`docs/consulting/`](./docs/consulting/) — per-sprint executive summaries, business value/risk/ROI assessments, and MBA/interview narrative
 - [`docs/current_sprint.md`](./docs/current_sprint.md) — single-source-of-truth sprint tracker
 
@@ -308,4 +384,4 @@ Python (FastAPI, backend live as of Sprint 1), React (frontend, Vite + TypeScrip
 
 ## Roadmap
 
-Primary frameworks: C2M2, NIST CSF 2.0. NERC CIP fully transcribed (Sprint 11): all 13 currently-mandatory standards, 141 of 141 practices. ISO 27001 added titles-only (Sprint 11): all 4 Annex A themes, 93 of 93 control titles — the full standard is a paid, copyrighted publication with no free access, a real and disclosed limitation. CIS Controls v8 fully transcribed (Sprint 12): all 18 Controls, 153 of 153 Safeguards, complete official text — freely licensed under Creative Commons, unlike ISO 27001. SOC 2 added criterion-statement-only (Sprint 13): all 5 Trust Services Categories, 61 of 61 criterion statements — the AICPA's TSC is copyrighted, all-rights-reserved content despite being freely downloadable, a real and disclosed limitation the same way ISO 27001's is. PCI DSS added Section-level statement-only (Sprint 14), then extended to full leaf-level transcription (Sprint 16): all 12 Requirements, 63 of 63 Sections (now modeled as Objectives) and 249 of 249 real leaf-level Defined Approach Requirements (now modeled as Practices) — remains copyrighted like ISO 27001/SOC 2 at every granularity, so only the bolded requirement statement is ever transcribed. NERC CIP↔NIST CSF 2.0 cross-framework equivalence reviewed (Sprint 15): 107 of 141 NERC CIP practices matched, the highest hit rate of any pairing, closing R-27. NERC CIP↔PCI DSS equivalence re-reviewed at the new leaf granularity (Sprint 16): 60 of 141 NERC CIP practices matched (61 entries), down from the original Section-level 80 — see ADR-0029. Every named framework in `PROJECT_CHARTER.md` Section 13 and every reviewed cross-framework equivalence pairing is now delivered. Nothing since Sprint 16 has added a framework — Sprints 17-19 went into controlled-pilot readiness, hardening, and provenance instead, deliberately, since breadth was already complete. The charter's remaining roadmap items (continuous monitoring, multi-tenant auth, cloud deployment) are all explicitly "Won't (for MVP)" scope. Full sprint sequence in `PROJECT_CHARTER.md` Section 13.
+Primary frameworks: C2M2, NIST CSF 2.0. NERC CIP fully transcribed (Sprint 11): all 13 currently-mandatory standards, 141 of 141 practices. ISO 27001 added titles-only (Sprint 11): all 4 Annex A themes, 93 of 93 control titles — the full standard is a paid, copyrighted publication with no free access, a real and disclosed limitation. CIS Controls v8 fully transcribed (Sprint 12): all 18 Controls, 153 of 153 Safeguards, complete official text — freely licensed under Creative Commons, unlike ISO 27001. SOC 2 added criterion-statement-only (Sprint 13): all 5 Trust Services Categories, 61 of 61 criterion statements — the AICPA's TSC is copyrighted, all-rights-reserved content despite being freely downloadable, a real and disclosed limitation the same way ISO 27001's is. PCI DSS added Section-level statement-only (Sprint 14), then extended to full leaf-level transcription (Sprint 16): all 12 Requirements, 63 of 63 Sections (now modeled as Objectives) and 249 of 249 real leaf-level Defined Approach Requirements (now modeled as Practices) — remains copyrighted like ISO 27001/SOC 2 at every granularity, so only the bolded requirement statement is ever transcribed. NERC CIP↔NIST CSF 2.0 cross-framework equivalence reviewed (Sprint 15): 107 of 141 NERC CIP practices matched, the highest hit rate of any pairing, closing R-27. NERC CIP↔PCI DSS equivalence re-reviewed at the new leaf granularity (Sprint 16): 60 of 141 NERC CIP practices matched (61 entries), down from the original Section-level 80 — see ADR-0029. Every named framework in `PROJECT_CHARTER.md` Section 13 and every reviewed cross-framework equivalence pairing is now delivered. Nothing since Sprint 16 has added a *new* framework — Sprints 17-19 went into controlled-pilot readiness, hardening, and provenance instead, deliberately, since breadth was already complete. Sprint 19 did add NIST CSF **1.1** (5 Functions, 23 Categories, 108 Subcategories, transcribed from the official public-domain source), but as a second *version* of a framework already covered, not as new breadth — its purpose was to exercise the multi-version registry (ADR-0053) against real data for the first time, and it is the only framework here with two transcribed versions. OCR for scanned/image-only documents, originally out of MVP scope, was reversed and delivered in Sprint 19 (ADR-0055). The charter's remaining roadmap items (continuous monitoring, multi-tenant auth, cloud deployment) are all explicitly "Won't (for MVP)" scope. Full sprint sequence in `PROJECT_CHARTER.md` Section 13.

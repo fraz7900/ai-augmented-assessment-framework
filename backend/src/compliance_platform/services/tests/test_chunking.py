@@ -123,6 +123,107 @@ def test_snapping_leaves_a_single_window_document_untouched() -> None:
     assert chunks[0].text == text
 
 
+# --- sentence-boundary snapping ---
+
+
+def _sentences(count: int) -> str:
+    # Short sentences so a boundary is reliably within the shift budget;
+    # uneven lengths so edges don't align to a repeating stride.
+    vocabulary = [
+        "Access reviews occur quarterly.",
+        "Incidents are escalated promptly to the on-call owner.",
+        "The plan is tested each year.",
+        "Vendors sign a security addendum before onboarding.",
+        "Backups are verified monthly.",
+    ]
+    return " ".join(vocabulary[i % len(vocabulary)] for i in range(count))
+
+
+def test_chunks_begin_and_end_on_whole_sentences() -> None:
+    text = _sentences(200)
+    settings = _settings(chunk_target_chars=300, chunk_overlap_chars=150, chunk_min_chars=10)
+    chunks = chunking.chunk_document("doc-s1", text, settings)
+    assert len(chunks) > 3
+
+    for chunk in chunks[:-1]:
+        assert chunk.text.endswith((".", "!", "?")), repr(chunk.text[-40:])
+    for chunk in chunks[1:]:
+        assert text[chunk.char_start].isupper(), repr(text[chunk.char_start - 20:
+                                                          chunk.char_start + 20])
+
+
+def test_sentence_snapping_preserves_the_offsets_map_back_invariant() -> None:
+    text = _sentences(150)
+    settings = _settings(chunk_target_chars=280, chunk_overlap_chars=120, chunk_min_chars=10)
+    chunks = chunking.chunk_document("doc-s2", text, settings)
+    assert chunks
+    for chunk in chunks:
+        assert chunk.text == text[chunk.char_start : chunk.char_end].strip()
+
+
+def test_sentence_snapping_does_not_lose_text_between_consecutive_chunks() -> None:
+    """ADR-0054's no-text-lost property, re-asserted under the larger
+    sentence shift. This is the property _sentence_shift_budget's
+    overlap//2 bound exists to protect.
+    """
+    text = _sentences(200)
+    settings = _settings(chunk_target_chars=300, chunk_overlap_chars=150, chunk_min_chars=10)
+    chunks = chunking.chunk_document("doc-s3", text, settings)
+    assert len(chunks) > 3
+    for previous, following in zip(chunks, chunks[1:], strict=False):
+        assert previous.char_end >= following.char_start
+
+
+def test_sentence_shift_budget_never_exceeds_half_the_configured_overlap() -> None:
+    # Both edges may move by the budget in opposite directions, so twice
+    # the budget must fit inside the overlap or consecutive windows part.
+    for overlap in (0, 10, 50, 150, 400, 1000):
+        assert chunking._sentence_shift_budget(overlap) * 2 <= max(overlap, 0)
+
+
+def test_abbreviations_and_initials_do_not_end_a_sentence() -> None:
+    for text in (
+        "Reviews occur approx. every quarter and are logged.",
+        "See e.g. the escalation matrix for details.",
+        "The U.S. facility follows the same policy.",
+        "Signed by J. Smith on behalf of the team.",
+        "Contact Dr. Patel for the clinical systems scope.",
+    ):
+        period_positions = [i for i, ch in enumerate(text) if ch == "."]
+        # Only the final period terminates a sentence; every earlier one
+        # is an abbreviation or an initial.
+        for pos in period_positions[:-1]:
+            assert chunking._is_sentence_end(text, pos) is None, f"{text!r} at {pos}"
+
+
+def test_numbered_requirement_ids_do_not_end_a_sentence() -> None:
+    # "9.2.1" is a PCI DSS leaf requirement id, not three sentences.
+    text = "Requirement 9.2.1 applies to all cardholder data environments."
+    for pos, ch in enumerate(text):
+        if ch == "." and pos != len(text) - 1:
+            assert chunking._is_sentence_end(text, pos) is None
+
+
+def test_a_real_sentence_end_is_still_detected() -> None:
+    text = "Access is reviewed quarterly. Findings are escalated."
+    pos = text.index(".")
+    assert chunking._is_sentence_end(text, pos) == pos + 1
+
+
+def test_falls_back_to_word_snapping_when_no_sentence_is_in_reach() -> None:
+    # No terminators anywhere: sentence snapping finds nothing and the
+    # ADR-0054 word behaviour must still apply, not a hard cut.
+    text = _words(1200)
+    settings = _settings(chunk_target_chars=300, chunk_overlap_chars=150, chunk_min_chars=10)
+    chunks = chunking.chunk_document("doc-s4", text, settings)
+    assert len(chunks) > 1
+    for chunk in chunks:
+        if chunk.char_start > 0:
+            assert text[chunk.char_start - 1].isspace()
+        if chunk.char_end < len(text):
+            assert text[chunk.char_end].isspace() or text[chunk.char_end - 1].isspace()
+
+
 # --- page_number (Sprint 18, ADR-0042) ---
 
 

@@ -479,8 +479,38 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get Framework */
+        /**
+         * Get Framework
+         * @description version (Sprint 18, ADR-0053): browse a SPECIFIC loaded version of
+         *     this framework, if the registry has more than one — omit for
+         *     whatever's currently latest, matching this endpoint's pre-ADR-0053
+         *     behavior exactly.
+         */
         get: operations["get_framework_frameworks__name__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/frameworks/{name}/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Framework Versions
+         * @description Every version this registry knows about for `name` (Sprint 18,
+         *     ADR-0053), so a caller can discover what's actually available to
+         *     pass to ?version= above (or to CreateAssessmentRequest.framework_version)
+         *     without guessing. [] for an unrecognized name, never a 404 — an
+         *     empty list of versions is itself the honest, correct answer.
+         */
+        get: operations["get_framework_versions_frameworks__name__versions_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -618,6 +648,8 @@ export interface components {
             name: string;
             /** Framework Name */
             framework_name: string;
+            /** Framework Version */
+            framework_version?: string | null;
         };
         /** DashboardReport */
         DashboardReport: {
@@ -1008,7 +1040,7 @@ export interface components {
          * ParseStatus
          * @enum {string}
          */
-        ParseStatus: "success" | "unsupported_scanned" | "encoding_failure" | "empty" | "failed";
+        ParseStatus: "success" | "success_ocr" | "unsupported_scanned" | "encoding_failure" | "empty" | "failed";
         /** Practice */
         Practice: {
             /** Id */
@@ -2076,7 +2108,9 @@ export interface operations {
     };
     get_framework_frameworks__name__get: {
         parameters: {
-            query?: never;
+            query?: {
+                version?: string | null;
+            };
             header?: never;
             path: {
                 name: string;
@@ -2092,6 +2126,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["FrameworkDefinition"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_framework_versions_frameworks__name__versions_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": string[];
                 };
             };
             /** @description Validation Error */
