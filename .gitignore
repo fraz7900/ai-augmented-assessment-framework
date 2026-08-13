@@ -45,6 +45,11 @@ data/raw/*
 !data/raw/README.md
 data/processed/*
 !data/processed/README.md
+# Binary sample documents produced by backend/scripts/generate_sample_evidence.py
+# for manual testing. Generated rather than committed for the reason
+# backend/conftest.py already states: a checked-in binary is an opaque
+# artifact nobody can review in a diff. Regenerate, don't commit.
+data/sample_evidence/generated/
 assessments/*
 !assessments/README.md
 reports/*

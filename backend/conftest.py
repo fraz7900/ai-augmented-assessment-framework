@@ -9,11 +9,43 @@ an opaque checked-in artifact.
 from __future__ import annotations
 
 import io
+import os
 
 import openpyxl
 import pytest
 from docx import Document as DocxDocument
 from fpdf import FPDF
+
+
+@pytest.fixture(autouse=True, scope="session")
+def isolate_retained_uploads(tmp_path_factory: pytest.TempPathFactory):
+    """Keep the test suite out of the developer's real `data/raw/`.
+
+    ADR-0056 made ingestion retain every uploaded file. The integration
+    fixtures already redirected `vector_store_dir` and
+    `assessments_db_path` to tmp_path, but nothing redirected
+    `data_raw_dir` -- there had never been a reason to, because nothing
+    wrote there. The result was that a full test run left 45 files in the
+    real `data/raw/`, growing on every subsequent run.
+
+    Applied here as a session-wide, autouse override of the environment
+    variable rather than as a parameter on each fixture, so it holds for
+    every test that constructs Settings -- including ones written later
+    by someone who has never heard of this problem. Settings is a
+    pydantic-settings model, so it reads this on construction; a test
+    that passes `data_raw_dir=` explicitly still wins, which is what the
+    retention tests rely on.
+    """
+    variable = "COMPLIANCE_PLATFORM_DATA_RAW_DIR"
+    previous = os.environ.get(variable)
+    os.environ[variable] = str(tmp_path_factory.mktemp("retained-uploads"))
+    try:
+        yield
+    finally:
+        if previous is None:
+            os.environ.pop(variable, None)
+        else:
+            os.environ[variable] = previous
 
 SAMPLE_HEADING_TEXT = "Sample Policy"
 SAMPLE_BODY_TEXT = "This is a synthetic sentence used only for pipeline testing."

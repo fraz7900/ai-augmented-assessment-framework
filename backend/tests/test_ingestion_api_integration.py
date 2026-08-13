@@ -31,6 +31,14 @@ def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClie
         # test suite is never supposed to touch. Confirmed as a real,
         # not hypothetical, risk before this fix landed.
         assessments_db_path=tmp_path / "assessments.db",
+        # The SAME failure mode recurred with a different path when
+        # ADR-0056 made ingestion retain uploads: nothing redirected
+        # data_raw_dir, because until then nothing wrote there, and a
+        # full test run left 45 files in the real data/raw/. Both the
+        # pattern and its fix are now enforced suite-wide by
+        # conftest.py's isolate_retained_uploads, so a future writable
+        # path cannot repeat this a third time by omission alone.
+        data_raw_dir=tmp_path / "raw",
     )
 
     # get_cached_embedder is deliberately NOT cleared per-test (Sprint

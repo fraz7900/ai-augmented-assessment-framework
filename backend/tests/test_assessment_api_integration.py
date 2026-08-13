@@ -41,6 +41,11 @@ def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClie
     test_settings = Settings(
         vector_store_dir=tmp_path / "lancedb",
         assessments_db_path=tmp_path / "assessments.db",
+        # Retained uploads (ADR-0056). conftest.py's session-wide
+        # isolate_retained_uploads fixture already covers this; named
+        # here too so every writable path this app has appears in one
+        # list rather than one of them being invisible.
+        data_raw_dir=tmp_path / "raw",
     )
 
     for cached in _CACHED_DEPENDENCIES:

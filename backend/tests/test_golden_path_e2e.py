@@ -48,6 +48,7 @@ def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClie
     test_settings = Settings(
         vector_store_dir=tmp_path / "lancedb",
         assessments_db_path=tmp_path / "assessments.db",
+        data_raw_dir=tmp_path / "raw",  # retained uploads (ADR-0056)
     )
     for cached in _CACHED_DEPENDENCIES:
         cached.cache_clear()
