@@ -1,8 +1,7 @@
 Current sprint: Sprint 19 — chunk-edge quality (word then sentence boundaries), PDF text normalisation, local OCR for scanned PDFs, NIST CSF 1.1 as a real second framework version, and chunk re-ingestion with evidence-link remapping
-Status: In progress. All of Sprint 19 (ADR-0054, ADR-0055, ADR-0056) sits on the branch
-`feat/ocr-implementation-and-pdf-support`, three commits ahead of `main` and pushed to
-`origin/feat/ocr-implementation-and-pdf-support`. **Nothing is merged**: `main` is level with
-`origin/main` at ADR-0053, so none of this sprint's work is on the default branch yet.
+Status: In progress. All of Sprint 19 (ADR-0054, ADR-0055, ADR-0056) is **merged into `main`**,
+fast-forwarded from `feat/ocr-implementation-and-pdf-support` to keep this repo's linear history
+(it has no merge commits). `main` is ahead of `origin/main` until someone pushes it.
 Live API testing against eight real policy documents surfaced a real
 defect in `services/chunking.py`: `_fixed_window_chunks` slid a pure character window over the parsed
 text, so window edges landed mid-word. Structure-aware chunking only engages when `# Heading` markers
