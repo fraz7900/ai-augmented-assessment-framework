@@ -31,15 +31,27 @@ RUN pip install --no-cache-dir .
 # baked into the image at build time, not bind-mounted from the host.
 COPY framework_mapping/ ./framework_mapping/
 
-# Runtime-writable state (vector store, SQLite db, the ~67MB ONNX model
-# cache) lives under /data, backed by docker-compose's named volume so it
-# survives container recreation. Each path's parent directory is created
-# by the application itself on first use (repositories/vector_repository.py,
-# repositories/assessment_repository.py, ai/embeddings.py all call
+# Runtime-writable state (vector store, SQLite db, retained original
+# uploads, the ~67MB ONNX model cache) lives under /data, backed by
+# docker-compose's named volume so it survives container recreation. Each
+# path's parent directory is created by the application itself on first
+# use (repositories/vector_repository.py, repositories/assessment_repository.py,
+# services/original_store.py, ai/embeddings.py all call
 # mkdir(parents=True, exist_ok=True)) - nothing to pre-create here.
+#
+# EVERY writable path Settings defines must be listed here. DATA_RAW_DIR
+# was missed when ADR-0056 added upload retention, and the failure was
+# silent in the worst way: Settings computes its default relative to the
+# installed package, so uploads were retained to /usr/local/lib/data/raw
+# inside the image's own layer. The feature appeared to work -- a file was
+# written, no error was raised -- and then every retained original was
+# discarded on the next container recreation, which is exactly the data
+# ADR-0056 exists to preserve. A path that is merely absent from this list
+# does not fail loudly; it quietly writes somewhere ephemeral.
 ENV COMPLIANCE_PLATFORM_FRAMEWORK_MAPPING_DIR=/app/framework_mapping \
     COMPLIANCE_PLATFORM_VECTOR_STORE_DIR=/data/lancedb \
     COMPLIANCE_PLATFORM_ASSESSMENTS_DB_PATH=/data/assessments.db \
+    COMPLIANCE_PLATFORM_DATA_RAW_DIR=/data/raw \
     COMPLIANCE_PLATFORM_EMBEDDING_MODEL_CACHE_DIR=/data/model_cache
 
 EXPOSE 8000
