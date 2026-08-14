@@ -43,7 +43,19 @@ class Settings(BaseSettings):
 
     # Ingestion validation (see services/document_parsers.py).
     max_upload_bytes: int = 25 * 1024 * 1024  # 25 MB
-    allowed_extensions: tuple[str, ...] = (".pdf", ".docx", ".txt", ".md")
+    # NOTE: there is deliberately no `allowed_extensions` setting. One
+    # existed, was never read by any code path, and had drifted to list
+    # only PDF/DOCX/TXT/MD -- omitting the XLSX/CSV support added in
+    # ADR-0041. So the single most authoritative-looking statement of
+    # "what can this platform ingest?" was both inert and wrong, which is
+    # worse than no statement at all. The readiness audit
+    # (docs/architecture/02-controlled-pilot-readiness-audit.md, item 2)
+    # flagged it as an unused duplicate; removed in Sprint 19.
+    #
+    # The real, enforced source of truth is
+    # services/document_parsers.py._EXTENSION_TO_FILE_TYPE, which
+    # file_type_from_extension() raises on -- one list, exercised on every
+    # upload, so it cannot silently drift the way a second copy did.
     # Decompression-bomb ceiling (controlled-pilot readiness audit §A.12,
     # security hardening): applies to EXTRACTED text, after parsing —
     # complements document_parsers.py's DOCX-specific pre-check (which
