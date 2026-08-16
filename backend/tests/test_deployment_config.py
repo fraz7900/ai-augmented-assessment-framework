@@ -31,7 +31,9 @@ from pathlib import Path
 
 from compliance_platform.core.config import Settings
 
-DOCKERFILE = Path(__file__).resolve().parents[2] / "deployment" / "backend.Dockerfile"
+DEPLOYMENT = Path(__file__).resolve().parents[2] / "deployment"
+DOCKERFILE = DEPLOYMENT / "backend.Dockerfile"
+NGINX_CONF = DEPLOYMENT / "frontend.nginx.conf"
 
 # Paths the application only ever READS. They are baked into the image
 # (framework_mapping) or are host-side developer conveniences that the
@@ -78,6 +80,44 @@ def test_every_writable_path_is_redirected_onto_the_data_volume() -> None:
         f"container will write them into its own ephemeral image layer and lose them on "
         f"recreation: {missing}. Add COMPLIANCE_PLATFORM_<NAME>=/data/... to its ENV block, or "
         "add the field to READ_ONLY_OR_UNUSED_IN_CONTAINER if it genuinely is not written."
+    )
+
+
+def _nginx_client_max_body_bytes() -> int | None:
+    """nginx's upload ceiling in bytes, or None if the directive is absent
+    (in which case nginx silently applies its own 1MB default)."""
+    match = re.search(r"client_max_body_size\s+(\d+)([kKmMgG]?);", NGINX_CONF.read_text("utf-8"))
+    if match is None:
+        return None
+    size, unit = int(match.group(1)), match.group(2).lower()
+    return size * {"": 1, "k": 1024, "m": 1024**2, "g": 1024**3}[unit]
+
+
+def test_nginx_allows_uploads_at_least_as_large_as_the_application_does() -> None:
+    """The reverse proxy must not be stricter than the app it fronts.
+
+    nginx enforces client_max_body_size BEFORE proxying, so if it is
+    lower than Settings.max_upload_bytes the application's limit is
+    unreachable: the upload dies at the proxy with a bare "413 Request
+    Entity Too Large" that names no size and never reaches any
+    application log.
+
+    This was a real defect, not a hypothetical. The directive was absent
+    entirely, so nginx applied its 1MB default against the app's 25MB --
+    and it went unnoticed because every synthetic sample in this repo is
+    under 50KB. It surfaced the first time anyone uploaded a real
+    standards PDF (1.5MB).
+    """
+    nginx_limit = _nginx_client_max_body_bytes()
+    app_limit = Settings().max_upload_bytes
+
+    assert nginx_limit is not None, (
+        "deployment/frontend.nginx.conf sets no client_max_body_size, so nginx will silently "
+        f"cap uploads at its 1MB default while the application advertises {app_limit} bytes."
+    )
+    assert nginx_limit >= app_limit, (
+        f"nginx allows {nginx_limit} bytes but the application allows {app_limit}. Uploads "
+        "between the two are rejected by the proxy with a 413 the application never sees."
     )
 
 
