@@ -121,6 +121,33 @@ def test_nginx_allows_uploads_at_least_as_large_as_the_application_does() -> Non
     )
 
 
+def test_nginx_does_not_rely_on_its_default_proxy_timeout() -> None:
+    """Ingestion is synchronous and routinely exceeds nginx's 60s default.
+
+    Unlike the size limit above there is no application-side constant to
+    compare against -- how long an upload takes depends on the document --
+    so this asserts the weaker but still real invariant: the deployment
+    must state a timeout rather than inherit nginx's default, which is
+    known to be too short. A real 59-page PDF measured ~93s end to end,
+    of which ~76s was embedding.
+
+    The failure mode this prevents is nasty: the backend keeps working
+    and the ingestion actually SUCCEEDS, but nginx has already given up,
+    so the user is shown "504 Gateway Timeout" for a document that was
+    in fact stored.
+    """
+    conf = NGINX_CONF.read_text("utf-8")
+    match = re.search(r"proxy_read_timeout\s+(\d+)s?;", conf)
+    assert match is not None, (
+        "deployment/frontend.nginx.conf sets no proxy_read_timeout, so nginx will cut off "
+        "synchronous ingestion at its 60s default and report a 504 for uploads that succeed."
+    )
+    assert int(match.group(1)) > 60, (
+        f"proxy_read_timeout is {match.group(1)}s, at or below nginx's own 60s default -- "
+        "which a real 59-page document has been measured to exceed."
+    )
+
+
 def test_redirected_paths_point_at_the_persistent_volume() -> None:
     """Being listed is not enough -- it has to point at /data, which is
     the only path docker-compose backs with a named volume."""
