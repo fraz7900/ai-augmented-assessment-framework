@@ -35,7 +35,7 @@ from compliance_platform.models.chat import ChatResponse, ChatResult
 from compliance_platform.models.framework import FrameworkDefinition
 from compliance_platform.models.report import DashboardReport
 from compliance_platform.models.sanitization import SanitizationPreview
-from compliance_platform.models.schemas import DocumentDetail
+from compliance_platform.models.schemas import DocumentDetail, DocumentSummary
 from compliance_platform.services.chat_service import answer_question
 from compliance_platform.services.export_service import build_pdf_report, build_xlsx_report
 from compliance_platform.services.mapping_service import find_mapping_candidates
@@ -401,6 +401,37 @@ class AssessmentService:
 
     def list_assessments(self) -> list[Assessment]:
         return self._assessments.list_assessments()
+
+    def list_document_summaries(self) -> list[DocumentSummary]:
+        """Every document, newest first, in the reduced shape a chooser
+        needs.
+
+        Deliberately DocumentSummary rather than DocumentDetail. The bulk
+        supersession lookup answers "is this superseded", not "by which
+        document", and DocumentDetail's superseded_by_document_id is an
+        id -- filling it with a placeholder to satisfy the type would put
+        a meaningless value in a field every other caller reads as a real
+        document id. A boolean field that says exactly what is known is
+        honest; a fabricated id is not.
+
+        Supersession is resolved in bulk via superseded_document_ids
+        (ADR-0050 added that method for exactly this shape of caller), so
+        listing N documents costs two queries rather than N+1.
+        """
+        documents = self._assessments.list_documents()
+        superseded = self._assessments.superseded_document_ids(d.id for d in documents)
+        return [
+            DocumentSummary(
+                id=d.id,
+                filename=d.filename,
+                file_type=d.file_type,
+                submitter=d.submitter,
+                uploaded_at=d.uploaded_at,
+                is_superseded=d.id in superseded,
+                parser_version=d.parser_version,
+            )
+            for d in documents
+        ]
 
     def get_document_detail(self, document_id: str) -> DocumentDetail:
         """Document versioning (ADR-0039): the durable Document record

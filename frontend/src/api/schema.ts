@@ -519,6 +519,32 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/documents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Documents
+         * @description Every ingested document, newest first.
+         *
+         *     Declared BEFORE /{document_id} because FastAPI matches routes in
+         *     declaration order; an empty path is unambiguous here, but keeping
+         *     the literal route above the parameterised one is the habit that
+         *     stops a future literal route (e.g. /recent) being swallowed as a
+         *     document id.
+         */
+        get: operations["list_documents_documents_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/documents/{document_id}": {
         parameters: {
             query?: never;
@@ -692,6 +718,41 @@ export interface components {
             supersedes_document_id?: string | null;
             /** Superseded By Document Id */
             superseded_by_document_id?: string | null;
+            /** Parser Version */
+            parser_version: string;
+        };
+        /**
+         * DocumentSummary
+         * @description One row in a list of ingested documents — what a chooser needs to
+         *     let a reviewer recognise a document, and nothing more.
+         *
+         *     Separate from DocumentDetail rather than reusing it: the list is
+         *     resolved with a BULK supersession lookup that answers "is this
+         *     superseded" without identifying the superseding document, so this
+         *     carries an honest `is_superseded` boolean instead of a
+         *     `superseded_by_document_id` that could only be filled with a
+         *     placeholder. content_hash is omitted too — it identifies a document
+         *     to a machine, not to a human picking one off a list.
+         */
+        DocumentSummary: {
+            /** Id */
+            id: string;
+            /** Filename */
+            filename: string;
+            /** File Type */
+            file_type: string;
+            /** Submitter */
+            submitter?: string | null;
+            /**
+             * Uploaded At
+             * Format: date-time
+             */
+            uploaded_at: string;
+            /**
+             * Is Superseded
+             * @default false
+             */
+            is_superseded: boolean;
             /** Parser Version */
             parser_version: string;
         };
@@ -2166,6 +2227,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_documents_documents_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentSummary"][];
                 };
             };
         };

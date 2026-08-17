@@ -1,5 +1,7 @@
 import { useState } from 'react'
+import { AlertCircle, CheckCircle2, FileUp, Loader2, Upload } from 'lucide-react'
 import { useIngestDocument } from '../api/ingestion'
+import UploadProgress from '../components/UploadProgress'
 import type { ParseStatus } from '../api/types'
 
 // Sam (contributor persona): upload a document, nothing further — low
@@ -67,8 +69,24 @@ export default function UploadPage() {
             type="file"
             accept=".pdf,.docx,.txt,.md,.xlsx,.csv"
             onChange={(event) => setFile(event.target.files?.[0] ?? null)}
-            className="mt-1 block w-full text-sm text-slate-700"
+            className="mt-1 block w-full cursor-pointer rounded-md border border-slate-300 p-2 text-sm text-slate-700 file:mr-3 file:rounded-md file:border-0 file:bg-slate-100 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-slate-900 hover:file:bg-slate-200"
           />
+          {/*
+            Confirm the chosen file and its size. The size matters here
+            specifically: uploads are capped at 25MB, and a reviewer who
+            picks a 60MB scan should learn that before waiting for a
+            rejection.
+          */}
+          {file && (
+            <p className="mt-1.5 flex items-center gap-1.5 text-sm text-slate-600">
+              <FileUp className="h-4 w-4 shrink-0 text-slate-400" aria-hidden="true" />
+              <span className="font-medium text-slate-800">{file.name}</span>
+              <span className="text-slate-500">({(file.size / 1024 / 1024).toFixed(1)} MB)</span>
+              {file.size > 25 * 1024 * 1024 && (
+                <span className="font-medium text-red-700">— over the 25 MB limit</span>
+              )}
+            </p>
+          )}
         </div>
         <div>
           <label className="block text-sm font-medium text-slate-700" htmlFor="submitter">
@@ -83,25 +101,48 @@ export default function UploadPage() {
             placeholder="e.g. Sam Rivera"
           />
         </div>
-        <button
-          type="submit"
-          disabled={!file || ingest.isPending}
-          className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-        >
-          {ingest.isPending ? 'Uploading…' : 'Upload'}
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            type="submit"
+            disabled={!file || ingest.isPending}
+            className="inline-flex items-center gap-2 rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white enabled:hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {ingest.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+            ) : (
+              <Upload className="h-4 w-4" aria-hidden="true" />
+            )}
+            {ingest.isPending ? 'Uploading…' : 'Upload document'}
+          </button>
+          {/*
+            A disabled button with no explanation reads as broken. This
+            says WHY it is disabled, which is the difference between "the
+            app is stuck" and "I haven't chosen a file yet".
+          */}
+          {!file && !ingest.isPending && (
+            <span className="text-sm text-slate-500">Choose a file to enable upload</span>
+          )}
+        </div>
       </form>
 
+      <UploadProgress active={ingest.isPending} />
+
       {ingest.isError && (
-        <div className="mt-4 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800">
-          {ingest.error.message}
+        <div className="mt-4 flex items-start gap-2 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+          <span>{ingest.error.message}</span>
         </div>
       )}
 
       {ingest.isSuccess && (
         <div className="mt-4 space-y-2">
-          <div className={`rounded-md border p-3 text-sm ${toneClasses[parseStatusMessages[ingest.data.parse_status].tone]}`}>
-            {parseStatusMessages[ingest.data.parse_status].message}
+          <div className={`flex items-start gap-2 rounded-md border p-3 text-sm ${toneClasses[parseStatusMessages[ingest.data.parse_status].tone]}`}>
+            {parseStatusMessages[ingest.data.parse_status].tone === 'ok' ? (
+              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+            ) : (
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+            )}
+            <span>{parseStatusMessages[ingest.data.parse_status].message}</span>
           </div>
           {(ingest.data.parse_warnings?.length ?? 0) > 0 && (
             <ul className="list-inside list-disc text-sm text-amber-800">
@@ -111,13 +152,23 @@ export default function UploadPage() {
             </ul>
           )}
           <div className="rounded-md border border-slate-200 bg-white p-3 text-sm">
-            <p>
-              <span className="font-medium">Document ID:</span>{' '}
-              <span className="select-all font-mono text-xs">{ingest.data.document_id}</span>
+            <p className="text-slate-800">
+              <span className="font-medium">{ingest.data.filename}</span> ·{' '}
+              {ingest.data.chunk_count} passage(s) · embedded via {ingest.data.embedding_backend}
             </p>
-            <p className="text-slate-600">
-              {ingest.data.filename} · {ingest.data.chunk_count} chunk(s) · embedded via{' '}
-              {ingest.data.embedding_backend}
+            {/*
+              The id is kept, but demoted. It used to be the headline
+              here because linking evidence required copying it into
+              another screen by hand; the Evidence tab now offers a
+              chooser, so this is reference information rather than a
+              step the reviewer has to act on.
+            */}
+            <p className="mt-1 text-xs text-slate-500">
+              Ready to link — open an assessment&apos;s <strong>Evidence</strong> tab and pick it
+              from the document list.
+            </p>
+            <p className="mt-1 select-all font-mono text-[11px] text-slate-400">
+              {ingest.data.document_id}
             </p>
           </div>
         </div>

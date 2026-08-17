@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
+import { Link2 as LinkIcon, Loader2, Sparkles } from 'lucide-react'
 import {
   useEvidenceLinks,
   useLinkEvidence,
@@ -7,7 +8,9 @@ import {
   useReviewEvidence,
 } from '../../api/assessments'
 import { useFramework } from '../../api/frameworks'
+import { useDocuments } from '../../api/ingestion'
 import { findPractice } from '../../lib/practiceLookup'
+import DocumentPicker from '../../components/DocumentPicker'
 import EvidenceSourceBadge from '../../components/EvidenceSourceBadge'
 import EvidenceReviewControls from '../../components/EvidenceReviewControls'
 import ConfidenceMeter from '../../components/ConfidenceMeter'
@@ -20,6 +23,7 @@ export default function EvidenceTab() {
   const { assessmentId, assessment } = useOutletContext<AssessmentTabContext>()
   const { data: links, isLoading, isError, error } = useEvidenceLinks(assessmentId)
   const { data: framework } = useFramework(assessment.framework_name)
+  const { data: documents, isLoading: documentsLoading } = useDocuments()
   const linkEvidence = useLinkEvidence(assessmentId)
   const proposeMappings = useProposeMappings(assessmentId)
   const reviewEvidence = useReviewEvidence(assessmentId)
@@ -114,8 +118,13 @@ export default function EvidenceTab() {
             type="button"
             onClick={() => proposeMappings.mutate()}
             disabled={proposeMappings.isPending || assessment.status === 'finalized'}
-            className="rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white enabled:hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
           >
+            {proposeMappings.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+            ) : (
+              <Sparkles className="h-4 w-4" aria-hidden="true" />
+            )}
             {proposeMappings.isPending ? 'Proposing…' : 'Propose AI mappings'}
           </button>
         </div>
@@ -129,17 +138,15 @@ export default function EvidenceTab() {
         )}
 
         <form onSubmit={handleLink} className="mt-3 flex flex-wrap items-end gap-3">
-          <div>
+          <div className="min-w-[22rem]">
             <label className="block text-xs font-medium text-slate-700" htmlFor="document-id">
-              Document ID
+              Document
             </label>
-            <input
-              id="document-id"
-              type="text"
+            <DocumentPicker
+              documents={documents}
+              isLoading={documentsLoading}
               value={documentId}
-              onChange={(event) => setDocumentId(event.target.value)}
-              className="mt-1 rounded-md border border-slate-300 px-2 py-1 text-sm"
-              placeholder="from Upload"
+              onChange={setDocumentId}
             />
           </div>
           <div>
@@ -190,9 +197,21 @@ export default function EvidenceTab() {
           <button
             type="submit"
             disabled={!documentId.trim() || !practiceReference.trim() || linkEvidence.isPending}
-            className="rounded-md bg-slate-900 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-md bg-slate-900 px-3 py-1.5 text-sm font-medium text-white enabled:hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+            title={
+              !documentId.trim()
+                ? 'Select a document first'
+                : !practiceReference.trim()
+                  ? 'Enter a practice reference first'
+                  : undefined
+            }
           >
-            {linkEvidence.isPending ? 'Linking…' : 'Link'}
+            {linkEvidence.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+            ) : (
+              <LinkIcon className="h-4 w-4" aria-hidden="true" />
+            )}
+            {linkEvidence.isPending ? 'Linking…' : 'Link evidence'}
           </button>
         </form>
         {linkEvidence.isError && <p className="mt-2 text-sm text-red-700">{linkEvidence.error.message}</p>}

@@ -302,6 +302,25 @@ class AssessmentRepository:
         with Session(self._engine) as session:
             return session.get(Document, document_id)
 
+    def list_documents(self) -> list[Document]:
+        """Every registered document, newest upload first.
+
+        Exists so the UI can offer a chooser. Before this, linking
+        evidence required the reviewer to copy a UUID off the upload
+        screen and paste it into the Evidence tab by hand, because
+        nothing could enumerate what had been ingested.
+
+        Unpaginated, deliberately: this is a local-first,
+        single-organisation deployment whose Document table holds one row
+        per uploaded file. If that ever reaches a size where this is the
+        wrong shape, the fix is a paged endpoint with a real cursor, not
+        a silent limit here that would hide documents from a chooser
+        claiming to list them all.
+        """
+        with Session(self._engine) as session:
+            statement = select(Document).order_by(Document.uploaded_at.desc())  # type: ignore[attr-defined]
+            return list(session.exec(statement).all())
+
     def document_superseded_by(self, document_id: str) -> Document | None:
         """The document (if any) that explicitly declared it supersedes
         document_id — the reverse lookup a reviewer needs to answer "is

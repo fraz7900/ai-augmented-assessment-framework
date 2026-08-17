@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { Loader2, Plus } from 'lucide-react'
 import { useAssessments, useCreateAssessment } from '../api/assessments'
 import { useFrameworkVersions } from '../api/frameworks'
 import FrameworkVersionSelect from '../components/FrameworkVersionSelect'
@@ -100,13 +101,23 @@ export default function AssessmentsListPage() {
           value={frameworkVersion}
           onChange={setFrameworkVersion}
         />
-        <button
-          type="submit"
-          disabled={!name.trim() || createAssessment.isPending}
-          className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-        >
-          {createAssessment.isPending ? 'Creating…' : 'Create assessment'}
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            type="submit"
+            disabled={!name.trim() || createAssessment.isPending}
+            className="inline-flex items-center gap-2 rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white enabled:hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {createAssessment.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+            ) : (
+              <Plus className="h-4 w-4" aria-hidden="true" />
+            )}
+            {createAssessment.isPending ? 'Creating…' : 'Create assessment'}
+          </button>
+          {!name.trim() && !createAssessment.isPending && (
+            <span className="text-sm text-slate-500">Name the assessment to enable</span>
+          )}
+        </div>
       </form>
       {createAssessment.isError && (
         <p className="mt-2 text-sm text-red-700">{createAssessment.error.message}</p>

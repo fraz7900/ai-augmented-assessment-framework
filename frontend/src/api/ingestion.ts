@@ -1,6 +1,18 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from './client'
-import type { DocumentDetail, IngestionResult } from './types'
+import type { DocumentDetail, DocumentSummary, IngestionResult } from './types'
+
+// Every ingested document, newest first. Added so the Evidence tab can
+// offer a chooser: before this endpoint existed, linking evidence
+// required copying a UUID off the Upload screen and pasting it into a
+// different tab by hand, because nothing could enumerate what had been
+// ingested.
+export function useDocuments() {
+  return useQuery({
+    queryKey: ['documents', 'list'],
+    queryFn: () => apiClient.get<DocumentSummary[]>('/documents'),
+  })
+}
 
 export function useIngestDocument() {
   const queryClient = useQueryClient()
@@ -14,6 +26,11 @@ export function useIngestDocument() {
     onSuccess: () => {
       // A newly ingested document may now be linkable as evidence.
       queryClient.invalidateQueries({ queryKey: ['evidence'] })
+      // ...and must appear in the Evidence tab's document chooser
+      // immediately. Without this the reviewer uploads a file, switches
+      // tab, and cannot find it — the exact dead end the chooser exists
+      // to remove.
+      queryClient.invalidateQueries({ queryKey: ['documents', 'list'] })
     },
   })
 }

@@ -1,4 +1,5 @@
 import { NavLink, Navigate, Route, Routes } from 'react-router-dom'
+import { ClipboardList, ShieldCheck, Upload } from 'lucide-react'
 import AssessmentsListPage from './routes/AssessmentsListPage'
 import UploadPage from './routes/UploadPage'
 import AssessmentDetailPage from './routes/AssessmentDetailPage'
@@ -17,13 +18,22 @@ function App() {
     <div className="min-h-screen bg-slate-50">
       <header className="border-b border-slate-200 bg-white">
         <div className="mx-auto flex max-w-6xl items-center gap-6 px-4 py-3">
-          <span className="font-semibold text-slate-900">Compliance Assessment Platform</span>
+          <span className="inline-flex items-center gap-2 font-semibold text-slate-900">
+            <ShieldCheck className="h-5 w-5 text-slate-700" aria-hidden="true" />
+            Compliance Assessment Platform
+          </span>
           <nav className="flex gap-2">
             <NavLink to="/" end className={navLinkClass}>
-              Assessments
+              <span className="inline-flex items-center gap-1.5">
+                <ClipboardList className="h-4 w-4" aria-hidden="true" />
+                Assessments
+              </span>
             </NavLink>
             <NavLink to="/upload" className={navLinkClass}>
-              Upload
+              <span className="inline-flex items-center gap-1.5">
+                <Upload className="h-4 w-4" aria-hidden="true" />
+                Upload
+              </span>
             </NavLink>
           </nav>
         </div>

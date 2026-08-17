@@ -199,6 +199,12 @@ class _FakeAssessmentRepository:
     def get_document(self, document_id: str) -> Document | None:
         return self._documents.get(document_id)
 
+    def list_documents(self) -> list[Document]:
+        # Newest first, mirroring the real repository's ORDER BY, so a
+        # test asserting ordering is testing the service against the
+        # contract rather than against insertion order.
+        return sorted(self._documents.values(), key=lambda d: d.uploaded_at, reverse=True)
+
     def document_superseded_by(self, document_id: str) -> Document | None:
         for document in self._documents.values():
             if document.supersedes_document_id == document_id:
@@ -1304,6 +1310,61 @@ def test_unsanitized_export_is_unaffected_by_sanitization_feature() -> None:
 
 
 # --- Document versioning (Sprint 18, ADR-0039) ---
+
+
+def test_list_document_summaries_is_empty_before_anything_is_ingested() -> None:
+    service, _, _ = _make_service()
+    assert service.list_document_summaries() == []
+
+
+def test_list_document_summaries_returns_newest_first() -> None:
+    """A chooser shows the most recently uploaded document first —
+    that is the one a reviewer has just added and is looking for."""
+    from datetime import datetime
+
+    service, assessment_repo, _ = _make_service()
+    assessment_repo.add_document(
+        Document(
+            id="old",
+            filename="old.txt",
+            file_type="txt",
+            content_hash="h1",
+            uploaded_at=datetime(2026, 1, 1),
+        )
+    )
+    assessment_repo.add_document(
+        Document(
+            id="new",
+            filename="new.txt",
+            file_type="txt",
+            content_hash="h2",
+            uploaded_at=datetime(2026, 6, 1),
+        )
+    )
+
+    assert [d.id for d in service.list_document_summaries()] == ["new", "old"]
+
+
+def test_list_document_summaries_flags_superseded_documents() -> None:
+    """The chooser must warn that a document has been replaced, or a
+    reviewer will happily cite an out-of-date policy (ADR-0050)."""
+    service, assessment_repo, _ = _make_service()
+    assessment_repo.add_document(
+        Document(id="v1", filename="policy.txt", file_type="txt", content_hash="h1")
+    )
+    assessment_repo.add_document(
+        Document(
+            id="v2",
+            filename="policy.txt",
+            file_type="txt",
+            content_hash="h2",
+            supersedes_document_id="v1",
+        )
+    )
+
+    by_id = {d.id: d for d in service.list_document_summaries()}
+    assert by_id["v1"].is_superseded is True
+    assert by_id["v2"].is_superseded is False
 
 
 def test_get_document_detail_raises_for_unknown_document() -> None:

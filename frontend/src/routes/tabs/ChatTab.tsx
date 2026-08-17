@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
+import { Loader2, Send } from 'lucide-react'
 import { useChat } from '../../api/assessments'
 import ConfidenceMeter from '../../components/ConfidenceMeter'
 import type { AssessmentTabContext } from '../AssessmentDetailPage'
@@ -36,8 +37,13 @@ export default function ChatTab() {
         <button
           type="submit"
           disabled={!question.trim() || chat.isPending}
-          className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+          className="inline-flex items-center gap-2 rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white enabled:hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
         >
+          {chat.isPending ? (
+            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+          ) : (
+            <Send className="h-4 w-4" aria-hidden="true" />
+          )}
           {chat.isPending ? 'Asking…' : 'Ask'}
         </button>
       </form>

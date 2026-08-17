@@ -143,6 +143,28 @@ class IngestionResult(BaseModel):
     parser_version: str
 
 
+class DocumentSummary(BaseModel):
+    """One row in a list of ingested documents — what a chooser needs to
+    let a reviewer recognise a document, and nothing more.
+
+    Separate from DocumentDetail rather than reusing it: the list is
+    resolved with a BULK supersession lookup that answers "is this
+    superseded" without identifying the superseding document, so this
+    carries an honest `is_superseded` boolean instead of a
+    `superseded_by_document_id` that could only be filled with a
+    placeholder. content_hash is omitted too — it identifies a document
+    to a machine, not to a human picking one off a list.
+    """
+
+    id: str
+    filename: str
+    file_type: str
+    submitter: str | None = None
+    uploaded_at: datetime
+    is_superseded: bool = False
+    parser_version: str
+
+
 class DocumentDetail(BaseModel):
     """Document versioning (Sprint 18, ADR-0039): the durable record of
     one ingested document, plus the reverse lookup a reviewer actually
