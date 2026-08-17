@@ -18,6 +18,8 @@ at all; see ADR-0011).
 
 from __future__ import annotations
 
+from typing import NamedTuple
+
 from compliance_platform.models.assessment import (
     Assessment,
     EvidenceLink,
@@ -48,53 +50,114 @@ _NEVER_PERFORMED_STATUSES = (
 )
 
 
+class PracticeScoringCredit(NamedTuple):
+    """The outcome of folding PracticeFinding judgments onto evidence.
+
+    `unsupported_*` are findings that changed nothing because they lack
+    the evidence this project requires before a judgment may move a
+    score. They are returned rather than discarded so callers can
+    surface them: a finding that a reviewer believes is counting, and
+    silently is not, is worse than one that visibly blocks.
+    """
+
+    performed_practice_ids: set[str]
+    excluded_practice_ids: frozenset[str]
+    unsupported_satisfied: frozenset[str]
+    unsupported_not_applicable: frozenset[str]
+
+
 def performed_and_excluded_practice_ids(
     evidence_links: list[EvidenceLink], findings: list[PracticeFinding]
-) -> tuple[set[str], frozenset[str]]:
+) -> PracticeScoringCredit:
     """Folds explicit PracticeFinding overrides (ADR-0030) on top of the
-    evidence-link-derived "performed" set. A practice with no
-    PracticeFinding row behaves exactly as before ADR-0030 (evidence
-    alone decides it) — additive, not a breaking change to existing
-    assessments. Findings are authoritative where present: SATISFIED
-    counts a practice as performed even with no accepted evidence link
-    (e.g. a documented compensating control); NOT_SATISFIED,
-    INSUFFICIENT_EVIDENCE, or PARTIALLY_SATISFIED removes a practice
-    from "performed" even if evidence was once accepted, so a
-    reviewer's considered judgment always wins over an earlier,
-    possibly-superseded evidence acceptance. NOT_APPLICABLE practices
-    are returned separately, for exclusion from scoring denominators
-    entirely rather than counting as either performed or a gap.
+    evidence-link-derived "performed" set.
+
+    **Positive scoring credit requires evidence** (ADR-0057, superseding
+    only ADR-0030 Decision 3's "SATISFIED counts a practice as performed
+    even with no accepted evidence link"). That clause conflicted
+    directly with this repository's governing invariant — AGENTS.md rule
+    2 and `.cursor/rules/assessment-generation.mdc`: "No score exists
+    without a linked evidence trail. Every practice-level maturity score
+    must reference the specific evidence item(s) and mapping decision(s)
+    that produced it." A SATISFIED finding with no accepted or edited
+    link cannot answer "why is this MIL2 and not MIL1" with anything but
+    a free-text rationale, which is an assertion, not evidence.
+
+    Concretely:
+
+    - Only ACCEPTED/EDITED links confer credit. PENDING never does —
+      that is the human-in-the-loop review step, and counting an
+      unreviewed AI proposal would auto-accept it by the back door.
+      REJECTED never does either.
+    - SATISFIED keeps a practice performed *when it is evidence-backed*.
+      Without such a link it is retained as a recorded human judgment
+      (the PracticeFinding row and its append-only history are
+      untouched) but confers no score, and is reported in
+      `unsupported_satisfied`.
+    - NOT_APPLICABLE changes the scoring *denominator*, which moves the
+      score just as surely as the numerator does, so it carries the same
+      evidence requirement. Without a supporting link the practice stays
+      in the denominator and is reported in `unsupported_not_applicable`.
+    - NOT_SATISFIED / INSUFFICIENT_EVIDENCE / PARTIALLY_SATISFIED still
+      remove a practice from "performed" even when evidence was once
+      accepted. These are *negative* judgments: they lower or hold a
+      score, so requiring evidence to record one would be backwards —
+      the risk this invariant guards against is unsupported credit, not
+      unsupported caution.
 
     Shared by services/assessment_service.py.compute_scores and
-    build_dashboard below, so scores and the dashboard's gap list can
-    never disagree about which practices are "performed" for a given
-    assessment.
+    build_dashboard below, so scores, the score endpoint and the
+    dashboard's gap list can never disagree about which practices are
+    performed for a given assessment.
     """
-    performed_practice_ids = {
+    evidence_backed = {
         link.practice_reference
         for link in evidence_links
         if link.review_status in (EvidenceReviewStatus.ACCEPTED, EvidenceReviewStatus.EDITED)
     }
+    performed_practice_ids = set(evidence_backed)
     excluded_practice_ids: set[str] = set()
+    unsupported_satisfied: set[str] = set()
+    unsupported_not_applicable: set[str] = set()
+
     for finding in findings:
+        reference = finding.practice_reference
         if finding.status == PracticeFindingStatus.SATISFIED:
-            performed_practice_ids.add(finding.practice_reference)
+            if reference in evidence_backed:
+                performed_practice_ids.add(reference)
+            else:
+                unsupported_satisfied.add(reference)
         elif finding.status in _NEVER_PERFORMED_STATUSES:
-            performed_practice_ids.discard(finding.practice_reference)
+            performed_practice_ids.discard(reference)
         if finding.status == PracticeFindingStatus.NOT_APPLICABLE:
-            excluded_practice_ids.add(finding.practice_reference)
-    return performed_practice_ids, frozenset(excluded_practice_ids)
+            if reference in evidence_backed:
+                excluded_practice_ids.add(reference)
+            else:
+                unsupported_not_applicable.add(reference)
+
+    return PracticeScoringCredit(
+        performed_practice_ids,
+        frozenset(excluded_practice_ids),
+        frozenset(unsupported_satisfied),
+        frozenset(unsupported_not_applicable),
+    )
 
 
 def _build_situation(
     assessment: Assessment,
     framework: FrameworkDefinition,
     evidence_links: list[EvidenceLink],
+    credit: PracticeScoringCredit,
 ) -> Situation:
     counts = {status: 0 for status in EvidenceReviewStatus}
     for link in evidence_links:
         counts[link.review_status] += 1
     unpopulated = [d.short_code for d in framework.domains if not d.practices_populated]
+    # Sorted so the dashboard, the export and the readiness endpoint list
+    # the same practices in the same order rather than in set-iteration
+    # order, which varies between processes.
+    unsupported_satisfied = sorted(credit.unsupported_satisfied)
+    unsupported_not_applicable = sorted(credit.unsupported_not_applicable)
     return Situation(
         assessment_id=assessment.id,
         assessment_name=assessment.name,
@@ -107,6 +170,8 @@ def _build_situation(
         rejected_count=counts[EvidenceReviewStatus.REJECTED],
         pending_ai_review_count=counts[EvidenceReviewStatus.PENDING],
         unpopulated_domains=unpopulated,
+        unsupported_satisfied_practices=unsupported_satisfied,
+        unsupported_not_applicable_practices=unsupported_not_applicable,
         so_what=_situation_so_what(
             total=len(evidence_links),
             accepted=counts[EvidenceReviewStatus.ACCEPTED],
@@ -115,6 +180,8 @@ def _build_situation(
             pending=counts[EvidenceReviewStatus.PENDING],
             unpopulated=unpopulated,
             status=assessment.status.value,
+            unsupported_satisfied=unsupported_satisfied,
+            unsupported_not_applicable=unsupported_not_applicable,
         ),
     )
 
@@ -127,6 +194,8 @@ def _situation_so_what(
     pending: int,
     unpopulated: list[str],
     status: str,
+    unsupported_satisfied: list[str] | None = None,
+    unsupported_not_applicable: list[str] | None = None,
 ) -> list[str]:
     """One consequence sentence per number that has one.
 
@@ -139,12 +208,35 @@ def _situation_so_what(
     report.
     """
     lines: list[str] = []
+    unsupported_satisfied = unsupported_satisfied or []
+    unsupported_not_applicable = unsupported_not_applicable or []
+
+    # Stated before anything else, including the empty-assessment case: a
+    # judgment that a reviewer believes is counting and silently is not
+    # misleads more than a missing number does (ADR-0057).
+    if unsupported_satisfied:
+        lines.append(
+            f"{len(unsupported_satisfied)} practice(s) marked SATISFIED "
+            f"({', '.join(unsupported_satisfied[:5])}"
+            f"{', …' if len(unsupported_satisfied) > 5 else ''}) have no accepted or edited "
+            "evidence link, so they are recorded as judgments but contribute no score — link "
+            "supporting evidence, or the finding will not appear in any figure below."
+        )
+    if unsupported_not_applicable:
+        lines.append(
+            f"{len(unsupported_not_applicable)} practice(s) marked NOT_APPLICABLE "
+            f"({', '.join(unsupported_not_applicable[:5])}"
+            f"{', …' if len(unsupported_not_applicable) > 5 else ''}) have no accepted or edited "
+            "evidence link, so they remain in the scoring denominator — an exclusion moves the "
+            "score and therefore needs the same evidence basis as a positive finding."
+        )
 
     if total == 0:
-        return [
+        lines.append(
             "No evidence has been linked yet, so every practice in this framework is currently "
             "unassessed — the scores below reflect an empty assessment, not a compliant one."
-        ]
+        )
+        return lines
 
     # The trust question, and the reason this is first: an executive
     # reading a maturity score needs to know how much of it rests on
@@ -398,9 +490,9 @@ def build_dashboard(
 ) -> DashboardReport:
     findings = findings if findings is not None else []
     superseded_document_ids = frozenset(superseded_document_ids or ())
-    performed_practice_ids, excluded_practice_ids = performed_and_excluded_practice_ids(
-        evidence_links, findings
-    )
+    credit = performed_and_excluded_practice_ids(evidence_links, findings)
+    performed_practice_ids = credit.performed_practice_ids
+    excluded_practice_ids = credit.excluded_practice_ids
     pending_practice_ids = {
         link.practice_reference
         for link in evidence_links
@@ -424,7 +516,7 @@ def build_dashboard(
         superseded_document_ids,
     )
     return DashboardReport(
-        situation=_build_situation(assessment, framework, evidence_links),
+        situation=_build_situation(assessment, framework, evidence_links, credit),
         domain_scores=domain_scores,
         overall=_build_overall_summary(framework, domain_scores, excluded_practice_ids),
         complication=complication,

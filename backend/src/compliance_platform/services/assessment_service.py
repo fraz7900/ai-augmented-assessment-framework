@@ -35,7 +35,13 @@ from compliance_platform.models.chat import ChatResponse, ChatResult
 from compliance_platform.models.framework import FrameworkDefinition
 from compliance_platform.models.report import DashboardReport
 from compliance_platform.models.sanitization import SanitizationPreview
-from compliance_platform.models.schemas import DocumentDetail, DocumentSummary
+from compliance_platform.models.schemas import (
+    DocumentDetail,
+    DocumentSummary,
+    FinalizationBlocker,
+    FinalizationBlockerCategory,
+    FinalizationReadiness,
+)
 from compliance_platform.services.chat_service import answer_question
 from compliance_platform.services.export_service import build_pdf_report, build_xlsx_report
 from compliance_platform.services.mapping_service import find_mapping_candidates
@@ -71,6 +77,12 @@ _REVIEW_DECISIONS = (
     EvidenceReviewStatus.REJECTED,
 )
 
+# Cap on ids echoed back per finalization blocker (ADR-0058). The count
+# is always the true total; this only bounds the response body so an
+# assessment with hundreds of pending proposals cannot return a payload
+# the size of its own evidence table.
+_MAX_BLOCKER_IDS = 50
+
 _ALLOWED_TRANSITIONS: dict[AssessmentStatus, set[AssessmentStatus]] = {
     AssessmentStatus.DRAFT: {AssessmentStatus.IN_REVIEW},
     AssessmentStatus.IN_REVIEW: {AssessmentStatus.DRAFT, AssessmentStatus.FINALIZED},
@@ -96,6 +108,25 @@ class InvalidStatusTransitionError(Exception):
         self.requested = requested
         super().__init__(
             f"Cannot transition assessment from '{current.value}' to '{requested.value}'."
+        )
+
+
+class AssessmentNotReadyForFinalizationError(Exception):
+    """Raised when finalization is attempted with outstanding review work
+    (ADR-0058).
+
+    Carries the structured blockers rather than only a message, so the
+    409 response body is the same machine-readable shape the readiness
+    endpoint returns and a caller never has to parse prose to find out
+    what to fix.
+    """
+
+    def __init__(self, assessment_id: str, blockers: list[FinalizationBlocker]) -> None:
+        self.assessment_id = assessment_id
+        self.blockers = blockers
+        categories = ", ".join(sorted({b.category.value for b in blockers}))
+        super().__init__(
+            f"Assessment '{assessment_id}' is not ready to finalize; outstanding: {categories}."
         )
 
 
@@ -457,6 +488,119 @@ class AssessmentService:
             parser_version=document.parser_version,
         )
 
+    def finalization_readiness(self, assessment_id: str) -> FinalizationReadiness:
+        """Whether this assessment may be finalized, and what blocks it.
+
+        Blockers are unfinished *review work*, never findings. Confirmed
+        gaps, rejected evidence, NOT_SATISFIED, PARTIALLY_SATISFIED and
+        INSUFFICIENT_EVIDENCE do not appear: an assessment that reports
+        an organization as non-compliant is a legitimate, complete
+        result, and refusing to finalize it would make the platform
+        unable to say the very thing it exists to say.
+
+        Read by GET /assessments/{id}/finalization-readiness and enforced
+        by transition_status, so the button the reviewer sees and the
+        rule the server applies come from one function rather than two
+        that can drift.
+        """
+        assessment = self.get_assessment(assessment_id)
+        blockers: list[FinalizationBlocker] = []
+
+        evidence_links = self._assessments.evidence_for_assessment(assessment_id)
+        pending = [
+            link for link in evidence_links if link.review_status == EvidenceReviewStatus.PENDING
+        ]
+        if pending:
+            blockers.append(
+                FinalizationBlocker(
+                    category=FinalizationBlockerCategory.PENDING_AI_REVIEW,
+                    count=len(pending),
+                    affected_ids=[link.id for link in pending][:_MAX_BLOCKER_IDS],
+                    summary=(
+                        f"{len(pending)} AI-proposed evidence link(s) still await human review. "
+                        "Accept, edit or reject each one — an unreviewed proposal must never be "
+                        "part of a finalized assessment."
+                    ),
+                )
+            )
+
+        unresolved = [
+            request
+            for request in self._assessments.evidence_requests_for_assessment(assessment_id)
+            if request.resolved_at is None
+        ]
+        if unresolved:
+            blockers.append(
+                FinalizationBlocker(
+                    category=FinalizationBlockerCategory.UNRESOLVED_EVIDENCE_REQUEST,
+                    count=len(unresolved),
+                    affected_ids=[request.id for request in unresolved][:_MAX_BLOCKER_IDS],
+                    summary=(
+                        f"{len(unresolved)} evidence request(s) are still open. Resolve each one, "
+                        "or withdraw it, before declaring the assessment complete."
+                    ),
+                )
+            )
+
+        findings = self._assessments.practice_findings_for_assessment(assessment_id)
+        credit = performed_and_excluded_practice_ids(evidence_links, findings)
+        if credit.unsupported_satisfied:
+            references = sorted(credit.unsupported_satisfied)
+            blockers.append(
+                FinalizationBlocker(
+                    category=FinalizationBlockerCategory.UNSUPPORTED_SATISFIED_FINDING,
+                    count=len(references),
+                    affected_ids=references[:_MAX_BLOCKER_IDS],
+                    summary=(
+                        f"{len(references)} practice(s) are marked SATISFIED with no accepted or "
+                        "edited evidence, so they contribute no score. Link supporting evidence, "
+                        "or change the finding to match what the evidence shows."
+                    ),
+                )
+            )
+        if credit.unsupported_not_applicable:
+            references = sorted(credit.unsupported_not_applicable)
+            blockers.append(
+                FinalizationBlocker(
+                    category=FinalizationBlockerCategory.UNSUPPORTED_NOT_APPLICABLE_FINDING,
+                    count=len(references),
+                    affected_ids=references[:_MAX_BLOCKER_IDS],
+                    summary=(
+                        f"{len(references)} practice(s) are marked NOT_APPLICABLE with no accepted "
+                        "or edited evidence, so they remain in the scoring denominator. An "
+                        "exclusion moves the score and needs the same evidence basis."
+                    ),
+                )
+            )
+
+        # Only checked when a registry is actually configured. A service
+        # built without one (several unit-test call sites) has no
+        # framework data at all, which is a deployment condition rather
+        # than something wrong with this assessment.
+        if self._frameworks is not None and (
+            self._frameworks.get(assessment.framework_name, assessment.framework_version) is None
+        ):
+            pinned = assessment.framework_version or "latest"
+            blockers.append(
+                FinalizationBlocker(
+                    category=FinalizationBlockerCategory.FRAMEWORK_VERSION_UNRESOLVED,
+                    count=1,
+                    affected_ids=[f"{assessment.framework_name}@{pinned}"],
+                    summary=(
+                        f"The pinned framework '{assessment.framework_name}' version '{pinned}' no "
+                        "longer resolves, so this assessment's scores cannot be reproduced. "
+                        "Restore that framework version before finalizing."
+                    ),
+                )
+            )
+
+        return FinalizationReadiness(
+            assessment_id=assessment_id,
+            status=assessment.status.value,
+            is_ready=not blockers,
+            blockers=blockers,
+        )
+
     def transition_status(
         self, assessment_id: str, new_status: AssessmentStatus, note: str | None = None
     ) -> Assessment:
@@ -464,6 +608,14 @@ class AssessmentService:
         allowed = _ALLOWED_TRANSITIONS[assessment.status]
         if new_status not in allowed:
             raise InvalidStatusTransitionError(assessment.status, new_status)
+        # The gate lives here, not only in the UI (ADR-0058). A disabled
+        # button is a usability affordance; this is the integrity
+        # boundary, and it holds for any caller — curl, a script, or a
+        # future second frontend.
+        if new_status == AssessmentStatus.FINALIZED:
+            readiness = self.finalization_readiness(assessment_id)
+            if not readiness.is_ready:
+                raise AssessmentNotReadyForFinalizationError(assessment_id, readiness.blockers)
         updated = self._assessments.update_status(assessment_id, new_status, note=note)
         if updated is None:  # pragma: no cover - existence already checked above
             raise AssessmentNotFoundError(assessment_id)
@@ -543,12 +695,18 @@ class AssessmentService:
         rejected review do not count as performed — only accepted or
         edited ones do, per the assessment-generation skill's
         human-in-the-loop invariant. A practice with an explicit
-        PracticeFinding (ADR-0030) is scored per that finding instead:
-        SATISFIED counts as performed regardless of evidence-link state,
+        PracticeFinding (ADR-0030) is folded in on top of that:
         NOT_SATISFIED/INSUFFICIENT_EVIDENCE/PARTIALLY_SATISFIED never
-        count as performed even with accepted evidence, and
-        NOT_APPLICABLE removes the practice from scoring entirely
-        (neither performed nor a gap).
+        count as performed even with accepted evidence.
+
+        SATISFIED and NOT_APPLICABLE additionally require an
+        accepted/edited evidence link before they move anything
+        (ADR-0057, superseding ADR-0030 Decision 3's "counts as performed
+        regardless of evidence-link state"): positive credit and a
+        shrunk denominator are both score movements, and this
+        repository's governing invariant is that no score exists without
+        a linked evidence trail. An unsupported finding is still
+        recorded, and is reported by finalization_readiness below.
         """
         assessment = self.get_assessment(assessment_id)
         framework = (
@@ -561,11 +719,9 @@ class AssessmentService:
 
         evidence_links = self._assessments.evidence_for_assessment(assessment_id)
         findings = self._assessments.practice_findings_for_assessment(assessment_id)
-        performed_practice_ids, excluded_practice_ids = performed_and_excluded_practice_ids(
-            evidence_links, findings
-        )
+        credit = performed_and_excluded_practice_ids(evidence_links, findings)
         return compute_assessment_domain_scores(
-            framework, performed_practice_ids, excluded_practice_ids
+            framework, credit.performed_practice_ids, credit.excluded_practice_ids
         )
 
     def build_dashboard(self, assessment_id: str) -> DashboardReport:

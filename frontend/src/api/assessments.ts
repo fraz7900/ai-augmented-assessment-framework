@@ -8,6 +8,7 @@ import type {
   DashboardReport,
   EvidenceLink,
   EvidenceRequest,
+  FinalizationReadiness,
   LinkEvidenceRequest,
   PracticeFinding,
   PracticeFindingChange,
@@ -28,6 +29,8 @@ const keys = {
   practiceFindingHistory: (id: string, practiceReference: string) =>
     ['assessments', id, 'practice-findings', practiceReference, 'history'] as const,
   evidenceRequests: (id: string) => ['assessments', id, 'evidence-requests'] as const,
+  finalizationReadiness: (id: string) =>
+    ['assessments', id, 'finalization-readiness'] as const,
 }
 
 export function useAssessments() {
@@ -96,7 +99,12 @@ export function useProposeMappings(assessmentId: string) {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: () => apiClient.post<EvidenceLink[]>(`/assessments/${assessmentId}/propose-mappings`),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: keys.evidence(assessmentId) }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: keys.evidence(assessmentId) })
+      // New AI proposals are unreviewed by definition, so proposing
+      // mappings BLOCKS finalization until they are reviewed.
+      queryClient.invalidateQueries({ queryKey: keys.finalizationReadiness(assessmentId) })
+    },
   })
 }
 
@@ -112,7 +120,31 @@ export function useReviewEvidence(assessmentId: string) {
       queryClient.invalidateQueries({ queryKey: keys.evidence(assessmentId) })
       // review outcomes feed directly into score/dashboard
       queryClient.invalidateQueries({ queryKey: keys.dashboard(assessmentId) })
+      // ...and into whether the assessment may be finalized (ADR-0058):
+      // an unreviewed proposal is a blocker, so accepting the last one
+      // must re-enable Finalize without a page reload.
+      queryClient.invalidateQueries({ queryKey: keys.finalizationReadiness(assessmentId) })
     },
+  })
+}
+
+/**
+ * Whether this assessment may be finalized, and what blocks it
+ * (ADR-0058).
+ *
+ * The same rule is enforced server-side in transition_status — this
+ * exists so the reviewer can see and fix the blockers rather than
+ * discovering them as a 409 after pressing a button. It is a usability
+ * affordance, not the integrity boundary.
+ */
+export function useFinalizationReadiness(assessmentId: string | undefined) {
+  return useQuery({
+    queryKey: keys.finalizationReadiness(assessmentId ?? ''),
+    queryFn: () =>
+      apiClient.get<FinalizationReadiness>(
+        `/assessments/${assessmentId}/finalization-readiness`,
+      ),
+    enabled: !!assessmentId,
   })
 }
 
@@ -181,6 +213,9 @@ export function useSetPracticeFinding(assessmentId: string) {
       queryClient.invalidateQueries({ queryKey: keys.practiceFindings(assessmentId) })
       // findings feed directly into score/dashboard (ADR-0030)
       queryClient.invalidateQueries({ queryKey: keys.dashboard(assessmentId) })
+      // ...and a SATISFIED/NOT_APPLICABLE finding without supporting
+      // evidence is itself a finalization blocker (ADR-0058).
+      queryClient.invalidateQueries({ queryKey: keys.finalizationReadiness(assessmentId) })
     },
   })
 }
@@ -212,8 +247,10 @@ export function useRequestMoreEvidence(assessmentId: string) {
         `/assessments/${assessmentId}/practice-findings/${practiceReference}/evidence-requests`,
         { note, requested_by: requestedBy },
       ),
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: keys.evidenceRequests(assessmentId) }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: keys.evidenceRequests(assessmentId) })
+      queryClient.invalidateQueries({ queryKey: keys.finalizationReadiness(assessmentId) })
+    },
   })
 }
 
@@ -225,8 +262,10 @@ export function useResolveEvidenceRequest(assessmentId: string) {
         `/assessments/${assessmentId}/evidence-requests/${requestId}/resolve`,
         { resolved_by: resolvedBy },
       ),
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: keys.evidenceRequests(assessmentId) }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: keys.evidenceRequests(assessmentId) })
+      queryClient.invalidateQueries({ queryKey: keys.finalizationReadiness(assessmentId) })
+    },
   })
 }
 

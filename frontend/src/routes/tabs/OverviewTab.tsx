@@ -1,6 +1,11 @@
 import { useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
-import { useStatusHistory, useTransitionStatus } from '../../api/assessments'
+import {
+  useFinalizationReadiness,
+  useStatusHistory,
+  useTransitionStatus,
+} from '../../api/assessments'
+import FinalizationChecklist from '../../components/FinalizationChecklist'
 import StatusBadge from '../../components/StatusBadge'
 import type { AssessmentTabContext } from '../AssessmentDetailPage'
 import type { AssessmentStatus } from '../../api/types'
@@ -18,9 +23,17 @@ export default function OverviewTab() {
   const { assessmentId, assessment } = useOutletContext<AssessmentTabContext>()
   const { data: history, isLoading, isError, error } = useStatusHistory(assessmentId)
   const transition = useTransitionStatus(assessmentId)
+  const { data: readiness, isLoading: readinessLoading } =
+    useFinalizationReadiness(assessmentId)
   const [note, setNote] = useState('')
 
   const target = nextStatus[assessment.status]
+  // Only the finalize step is gated. draft -> in_review must stay
+  // available while review work is still outstanding — that is what
+  // being in review MEANS (ADR-0058).
+  const isFinalizing = target === 'finalized'
+  const blocked = isFinalizing && readiness !== undefined && !readiness.is_ready
+  const isFinalized = assessment.status === 'finalized'
 
   return (
     <div className="space-y-6">
@@ -52,11 +65,21 @@ export default function OverviewTab() {
                   { onSuccess: () => setNote('') },
                 )
               }
-              disabled={transition.isPending}
-              className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+              disabled={transition.isPending || blocked}
+              title={
+                blocked
+                  ? 'Resolve the items listed below before finalizing'
+                  : undefined
+              }
+              className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white enabled:hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {transition.isPending ? 'Updating…' : `Advance to ${target.replace('_', ' ')}`}
             </button>
+            {blocked && (
+              <span className="text-sm text-amber-800">
+                Blocked — see the checklist below
+              </span>
+            )}
           </div>
         ) : (
           <p className="mt-2 text-sm text-slate-500">
@@ -64,6 +87,19 @@ export default function OverviewTab() {
           </p>
         )}
         {transition.isError && <p className="mt-2 text-sm text-red-700">{transition.error.message}</p>}
+
+        {/*
+          Shown for draft and in_review, not only immediately before
+          finalizing, so a reviewer can see what remains while they still
+          have time to act on it. Hidden once finalized: at that point it
+          would describe a settled assessment as provisional, which is
+          exactly the contradiction ADR-0058 set out to avoid.
+        */}
+        <FinalizationChecklist
+          readiness={readiness}
+          isLoading={readinessLoading}
+          isFinalized={isFinalized}
+        />
       </div>
 
       <div className="rounded-lg border border-slate-200 bg-white p-4">
