@@ -143,6 +143,55 @@ class IngestionResult(BaseModel):
     parser_version: str
 
 
+class FinalizationBlockerCategory(StrEnum):
+    """Why an assessment cannot be finalized yet (ADR-0058).
+
+    A closed enum rather than free-text messages: the frontend disables
+    a button and renders a checklist from these, and parsing English
+    prose to decide that would break the first time the wording is
+    improved.
+    """
+
+    PENDING_AI_REVIEW = "pending_ai_review"
+    UNRESOLVED_EVIDENCE_REQUEST = "unresolved_evidence_request"
+    UNSUPPORTED_SATISFIED_FINDING = "unsupported_satisfied_finding"
+    UNSUPPORTED_NOT_APPLICABLE_FINDING = "unsupported_not_applicable_finding"
+    FRAMEWORK_VERSION_UNRESOLVED = "framework_version_unresolved"
+
+
+class FinalizationBlocker(BaseModel):
+    """One reason finalization is blocked, with the specific items to fix.
+
+    `affected_ids` holds evidence-link ids, evidence-request ids or
+    practice references depending on the category — whichever the
+    reviewer needs to act on. It is capped by the service so a pathological
+    assessment cannot return an unbounded response body; `count` is always
+    the true total, so a caller can tell "3 of 300" from "3 of 3".
+    """
+
+    category: FinalizationBlockerCategory
+    count: int
+    affected_ids: list[str] = []
+    summary: str
+
+
+class FinalizationReadiness(BaseModel):
+    """Whether an assessment may be finalized, and what stands in the way.
+
+    Gaps do NOT appear here. A finalized assessment that reports an
+    organization as non-compliant is a legitimate, complete result — the
+    point of the platform. What blocks finalization is unfinished
+    *review work*: unreviewed AI proposals, outstanding evidence
+    requests, and findings that move a score without the evidence to
+    support it.
+    """
+
+    assessment_id: str
+    status: str
+    is_ready: bool
+    blockers: list[FinalizationBlocker] = []
+
+
 class DocumentSummary(BaseModel):
     """One row in a list of ingested documents — what a chooser needs to
     let a reviewer recognise a document, and nothing more.

@@ -15,6 +15,8 @@ from compliance_platform.models.assessment import (
     AssessmentStatus,
     EvidenceLink,
     EvidenceReviewStatus,
+    PracticeFinding,
+    PracticeFindingStatus,
 )
 from compliance_platform.models.framework import (
     Domain,
@@ -348,3 +350,109 @@ def test_situation_so_what_stays_silent_about_counts_that_are_zero() -> None:
     )
     assert not any("rejected" in line for line in lines)
     assert not any("edited them" in line for line in lines)
+
+
+# --- ADR-0057: positive scoring credit requires evidence ---
+# Direct tests of the shared credit function, which both compute_scores
+# and build_dashboard consume, so the score endpoint and the dashboard
+# cannot disagree about which practices are performed.
+
+
+def _finding(reference: str, status: PracticeFindingStatus) -> PracticeFinding:
+    return PracticeFinding(
+        assessment_id="a1", practice_reference=reference, status=status, rationale="because"
+    )
+
+
+def test_satisfied_without_evidence_confers_no_credit_and_is_reported() -> None:
+    credit = report_service.performed_and_excluded_practice_ids(
+        [], [_finding("D1-1a", PracticeFindingStatus.SATISFIED)]
+    )
+    assert credit.performed_practice_ids == set()
+    assert credit.unsupported_satisfied == frozenset({"D1-1a"})
+
+
+def test_pending_evidence_never_confers_credit_even_with_a_satisfied_finding() -> None:
+    """Counting PENDING would auto-accept an AI proposal by the back
+    door, which assessment-generation.mdc forbids structurally."""
+    credit = report_service.performed_and_excluded_practice_ids(
+        [_evidence("D1-1a", EvidenceReviewStatus.PENDING)],
+        [_finding("D1-1a", PracticeFindingStatus.SATISFIED)],
+    )
+    assert credit.performed_practice_ids == set()
+    assert credit.unsupported_satisfied == frozenset({"D1-1a"})
+
+
+def test_rejected_evidence_never_confers_credit_even_with_a_satisfied_finding() -> None:
+    credit = report_service.performed_and_excluded_practice_ids(
+        [_evidence("D1-1a", EvidenceReviewStatus.REJECTED)],
+        [_finding("D1-1a", PracticeFindingStatus.SATISFIED)],
+    )
+    assert credit.performed_practice_ids == set()
+
+
+def test_edited_evidence_confers_credit() -> None:
+    """EDITED is a human-reviewed acceptance with a correction, so it
+    carries the same weight as ACCEPTED."""
+    credit = report_service.performed_and_excluded_practice_ids(
+        [_evidence("D1-1a", EvidenceReviewStatus.EDITED)],
+        [_finding("D1-1a", PracticeFindingStatus.SATISFIED)],
+    )
+    assert credit.performed_practice_ids == {"D1-1a"}
+    assert credit.unsupported_satisfied == frozenset()
+
+
+def test_not_applicable_without_evidence_is_not_excluded() -> None:
+    credit = report_service.performed_and_excluded_practice_ids(
+        [], [_finding("D1-1a", PracticeFindingStatus.NOT_APPLICABLE)]
+    )
+    assert credit.excluded_practice_ids == frozenset()
+    assert credit.unsupported_not_applicable == frozenset({"D1-1a"})
+
+
+def test_not_applicable_with_evidence_is_excluded() -> None:
+    credit = report_service.performed_and_excluded_practice_ids(
+        [_evidence("D1-1a", EvidenceReviewStatus.ACCEPTED)],
+        [_finding("D1-1a", PracticeFindingStatus.NOT_APPLICABLE)],
+    )
+    assert credit.excluded_practice_ids == frozenset({"D1-1a"})
+    assert credit.unsupported_not_applicable == frozenset()
+
+
+def test_negative_findings_still_remove_credit_without_needing_their_own_evidence() -> None:
+    """The invariant guards against unsupported CREDIT. A reviewer
+    lowering a score needs no evidence permission slip -- requiring one
+    would be backwards."""
+    for status in (
+        PracticeFindingStatus.NOT_SATISFIED,
+        PracticeFindingStatus.INSUFFICIENT_EVIDENCE,
+        PracticeFindingStatus.PARTIALLY_SATISFIED,
+    ):
+        credit = report_service.performed_and_excluded_practice_ids(
+            [_evidence("D1-1a", EvidenceReviewStatus.ACCEPTED)], [_finding("D1-1a", status)]
+        )
+        assert credit.performed_practice_ids == set(), status
+
+
+def test_coverage_framework_denominator_respects_the_evidence_requirement() -> None:
+    """Coverage scoring must behave the same way -- the change is in the
+    shared credit function, not in any per-framework branch."""
+    domain = _domain("D1", [_practice("D1-1a", mil=None), _practice("D1-1b", mil=None)])
+    framework = _framework([domain], scoring_model="coverage")
+    links = [_evidence("D1-1a", EvidenceReviewStatus.ACCEPTED)]
+
+    # Unsupported NOT_APPLICABLE on the OTHER practice must not shrink
+    # the denominator: coverage stays 1 of 2, not 1 of 1.
+    unsupported = build_dashboard(
+        _assessment(), framework, links, [_finding("D1-1b", PracticeFindingStatus.NOT_APPLICABLE)]
+    )
+    assert unsupported.overall.overall_coverage_fraction == pytest.approx(0.5)
+
+    # With supporting evidence for the exclusion, the denominator shrinks.
+    supported = build_dashboard(
+        _assessment(),
+        framework,
+        links + [_evidence("D1-1b", EvidenceReviewStatus.ACCEPTED)],
+        [_finding("D1-1b", PracticeFindingStatus.NOT_APPLICABLE)],
+    )
+    assert supported.overall.overall_coverage_fraction == pytest.approx(1.0)

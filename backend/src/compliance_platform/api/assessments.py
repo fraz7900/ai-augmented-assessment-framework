@@ -37,6 +37,7 @@ from compliance_platform.models.assessment import (
 from compliance_platform.models.chat import ChatResponse
 from compliance_platform.models.report import DashboardReport
 from compliance_platform.models.sanitization import SanitizationPreview
+from compliance_platform.models.schemas import FinalizationReadiness
 from compliance_platform.services.assessment_service import AssessmentService
 
 router = APIRouter(prefix="/assessments", tags=["assessments"])
@@ -123,6 +124,23 @@ def transition_status(
     service: AssessmentService = Depends(get_assessment_service),
 ) -> Assessment:
     return service.transition_status(assessment_id, request.status, note=request.note)
+
+
+@router.get("/{assessment_id}/finalization-readiness", response_model=FinalizationReadiness)
+def get_finalization_readiness(
+    assessment_id: str,
+    service: AssessmentService = Depends(get_assessment_service),
+) -> FinalizationReadiness:
+    """Whether this assessment may be finalized, and what blocks it
+    (ADR-0058).
+
+    Blockers are machine-readable categories with the affected ids, so
+    the UI renders a checklist and disables its button without parsing
+    English. The same function backs the server-side gate in
+    transition_status — this endpoint reports the rule, it does not
+    define a second one.
+    """
+    return service.finalization_readiness(assessment_id)
 
 
 @router.get("/{assessment_id}/status-history", response_model=list[AssessmentStatusChange])

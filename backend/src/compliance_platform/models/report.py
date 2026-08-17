@@ -103,6 +103,14 @@ class Situation(BaseModel):
     rejected_count: int
     pending_ai_review_count: int
     unpopulated_domains: list[str]
+    # Findings a reviewer recorded that move no score because they lack
+    # the accepted/edited evidence link ADR-0057 requires. Surfaced, not
+    # dropped: a reviewer who believes a practice is counted, and finds
+    # out at audit that it never was, is exactly the failure this
+    # platform exists to prevent. The same practice references appear in
+    # GET /assessments/{id}/finalization-readiness as blockers.
+    unsupported_satisfied_practices: list[str] = []
+    unsupported_not_applicable_practices: list[str] = []
     # executive-reporting.mdc: "a gap count should never appear in
     # executive-facing output without one sentence connecting it to a
     # business or risk consequence." DomainGapGroup.so_what and

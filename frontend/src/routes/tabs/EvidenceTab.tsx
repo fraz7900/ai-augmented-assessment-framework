@@ -22,7 +22,15 @@ import type { EvidenceLink } from '../../api/types'
 export default function EvidenceTab() {
   const { assessmentId, assessment } = useOutletContext<AssessmentTabContext>()
   const { data: links, isLoading, isError, error } = useEvidenceLinks(assessmentId)
-  const { data: framework } = useFramework(assessment.framework_name)
+  // The assessment's PINNED version, not latest (ADR-0058). Practice
+  // lookup, the manual practice-reference datalist, edited AI mappings
+  // and the practice text shown next to each link all read from this
+  // definition, so loading the wrong version would show a reviewer
+  // controls that do not exist in the version they are assessing.
+  const { data: framework } = useFramework(
+    assessment.framework_name,
+    assessment.framework_version,
+  )
   const { data: documents, isLoading: documentsLoading } = useDocuments()
   const linkEvidence = useLinkEvidence(assessmentId)
   const proposeMappings = useProposeMappings(assessmentId)

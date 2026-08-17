@@ -31,9 +31,11 @@ from compliance_platform.models.framework import (
     Objective,
     Practice,
 )
+from compliance_platform.models.schemas import FinalizationBlockerCategory
 from compliance_platform.services.assessment_service import (
     AssessmentFinalizedError,
     AssessmentNotFoundError,
+    AssessmentNotReadyForFinalizationError,
     AssessmentService,
     ChatEngineUnavailableError,
     DocumentNotFoundError,
@@ -761,6 +763,11 @@ def test_review_evidence_blocked_on_finalized_assessment() -> None:
         assessment.id, "doc-1", practice_reference="AM-1a", source=EvidenceSource.AI_PROPOSED
     )
     service.transition_status(assessment.id, AssessmentStatus.IN_REVIEW)
+    # The proposal must be reviewed before finalization is permitted at
+    # all (ADR-0058's gate). This test is about immutability AFTER
+    # finalization, so it clears the blocker rather than asserting the
+    # gate here -- the gate has its own tests below.
+    service.review_evidence(assessment.id, link.id, EvidenceReviewStatus.ACCEPTED)
     service.transition_status(assessment.id, AssessmentStatus.FINALIZED)
     with pytest.raises(AssessmentFinalizedError):
         service.review_evidence(assessment.id, link.id, EvidenceReviewStatus.ACCEPTED)
@@ -1027,11 +1034,17 @@ def test_not_satisfied_is_distinguishable_from_insufficient_evidence_in_dashboar
     assert service.compute_scores(assessment.id)["TEST"] == 0.0
 
 
-def test_practice_finding_satisfied_counts_toward_score_without_an_evidence_link() -> None:
-    """SATISFIED is authoritative even with zero EvidenceLink rows for
-    that practice -- e.g. a documented compensating control a reviewer
-    accepts by direct policy review rather than a specific evidence
-    upload."""
+def test_practice_finding_satisfied_without_evidence_gives_no_score_credit() -> None:
+    """ADR-0057, superseding ADR-0030 Decision 3.
+
+    ADR-0030 let SATISFIED count a practice as performed with zero
+    evidence links, on a compensating-control argument. That conflicted
+    with this repository's governing invariant (AGENTS.md rule 2,
+    assessment-generation.mdc): a score must reference the evidence that
+    produced it, and a free-text rationale is an assertion rather than
+    evidence. The finding is still RECORDED -- it is a human judgment
+    with an audit trail -- it simply moves no number.
+    """
     framework = _tiny_framework()
     service, _, _ = _make_service(framework_registry=_FakeFrameworkRegistry({"C2M2": framework}))
     assessment = service.create_assessment("A", "C2M2")
@@ -1043,13 +1056,78 @@ def test_practice_finding_satisfied_counts_toward_score_without_an_evidence_link
         "Confirmed via direct interview with the control owner; documented in finding notes.",
     )
 
+    assert service.compute_scores(assessment.id)["TEST"] == 0.0  # no credit without evidence
+    # Recorded, not discarded: the judgment survives for the audit trail.
+    findings = service.practice_findings_for_assessment(assessment.id)
+    assert [f.practice_reference for f in findings] == ["TEST-1a"]
+    # ...and is surfaced rather than silently ignored.
+    dashboard = service.build_dashboard(assessment.id)
+    assert dashboard.situation.unsupported_satisfied_practices == ["TEST-1a"]
+
+
+def test_practice_finding_satisfied_with_pending_evidence_gives_no_score_credit() -> None:
+    """PENDING is the human-in-the-loop review step. Counting it would
+    auto-accept an AI proposal by the back door, which
+    assessment-generation.mdc forbids structurally."""
+    framework = _tiny_framework()
+    service, _, _ = _make_service(
+        known_documents={"doc-1": ["chunk-a"]},
+        framework_registry=_FakeFrameworkRegistry({"C2M2": framework}),
+    )
+    assessment = service.create_assessment("A", "C2M2")
+    service.link_evidence(
+        assessment.id, "doc-1", practice_reference="TEST-1a", source=EvidenceSource.AI_PROPOSED
+    )
+    service.set_practice_finding(
+        assessment.id, "TEST-1a", PracticeFindingStatus.SATISFIED, "Reviewer believes this is met."
+    )
+
+    assert service.compute_scores(assessment.id)["TEST"] == 0.0
+
+
+def test_practice_finding_satisfied_with_rejected_evidence_gives_no_score_credit() -> None:
+    framework = _tiny_framework()
+    service, _, _ = _make_service(
+        known_documents={"doc-1": ["chunk-a"]},
+        framework_registry=_FakeFrameworkRegistry({"C2M2": framework}),
+    )
+    assessment = service.create_assessment("A", "C2M2")
+    link = service.link_evidence(
+        assessment.id, "doc-1", practice_reference="TEST-1a", source=EvidenceSource.AI_PROPOSED
+    )
+    service.review_evidence(assessment.id, link.id, EvidenceReviewStatus.REJECTED, note="no")
+    service.set_practice_finding(
+        assessment.id, "TEST-1a", PracticeFindingStatus.SATISFIED, "Reviewer believes this is met."
+    )
+
+    assert service.compute_scores(assessment.id)["TEST"] == 0.0
+
+
+def test_practice_finding_satisfied_with_accepted_evidence_gives_score_credit() -> None:
+    """The supported case still works -- this change removes unsupported
+    credit, it does not remove the finding mechanism."""
+    framework = _tiny_framework()
+    service, _, _ = _make_service(
+        known_documents={"doc-1": ["chunk-a"]},
+        framework_registry=_FakeFrameworkRegistry({"C2M2": framework}),
+    )
+    assessment = service.create_assessment("A", "C2M2")
+    link = service.link_evidence(
+        assessment.id, "doc-1", practice_reference="TEST-1a", source=EvidenceSource.AI_PROPOSED
+    )
+    service.review_evidence(assessment.id, link.id, EvidenceReviewStatus.ACCEPTED)
+    service.set_practice_finding(
+        assessment.id, "TEST-1a", PracticeFindingStatus.SATISFIED, "Verified against the policy."
+    )
+
     assert service.compute_scores(assessment.id)["TEST"] == 1.0  # MIL1 reached
+    assert service.build_dashboard(assessment.id).situation.unsupported_satisfied_practices == []
 
 
-def test_practice_finding_not_applicable_excludes_practice_from_scoring_denominator() -> None:
-    """A NOT_APPLICABLE MIL1 practice must not block the domain at MIL0
-    forever -- it's removed from the MIL requirement entirely, not
-    treated as an unmet blocker."""
+def test_practice_finding_not_applicable_without_evidence_does_not_shrink_denominator() -> None:
+    """NOT_APPLICABLE moves the score by changing the DENOMINATOR, which
+    is no less consequential than changing the numerator, so ADR-0057
+    holds it to the same evidence requirement."""
     framework = _tiny_framework()
     service, _, _ = _make_service(framework_registry=_FakeFrameworkRegistry({"C2M2": framework}))
     assessment = service.create_assessment("A", "C2M2")
@@ -1061,16 +1139,43 @@ def test_practice_finding_not_applicable_excludes_practice_from_scoring_denomina
         "This organization has no assets of the type this practice covers.",
     )
 
-    # TEST-1a excluded; TEST-2a (MIL2) is now the only MIL1-tier
-    # requirement... but TEST-2a is MIL2, so with TEST-1a excluded there
-    # are zero MIL1 practices left to require, and MIL2 remains unmet.
-    # Either way, the domain must not be silently blocked *by* the
-    # excluded practice.
+    assert service.compute_scores(assessment.id)["TEST"] == 0.0  # still required, still unmet
+    dashboard = service.build_dashboard(assessment.id)
+    assert dashboard.situation.unsupported_not_applicable_practices == ["TEST-1a"]
+    # Not silently excluded: it is still visible as a gap.
+    gap_practice_ids = {gap.practice_id for group in dashboard.complication for gap in group.gaps}
+    assert "TEST-1a" in gap_practice_ids
+
+
+def test_practice_finding_not_applicable_with_evidence_excludes_from_denominator() -> None:
+    """A NOT_APPLICABLE MIL1 practice with a supporting evidence link is
+    removed from the MIL requirement entirely, not treated as an unmet
+    blocker -- ADR-0030's original intent, now evidence-backed."""
+    framework = _tiny_framework()
+    service, _, _ = _make_service(
+        known_documents={"doc-1": ["chunk-a"]},
+        framework_registry=_FakeFrameworkRegistry({"C2M2": framework}),
+    )
+    assessment = service.create_assessment("A", "C2M2")
+    link = service.link_evidence(
+        assessment.id, "doc-1", practice_reference="TEST-1a", source=EvidenceSource.AI_PROPOSED
+    )
+    service.review_evidence(assessment.id, link.id, EvidenceReviewStatus.ACCEPTED)
+    service.set_practice_finding(
+        assessment.id,
+        "TEST-1a",
+        PracticeFindingStatus.NOT_APPLICABLE,
+        "Scope memo confirms this organization has no assets of the type this practice covers.",
+    )
+
+    # TEST-1a excluded; TEST-2a (MIL2) remains unmet, so the domain sits
+    # at MIL1 rather than being blocked at MIL0 *by* the excluded practice.
     assert service.compute_scores(assessment.id)["TEST"] == 1.0
 
     dashboard = service.build_dashboard(assessment.id)
     gap_practice_ids = {gap.practice_id for group in dashboard.complication for gap in group.gaps}
     assert "TEST-1a" not in gap_practice_ids  # excluded, not a gap
+    assert dashboard.situation.unsupported_not_applicable_practices == []
     assert "TEST-2a" in gap_practice_ids  # still genuinely unmet
 
 
@@ -1216,6 +1321,10 @@ def test_resolve_evidence_request_blocked_on_finalized_assessment() -> None:
     assessment = service.create_assessment("A", "C2M2")
     created = service.request_more_evidence(assessment.id, "TEST-1a", "need X", "priya")
     service.transition_status(assessment.id, AssessmentStatus.IN_REVIEW)
+    # An open request blocks finalization (ADR-0058), so it is resolved
+    # first; this test asserts that resolving is refused AFTER
+    # finalization, which is a different rule.
+    service.resolve_evidence_request(assessment.id, created.id, resolved_by="sam")
     service.transition_status(assessment.id, AssessmentStatus.FINALIZED)
     with pytest.raises(AssessmentFinalizedError):
         service.resolve_evidence_request(assessment.id, created.id, resolved_by="sam")
@@ -1452,3 +1561,167 @@ def test_build_dashboard_flags_cited_evidence_from_a_superseded_document() -> No
     assert len(gap.cited_evidence) == 1
     assert gap.cited_evidence[0].document_id == "doc-old"
     assert gap.cited_evidence[0].is_superseded is True
+
+
+# --- Finalization readiness gate (ADR-0058) ---
+
+
+def _only_blocker(readiness, category):
+    """The single blocker of a given category, asserting it is the only
+    one present -- so a test for one blocker cannot pass while silently
+    tripping another."""
+    assert [b.category for b in readiness.blockers] == [category], readiness.blockers
+    return readiness.blockers[0]
+
+
+
+def _ready_service():
+    """A service whose assessments can actually reach a clean, ready
+    state: a real framework registry (so the pinned version resolves)
+    and a known document (so evidence can be linked)."""
+    return _make_service(
+        known_documents={"doc-1": ["chunk-a"]},
+        framework_registry=_FakeFrameworkRegistry({"C2M2": _tiny_framework()}),
+    )
+
+
+def test_a_new_assessment_with_nothing_outstanding_is_ready() -> None:
+    service, _, _ = _ready_service()
+    assessment = service.create_assessment("A", "C2M2")
+
+    readiness = service.finalization_readiness(assessment.id)
+    assert readiness.is_ready is True
+    assert readiness.blockers == []
+
+
+def test_pending_ai_proposal_blocks_finalization() -> None:
+    service, _, _ = _ready_service()
+    assessment = service.create_assessment("A", "C2M2")
+    link = service.link_evidence(
+        assessment.id, "doc-1", practice_reference="TEST-1a", source=EvidenceSource.AI_PROPOSED
+    )
+
+    readiness = service.finalization_readiness(assessment.id)
+    assert readiness.is_ready is False
+    blocker = _only_blocker(readiness, FinalizationBlockerCategory.PENDING_AI_REVIEW)
+    assert blocker.count == 1
+    assert blocker.affected_ids == [link.id]
+
+
+def test_unresolved_evidence_request_blocks_finalization() -> None:
+    service, _, _ = _ready_service()
+    assessment = service.create_assessment("A", "C2M2")
+    request = service.request_more_evidence(
+        assessment.id, "TEST-1a", note="Need the access review export.", requested_by="Priya"
+    )
+
+    readiness = service.finalization_readiness(assessment.id)
+    blocker = _only_blocker(readiness, FinalizationBlockerCategory.UNRESOLVED_EVIDENCE_REQUEST)
+    assert blocker.affected_ids == [request.id]
+
+    service.resolve_evidence_request(assessment.id, request.id, resolved_by="Sam")
+    assert service.finalization_readiness(assessment.id).is_ready is True
+
+
+def test_unsupported_satisfied_finding_blocks_finalization() -> None:
+    service, _, _ = _ready_service()
+    assessment = service.create_assessment("A", "C2M2")
+    service.set_practice_finding(
+        assessment.id, "TEST-1a", PracticeFindingStatus.SATISFIED, "Told to me in an interview."
+    )
+
+    readiness = service.finalization_readiness(assessment.id)
+    blocker = _only_blocker(readiness, FinalizationBlockerCategory.UNSUPPORTED_SATISFIED_FINDING)
+    assert blocker.affected_ids == ["TEST-1a"]
+
+
+def test_unsupported_not_applicable_finding_blocks_finalization() -> None:
+    service, _, _ = _ready_service()
+    assessment = service.create_assessment("A", "C2M2")
+    service.set_practice_finding(
+        assessment.id, "TEST-1a", PracticeFindingStatus.NOT_APPLICABLE, "Out of scope, I believe."
+    )
+
+    readiness = service.finalization_readiness(assessment.id)
+    blocker = _only_blocker(
+        readiness, FinalizationBlockerCategory.UNSUPPORTED_NOT_APPLICABLE_FINDING
+    )
+    assert blocker.affected_ids == ["TEST-1a"]
+
+
+def test_unresolvable_pinned_framework_version_blocks_finalization() -> None:
+    """If the pinned definition is gone, the assessment's scores can no
+    longer be reproduced, so it must not be frozen as authoritative."""
+    registry = _FakeFrameworkRegistry({"C2M2": _tiny_framework()})
+    service, _, _ = _make_service(framework_registry=registry)
+    assessment = service.create_assessment("A", "C2M2")
+
+    registry._by_key.clear()  # the framework version disappears underneath it
+
+    readiness = service.finalization_readiness(assessment.id)
+    blocker = _only_blocker(readiness, FinalizationBlockerCategory.FRAMEWORK_VERSION_UNRESOLVED)
+    assert blocker.count == 1
+
+
+def test_confirmed_gaps_and_negative_findings_do_not_block_finalization() -> None:
+    """A finalized assessment reporting non-compliance is a legitimate,
+    complete result -- the platform must be able to say so."""
+    service, _, _ = _ready_service()
+    assessment = service.create_assessment("A", "C2M2")
+    link = service.link_evidence(
+        assessment.id, "doc-1", practice_reference="TEST-1a", source=EvidenceSource.AI_PROPOSED
+    )
+    service.review_evidence(assessment.id, link.id, EvidenceReviewStatus.REJECTED, note="no")
+    for status in (
+        PracticeFindingStatus.NOT_SATISFIED,
+        PracticeFindingStatus.PARTIALLY_SATISFIED,
+        PracticeFindingStatus.INSUFFICIENT_EVIDENCE,
+    ):
+        service.set_practice_finding(assessment.id, "TEST-1a", status, "Reviewed and judged.")
+
+    assert service.finalization_readiness(assessment.id).is_ready is True
+
+
+def test_transition_to_finalized_is_refused_when_blockers_exist() -> None:
+    """The gate is enforced in the service, not only in the UI."""
+    service, _, _ = _ready_service()
+    assessment = service.create_assessment("A", "C2M2")
+    service.link_evidence(
+        assessment.id, "doc-1", practice_reference="TEST-1a", source=EvidenceSource.AI_PROPOSED
+    )
+    service.transition_status(assessment.id, AssessmentStatus.IN_REVIEW)
+
+    with pytest.raises(AssessmentNotReadyForFinalizationError) as exc_info:
+        service.transition_status(assessment.id, AssessmentStatus.FINALIZED)
+    assert exc_info.value.blockers[0].category == FinalizationBlockerCategory.PENDING_AI_REVIEW
+    # ...and the assessment is unchanged.
+    assert service.get_assessment(assessment.id).status == AssessmentStatus.IN_REVIEW
+
+
+def test_transition_to_finalized_succeeds_once_blockers_are_cleared() -> None:
+    service, _, _ = _ready_service()
+    assessment = service.create_assessment("A", "C2M2")
+    link = service.link_evidence(
+        assessment.id, "doc-1", practice_reference="TEST-1a", source=EvidenceSource.AI_PROPOSED
+    )
+    service.transition_status(assessment.id, AssessmentStatus.IN_REVIEW)
+    service.review_evidence(assessment.id, link.id, EvidenceReviewStatus.ACCEPTED)
+
+    finalized = service.transition_status(assessment.id, AssessmentStatus.FINALIZED)
+    assert finalized.status == AssessmentStatus.FINALIZED
+    # Immutability of a finalized assessment is preserved.
+    with pytest.raises(AssessmentFinalizedError):
+        service.link_evidence(assessment.id, "doc-1", practice_reference="TEST-2a")
+
+
+def test_non_finalizing_transitions_are_not_gated() -> None:
+    """draft -> in_review must still work with outstanding review work;
+    the gate is about declaring an assessment DONE."""
+    service, _, _ = _ready_service()
+    assessment = service.create_assessment("A", "C2M2")
+    service.link_evidence(
+        assessment.id, "doc-1", practice_reference="TEST-1a", source=EvidenceSource.AI_PROPOSED
+    )
+
+    moved = service.transition_status(assessment.id, AssessmentStatus.IN_REVIEW)
+    assert moved.status == AssessmentStatus.IN_REVIEW

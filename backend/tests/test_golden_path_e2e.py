@@ -123,6 +123,16 @@ _STALE_DEPROVISIONING_POLICY_MD = (
     "onboarding/offboarding runbook."
 )
 
+_SCOPE_EXCLUSION_MEMO_TEXT = (
+    "Northfield Municipal Power & Light -- Assessment Scope Memo, 2026 cycle. "
+    "Signed by the CISO and the Director of IT Operations. Northfield operates "
+    "no privileged logical access tier beyond standard user accounts: all "
+    "administrative actions on in-scope systems are performed via the shared "
+    "jump host under the standard account model described in the Identity and "
+    "Access Management Policy. Practices addressing a separate privileged "
+    "access tier are therefore out of scope for this assessment cycle."
+)
+
 _IRRELEVANT_DOCUMENT_TEXT = (
     "Northfield Municipal Power & Light -- Employee Cafeteria Menu, Week of "
     "March 3. Monday: turkey sandwich. Tuesday: vegetable soup. The break "
@@ -163,6 +173,9 @@ def test_golden_path_evidence_to_dashboard_and_export(client: TestClient) -> Non
     stale_deprovisioning_md_id = _ingest(
         client, "deprovisioning_procedure_v1.md", _STALE_DEPROVISIONING_POLICY_MD.encode()
     )
+    scope_memo_txt_id = _ingest(
+        client, "assessment_scope_memo.txt", _SCOPE_EXCLUSION_MEMO_TEXT.encode()
+    )
     irrelevant_txt_id = _ingest(client, "cafeteria_menu.txt", _IRRELEVANT_DOCUMENT_TEXT.encode())
     duplicate_pdf_id = _ingest(client, "identity_policy.pdf", _identity_policy_pdf_bytes())
     assert duplicate_pdf_id != identity_policy_pdf_id  # a fresh document_id each upload
@@ -201,6 +214,16 @@ def test_golden_path_evidence_to_dashboard_and_export(client: TestClient) -> Non
     client.post(
         f"/assessments/{assessment_id}/evidence",
         json={"document_id": duplicate_pdf_id, "practice_reference": "ACCESS-1a"},
+    )
+
+    # SCOPE EXCLUSION BASIS (ADR-0057): a NOT_APPLICABLE finding moves
+    # the score by shrinking the denominator, so it needs the same
+    # evidence basis as a positive finding. The signed scope memo is that
+    # basis -- an artifact an assessor can read, rather than the
+    # reviewer's assertion that a conversation happened.
+    client.post(
+        f"/assessments/{assessment_id}/evidence",
+        json={"document_id": scope_memo_txt_id, "practice_reference": "ACCESS-2g"},
     )
 
     # IRRELEVANT: deliberately never linked to anything -- a human
@@ -285,7 +308,17 @@ def test_golden_path_evidence_to_dashboard_and_export(client: TestClient) -> Non
     assert "superseded" in gaps_by_practice["ACCESS-1c"]["finding_rationale"]
     assert gaps_by_practice["ACCESS-1d"]["status"] == "insufficient_evidence"
     assert gaps_by_practice["ACCESS-1d"]["finding_rationale"] is None  # never reviewed at all
-    assert "ACCESS-2g" not in gaps_by_practice  # not_applicable -- excluded, not a gap
+    # not_applicable AND evidence-backed by the signed scope memo, so it
+    # is excluded from the denominator entirely (ADR-0057). Without that
+    # link it would remain a gap -- covered by dedicated tests elsewhere.
+    assert "ACCESS-2g" not in gaps_by_practice
+    readiness = client.get(f"/assessments/{assessment_id}/finalization-readiness").json()
+    unsupported = [
+        b["category"]
+        for b in readiness["blockers"]
+        if b["category"].startswith("unsupported_")
+    ]
+    assert unsupported == []  # every finding here is properly evidence-backed
 
     # 8. EXPORT -- PDF and XLSX, confirming the real citation (practice
     # IDs, not just aggregate numbers) survives all the way through

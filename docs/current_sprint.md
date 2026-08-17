@@ -1,77 +1,82 @@
-Current sprint: Sprint 19 — chunk-edge quality (word then sentence boundaries), PDF text normalisation, local OCR for scanned PDFs, NIST CSF 1.1 as a real second framework version, and chunk re-ingestion with evidence-link remapping
-Status: In progress. All of Sprint 19 (ADR-0054, ADR-0055, ADR-0056) is **merged into `main`**,
-fast-forwarded from `feat/ocr-implementation-and-pdf-support` to keep this repo's linear history
-(it has no merge commits). `main` is ahead of `origin/main` until someone pushes it.
-Live API testing against eight real policy documents surfaced a real
-defect in `services/chunking.py`: `_fixed_window_chunks` slid a pure character window over the parsed
-text, so window edges landed mid-word. Structure-aware chunking only engages when `# Heading` markers
-exist (DOCX heading styles, XLSX/CSV sheet names), so PDF — the dominant real evidence format — always
-took the fixed-window path and always split words: 140 of 148 chunks across four policy PDFs began or
-ended mid-word. That text is quoted verbatim on the Dashboard (ADR-0051) and returned as the literal
-chat answer (ADR-0014), so it read as corrupted evidence. Both edges are now snapped to word
-boundaries with a bounded 40-char shift and a hard-cut fallback; `char_start`/`char_end` move with the
-text so ADR-0042's citation-provenance invariant still holds, and the nominal iteration grid stays
-unsnapped so overlap semantics are provably unchanged (re-ingesting all eight test documents produced
-identical chunk counts). Mid-word boundaries fell from 140 to 2, both intended hard-cut fallbacks
-inside URLs. Verified 2026-08-12: 449 backend tests passing (3-9 min on this OneDrive-backed
-checkout, depending on OS cache state), 22 frontend tests passing, `ruff check .` clean, `tsc -b` and
-`npm run build` clean.
-Sprints 17-18 (ADR-0030 through ADR-0053) are complete and merged — a controlled-pilot readiness
-audit and the work it triggered: practice finding status and evidence audit trail, framework version
-pinning, a sanitization preview/approve/export pipeline, a scalability benchmark that found and fixed
-an O(total corpus) bug, CPES/AQS measurement scaffolding, a canonical-ontology feasibility probe, the
-reasoner go/no-go closed as permanently retrieval-only, security hardening, a document versioning
-registry with supersession flagging, evidence-link citations on gaps rendered through to exports,
-XLSX/CSV parsing with row/sheet and page/parser provenance, a request-more-evidence workflow,
-failure-injection and performance-regression tests, single-user deployment hardening with TLS, a
-GitHub Actions CI pipeline gated on ruff, and multi-version framework registry support.
-Also Sprint 19 (ADR-0055): the disclosed-but-undone tail of ADR-0053 and ADR-0054 was closed, plus a
-charter-level scope reversal. (1) PDF running headers/footers and blank-line runs are normalised out
-of extracted text, subject to a hard guard that normalisation may never empty a page. (2) Chunk edges
-now snap to sentence boundaries where one is in reach, falling back to ADR-0054's word snapping, with
-the shift budget derived as `min(75, chunk_overlap_chars // 2)` so ADR-0054's no-text-lost property
-holds for any configured overlap rather than only the shipped default; chunks beginning mid-sentence
-fell from 12 to 2 with chunk counts identical. (3) OCR for scanned/image-only PDFs — reversing
-`PROJECT_CHARTER.md` Section 12's explicit "no OCR" MVP scope by project-owner direction — built
-local-by-construction on pypdfium2 plus rapidocr-onnxruntime, whose ONNX weights ship inside its
-wheel, so no OCR code path can transmit evidence anywhere; OCR text carries its own
-`ParseStatus.SUCCESS_OCR` and OCR-naming `parser_version` because it is approximate. (4) NIST CSF 1.1
-transcribed from the official public-domain source (5 Functions, 23 Categories, 108 Subcategories,
-counts asserted by the generator), giving the project its first framework with two real versions and
-finally exercising ADR-0053's mechanism on real data; the frontend now reaches it via a version
-selector. (5) `scripts/reingest_documents.py` re-chunks stored documents and remaps reviewed evidence
-links by char-range overlap instead of breaking them — the objection ADR-0054 raised, resolved rather
-than inherited.
-Also Sprint 19 (ADR-0056): the two most consequential of ADR-0055's own disclosed limitations were
-then closed. (1) **Ingestion now retains the original upload** at
-`data/raw/<document_id>__<filename>` (`services/original_store.py`), written only after the registry
-write succeeds so no failure path can orphan a file, with upload filenames sanitised as a security
-boundary against path traversal. Re-ingestion prefers the retained original, keyed by document id
-rather than content-matched, and verifies it against `Document.content_hash` before rebuilding
-anything — refusing outright on a mismatch (verified by tampering with a retained file). (2)
-**Cross-framework equivalence is now version-aware**: the practice-text index covers every known
-version and is keyed by the name each YAML declares for itself rather than by the registry key, so a
-pinned older version resolves its own ids. To give CSF 1.1 something real to resolve, its equivalence
-to 2.0 was transcribed from **NIST's own published crosswalk** (each CSF 2.0 Subcategory's
-Informative References name its CSF 1.1 predecessors) rather than remapped mechanically — the only
-pairing in the file not produced by this project's own review process, and authoritative rather than
-inferred. 155 entries covering 106 of 108 CSF 1.1 subcategories; a 1.1-pinned assessment now resolves
-155 equivalents where it resolved 0, and the file's total is 715 (was 560). Every pre-existing
-pairing resolves identically (C2M2 153, NERC CIP 481, CIS Controls 84, SOC 2 60, PCI DSS 61, ISO 27001
-95).
-Next: Three things remain disclosed rather than done. (1) **Upload retention is not retroactive** —
-the 6 of 30 documents whose originals were discarded before ADR-0056 stay permanently
-un-re-ingestible, and nothing can change that. (2) **27 of 30 stored documents have no `Document`
-registry row**, predating ADR-0039; nothing backfills them, which also means those documents have no
-`content_hash` to verify a retained original against. (3) The `libgl1`/`libglib2.0-0` addition to
-`backend.Dockerfile`, needed because opencv
-(pulled in by rapidocr) links against them and `python:3.12-slim` ships neither, is **statically
-reasoned only** — Docker is unavailable in this environment, the same disclosure ADR-0017 made before
-Docker Desktop was installed. Framework breadth remains fully delivered: every named item and every
-reviewed cross-framework equivalence pairing in `PROJECT_CHARTER.md` Section 13 is done, and OCR's
-reversal is now recorded there too. The charter's remaining roadmap items (continuous monitoring,
-multi-tenant auth, cloud deployment) are all explicitly "Won't (for MVP)" scope unless the project
-owner directs otherwise.
+Current sprint: Sprint 20 — P0 correctness tranche: make scoring and finalization defensible for a controlled pilot
+Objective: correctness and auditability over new features or UI polish. Three deliverables, all
+implemented and verified; no new frameworks, no async ingestion, no auth/RBAC/multi-tenancy, and no
+refactors outside the three.
+Status: The three P0 deliverables are complete. Verified 2026-08-17 on this OneDrive-backed
+checkout: **493 backend tests passing** (6m07s), `ruff check .` clean, **41 frontend tests passing**
+across 8 files, `tsc -b` clean, `npm run build` clean, `npm run lint` clean (2 pre-existing
+fast-refresh warnings in `EvidenceSourceBadge.tsx`, untouched by this sprint). Nothing is committed —
+the work sits in the working tree for review.
+P0.1 — positive scoring credit now requires a linked evidence trail (ADR-0057, which supersedes ONLY
+ADR-0030 Decision 3's "SATISFIED counts a practice as performed even with zero evidence links" and
+that decision's unconditional NOT_APPLICABLE handling; the rest of ADR-0030 stands and is relied
+upon). The superseded clause conflicted directly with this repo's governing invariant (AGENTS.md
+rule 2 and `.cursor/rules/assessment-generation.mdc`: "no score exists without a linked evidence
+trail"), and was reachable through the shipped API — a PUT with a free-text rationale raised a
+domain's MIL with nothing behind it. Now: SATISFIED confers credit only with an ACCEPTED/EDITED
+link; NOT_APPLICABLE needs the same basis because shrinking the denominator moves a score exactly as
+the numerator does; PENDING and REJECTED never confer credit (counting PENDING would auto-accept an
+AI proposal by the back door); negative findings (NOT_SATISFIED, INSUFFICIENT_EVIDENCE,
+PARTIALLY_SATISFIED) are deliberately unaffected, since the invariant guards unsupported *credit*,
+not caution. Unsupported findings remain recorded with their rationale and history, and are surfaced
+on the dashboard rather than silently ignored. `services/scoring_service.py` was not touched and no
+framework is special-cased: the change lives entirely in the one credit function both
+`compute_scores` and `build_dashboard` already shared, so the score endpoint and the dashboard
+cannot disagree.
+P0.2 — the evidence UI now loads the framework version the assessment is actually pinned to
+(ADR-0058). `useFramework` took no version, cached under `['framework', name]`, and sent no
+`?version=`, so a NIST CSF 1.1 assessment validated practice references and rendered practice text
+against 2.0. Harmless until ADR-0055 added a real second version, and then reachable — the two CSF
+versions share a name and, being differently numbered (`ID.AM-1` vs `ID.AM-01`), share no practice
+ids at all. Version is now in the cache key AND the query string; a null `framework_version` (legacy
+assessments) still resolves latest. Practice lookup, the manual practice datalist, edited AI
+mappings and displayed practice text all read the one definition object, so a single change fixes
+all four. The cache-collision test was confirmed to fail against the pre-fix hook.
+P0.3 — an authoritative finalization-readiness gate (ADR-0058). `transition_status` previously
+validated only the state machine, so an assessment could be frozen as authoritative — and its
+evidence trail locked immutable — with AI proposals unreviewed, evidence requests open, and findings
+claiming credit ADR-0057 refuses. New `FinalizationReadiness` model and
+`GET /assessments/{id}/finalization-readiness` return machine-readable blocker categories with
+counts and affected ids (never prose to parse). Blocks on: pending AI proposals, unresolved evidence
+requests, unsupported SATISFIED findings, unsupported NOT_APPLICABLE findings, and a pinned
+framework version that no longer resolves. Confirmed gaps, rejected evidence, NOT_SATISFIED,
+PARTIALLY_SATISFIED and INSUFFICIENT_EVIDENCE deliberately do NOT block — a finalized assessment
+reporting an organization as non-compliant is a legitimate, complete result, and gating it would
+re-create the very pressure to misreport that ADR-0030 existed to remove. Enforced in the service,
+not the UI: the frontend is not an integrity boundary, and the refusal is a 409 carrying the same
+structured blockers. The Overview tab queries readiness, renders the checklist, disables Finalize
+with a stated reason, refreshes after evidence review / finding changes / mapping proposals /
+evidence-request create and resolve, and hides itself once finalized so a settled assessment is
+never simultaneously described as provisional.
+Test changes worth naming: six pre-existing tests changed, all setup or superseded expectations,
+never a weakened assertion. Two encoded ADR-0030's superseded scoring clause and now assert the
+inverse with the reasoning attached. Three finalized an assessment with outstanding work purely to
+reach the finalized state before testing immutability; they clear the blocker first and say so. The
+golden-path E2E test failed legitimately — it excluded a practice as NOT_APPLICABLE on the strength
+of "confirmed with the CISO", exactly the assertion-not-artifact case ADR-0057 addresses — and was
+updated to demonstrate the correct workflow instead: a signed scope memo was added to the fictional
+corpus, linked as the exclusion's basis, and the test now also asserts readiness reports no
+unsupported findings. That preserves end-to-end coverage of the exclusion path, which simply
+flipping the assertion would have lost.
+Corrections to previously-stated status: Sprint 19's entry said 449 backend / 22 frontend tests —
+those were accurate then and are superseded by the counts above. It also said `main` was "ahead of
+`origin/main` until someone pushes it"; Sprint 19 was pushed and CI-verified (runs green through
+commit `4244afd`). It further recorded the `libgl1`/`libglib2.0-0` Dockerfile addition as
+"statically reasoned only" because Docker was unavailable — that is no longer true: the image was
+built, `import cv2` succeeded inside the container, and OCR of an image-only PDF ran end to end
+there, so ADR-0055's disclosure on that point is now closed.
+Next (P1, not started): the evidence-request and practice-finding UIs do not yet surface which
+specific practices are blocking finalization from the Evidence tab itself — the checklist names them
+but the reviewer must navigate manually. An "applicability attestation" record type was considered
+and deliberately deferred (see ADR-0057's Alternatives): it is worth revisiting only if real pilot
+use shows scope exclusions are routinely backed by artifacts that do not fit the document model.
+Also still open from Sprint 19, unchanged: upload retention is not retroactive, so the 6 of 30
+documents whose originals were discarded before ADR-0056 stay permanently un-re-ingestible; and 27
+of 30 stored documents have no `Document` registry row (predating ADR-0039), which also means they
+have no `content_hash` to verify a retained original against. Explicitly out of scope this sprint and
+not begun: new frameworks, asynchronous ingestion, assessment-document association, document
+archival/deletion, legacy registry backfill, bulk evidence acceptance, and
+authentication/RBAC/multi-tenancy/cloud deployment.
 Charter: PROJECT_CHARTER.md
 Constraint: local-first by default. Evidence content must not be sent
 to a cloud API unless explicitly opted in (see PROJECT_CHARTER.md Section 7).

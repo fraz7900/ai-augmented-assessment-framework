@@ -28,6 +28,7 @@ from fastapi.responses import JSONResponse
 from compliance_platform.services.assessment_service import (
     AssessmentFinalizedError,
     AssessmentNotFoundError,
+    AssessmentNotReadyForFinalizationError,
     ChatEngineUnavailableError,
     DocumentNotFoundError,
     EvidenceAlreadyReviewedError,
@@ -52,6 +53,7 @@ _STATUS_CODE_BY_EXCEPTION: dict[type[Exception], int] = {
     EvidenceLinkNotFoundError: 404,
     EvidenceRequestNotFoundError: 404,
     AssessmentFinalizedError: 409,
+    AssessmentNotReadyForFinalizationError: 409,
     EvidenceAlreadyReviewedError: 409,
     InvalidStatusTransitionError: 409,
     SanitizationApprovalStaleError: 409,
@@ -93,3 +95,25 @@ def register_exception_handlers(app: FastAPI) -> None:
             return JSONResponse(status_code=status_code, content={"detail": str(exc)})
 
         app.add_exception_handler(exception_type, handler)
+
+    # Registered AFTER the loop so it replaces the generic handler for
+    # this one type. A refused finalization has to say WHAT to fix in the
+    # same machine-readable shape GET /finalization-readiness returns
+    # (ADR-0058) — a caller should never have to parse the prose in
+    # "detail" to discover that three AI proposals are unreviewed. The
+    # blockers carry practice references and record ids only, never
+    # evidence text, so this stays within the logging/response rule above.
+    def not_ready_handler(request: Request, exc: Exception) -> JSONResponse:
+        assert isinstance(exc, AssessmentNotReadyForFinalizationError)
+        _logger.warning(
+            "%s -> 409 %s: %s", request.method, request.url.path, exc
+        )
+        return JSONResponse(
+            status_code=409,
+            content={
+                "detail": str(exc),
+                "blockers": [blocker.model_dump(mode="json") for blocker in exc.blockers],
+            },
+        )
+
+    app.add_exception_handler(AssessmentNotReadyForFinalizationError, not_ready_handler)

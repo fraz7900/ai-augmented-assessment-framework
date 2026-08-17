@@ -90,6 +90,33 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/assessments/{assessment_id}/finalization-readiness": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Finalization Readiness
+         * @description Whether this assessment may be finalized, and what blocks it
+         *     (ADR-0058).
+         *
+         *     Blockers are machine-readable categories with the affected ids, so
+         *     the UI renders a checklist and disables its button without parsing
+         *     English. The same function backs the server-side gate in
+         *     transition_status — this endpoint reports the rule, it does not
+         *     define a second one.
+         */
+        get: operations["get_finalization_readiness_assessments__assessment_id__finalization_readiness_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/assessments/{assessment_id}/status-history": {
         parameters: {
             query?: never;
@@ -954,6 +981,63 @@ export interface components {
          * @enum {string}
          */
         EvidenceSource: "manual" | "ai_proposed";
+        /**
+         * FinalizationBlocker
+         * @description One reason finalization is blocked, with the specific items to fix.
+         *
+         *     `affected_ids` holds evidence-link ids, evidence-request ids or
+         *     practice references depending on the category — whichever the
+         *     reviewer needs to act on. It is capped by the service so a pathological
+         *     assessment cannot return an unbounded response body; `count` is always
+         *     the true total, so a caller can tell "3 of 300" from "3 of 3".
+         */
+        FinalizationBlocker: {
+            category: components["schemas"]["FinalizationBlockerCategory"];
+            /** Count */
+            count: number;
+            /**
+             * Affected Ids
+             * @default []
+             */
+            affected_ids: string[];
+            /** Summary */
+            summary: string;
+        };
+        /**
+         * FinalizationBlockerCategory
+         * @description Why an assessment cannot be finalized yet (ADR-0058).
+         *
+         *     A closed enum rather than free-text messages: the frontend disables
+         *     a button and renders a checklist from these, and parsing English
+         *     prose to decide that would break the first time the wording is
+         *     improved.
+         * @enum {string}
+         */
+        FinalizationBlockerCategory: "pending_ai_review" | "unresolved_evidence_request" | "unsupported_satisfied_finding" | "unsupported_not_applicable_finding" | "framework_version_unresolved";
+        /**
+         * FinalizationReadiness
+         * @description Whether an assessment may be finalized, and what stands in the way.
+         *
+         *     Gaps do NOT appear here. A finalized assessment that reports an
+         *     organization as non-compliant is a legitimate, complete result — the
+         *     point of the platform. What blocks finalization is unfinished
+         *     *review work*: unreviewed AI proposals, outstanding evidence
+         *     requests, and findings that move a score without the evidence to
+         *     support it.
+         */
+        FinalizationReadiness: {
+            /** Assessment Id */
+            assessment_id: string;
+            /** Status */
+            status: string;
+            /** Is Ready */
+            is_ready: boolean;
+            /**
+             * Blockers
+             * @default []
+             */
+            blockers: components["schemas"]["FinalizationBlocker"][];
+        };
         /** FrameworkDefinition */
         FrameworkDefinition: {
             /** Name */
@@ -1364,6 +1448,16 @@ export interface components {
             /** Unpopulated Domains */
             unpopulated_domains: string[];
             /**
+             * Unsupported Satisfied Practices
+             * @default []
+             */
+            unsupported_satisfied_practices: string[];
+            /**
+             * Unsupported Not Applicable Practices
+             * @default []
+             */
+            unsupported_not_applicable_practices: string[];
+            /**
              * So What
              * @default []
              */
@@ -1558,6 +1652,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Assessment"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_finalization_readiness_assessments__assessment_id__finalization_readiness_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                assessment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FinalizationReadiness"];
                 };
             };
             /** @description Validation Error */

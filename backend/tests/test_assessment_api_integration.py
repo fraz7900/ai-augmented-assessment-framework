@@ -746,6 +746,13 @@ def test_review_evidence_blocked_on_finalized_assessment(client: TestClient) -> 
     )
     link_id = link_response.json()["id"]
     client.post(f"/assessments/{assessment_id}/status", json={"status": "in_review"})
+    # A pending AI proposal blocks finalization (ADR-0058), and this test
+    # is about immutability AFTER finalization, so the proposal is
+    # reviewed first. The gate itself has dedicated tests below.
+    client.post(
+        f"/assessments/{assessment_id}/evidence/{link_id}/review",
+        json={"decision": "accepted"},
+    )
     client.post(f"/assessments/{assessment_id}/status", json={"status": "finalized"})
 
     response = client.post(
@@ -1007,12 +1014,24 @@ def test_not_applicable_finding_excludes_practice_from_score_denominator(
     client: TestClient,
 ) -> None:
     """Live confirmation, over the real API + real C2M2 data, that a
-    NOT_APPLICABLE practice does not block its domain's MIL forever."""
+    NOT_APPLICABLE practice does not block its domain's MIL forever.
+
+    Updated for ADR-0057: the exclusion now requires a supporting
+    accepted/edited evidence link, because changing the denominator moves
+    the score just as changing the numerator does. The original assertion
+    (exclusion can only hold or raise a score) is unchanged and still
+    holds — only the precondition is stricter.
+    """
+    document_id = _ingest_sample_document(client)
     create_response = client.post("/assessments", json={"name": "Test", "framework_name": "C2M2"})
     assessment_id = create_response.json()["id"]
 
     before = client.get(f"/assessments/{assessment_id}/score").json()
 
+    client.post(
+        f"/assessments/{assessment_id}/evidence",
+        json={"document_id": document_id, "practice_reference": "ACCESS-1a"},
+    )
     client.put(
         f"/assessments/{assessment_id}/practice-findings/ACCESS-1a",
         json={"status": "not_applicable", "rationale": "No remote access exists in this org."},
@@ -1200,3 +1219,249 @@ def test_unsanitized_export_unaffected_by_sanitization_feature(client: TestClien
     # No approval ever created -- default (sanitized=false / omitted) must still work.
     response = client.get(f"/assessments/{assessment_id}/report/pdf")
     assert response.status_code == 200
+
+
+# --- ADR-0057: positive scoring credit requires evidence ---
+# Against the real FastAPI app, real SQLite and real C2M2 data, so these
+# exercise the same code path a pilot would.
+
+
+def test_satisfied_finding_without_evidence_earns_no_score_via_the_api(client: TestClient) -> None:
+    create = client.post("/assessments", json={"name": "Test", "framework_name": "C2M2"})
+    assessment_id = create.json()["id"]
+
+    put = client.put(
+        f"/assessments/{assessment_id}/practice-findings/ACCESS-1a",
+        json={"status": "satisfied", "rationale": "Owner confirmed verbally during interview."},
+    )
+    assert put.status_code == 200
+
+    # The finding is recorded...
+    assert len(client.get(f"/assessments/{assessment_id}/practice-findings").json()) == 1
+    # ...but confers no credit, and the score endpoint and dashboard agree.
+    scores = client.get(f"/assessments/{assessment_id}/score").json()
+    assert scores["ACCESS"] == 0
+    dashboard = client.get(f"/assessments/{assessment_id}/dashboard").json()
+    assert dashboard["situation"]["unsupported_satisfied_practices"] == ["ACCESS-1a"]
+    assert any("no accepted or edited" in line for line in dashboard["situation"]["so_what"])
+
+
+def test_satisfied_finding_with_accepted_evidence_earns_score_via_the_api(
+    client: TestClient,
+) -> None:
+    document_id = _ingest_sample_document(client)
+    create = client.post("/assessments", json={"name": "Test", "framework_name": "C2M2"})
+    assessment_id = create.json()["id"]
+
+    linked = client.post(
+        f"/assessments/{assessment_id}/evidence",
+        json={"document_id": document_id, "practice_reference": "ACCESS-1a"},
+    )
+    assert linked.json()["review_status"] == "accepted"  # a manual link is accepted on creation
+    client.put(
+        f"/assessments/{assessment_id}/practice-findings/ACCESS-1a",
+        json={"status": "satisfied", "rationale": "Verified against the uploaded access policy."},
+    )
+
+    dashboard = client.get(f"/assessments/{assessment_id}/dashboard").json()
+    assert dashboard["situation"]["unsupported_satisfied_practices"] == []
+    gaps = [g["practice_id"] for group in dashboard["complication"] for g in group["gaps"]]
+    assert "ACCESS-1a" not in gaps  # performed, so not a gap
+
+
+def test_not_applicable_without_evidence_is_not_silently_excluded_via_the_api(
+    client: TestClient,
+) -> None:
+    create = client.post("/assessments", json={"name": "Test", "framework_name": "C2M2"})
+    assessment_id = create.json()["id"]
+
+    client.put(
+        f"/assessments/{assessment_id}/practice-findings/ACCESS-1a",
+        json={"status": "not_applicable", "rationale": "No assets of this type in scope."},
+    )
+
+    dashboard = client.get(f"/assessments/{assessment_id}/dashboard").json()
+    assert dashboard["situation"]["unsupported_not_applicable_practices"] == ["ACCESS-1a"]
+    # Still in the denominator, so still reported as a gap rather than vanishing.
+    gaps = [g["practice_id"] for group in dashboard["complication"] for g in group["gaps"]]
+    assert "ACCESS-1a" in gaps
+
+
+def test_not_applicable_with_accepted_evidence_is_excluded_via_the_api(client: TestClient) -> None:
+    document_id = _ingest_sample_document(client)
+    create = client.post("/assessments", json={"name": "Test", "framework_name": "C2M2"})
+    assessment_id = create.json()["id"]
+
+    client.post(
+        f"/assessments/{assessment_id}/evidence",
+        json={"document_id": document_id, "practice_reference": "ACCESS-1a"},
+    )
+    client.put(
+        f"/assessments/{assessment_id}/practice-findings/ACCESS-1a",
+        json={"status": "not_applicable", "rationale": "Scope memo excludes these assets."},
+    )
+
+    dashboard = client.get(f"/assessments/{assessment_id}/dashboard").json()
+    assert dashboard["situation"]["unsupported_not_applicable_practices"] == []
+    gaps = [g["practice_id"] for group in dashboard["complication"] for g in group["gaps"]]
+    assert "ACCESS-1a" not in gaps  # excluded from the denominator entirely
+
+
+def test_pending_and_rejected_ai_evidence_confer_no_credit_via_the_api(
+    client: TestClient,
+) -> None:
+    """The human-in-the-loop invariant over the real API.
+
+    propose-mappings only returns proposals once the assessment already
+    has an associated document, so a manual link to ACCESS-1a comes
+    first — that link is accepted on creation and is deliberately NOT
+    the practice under test here.
+    """
+    document_id = _ingest_sample_document(client)
+    create = client.post("/assessments", json={"name": "Test", "framework_name": "C2M2"})
+    assessment_id = create.json()["id"]
+
+    client.post(
+        f"/assessments/{assessment_id}/evidence",
+        json={"document_id": document_id, "practice_reference": "ACCESS-1a"},
+    )
+    proposed = client.post(f"/assessments/{assessment_id}/propose-mappings")
+    assert proposed.status_code == 200
+    pending = [link for link in proposed.json() if link["review_status"] == "pending"]
+    assert pending, "expected AI-proposed pending links once a document is associated"
+
+    # A SATISFIED finding on a practice whose only evidence is PENDING
+    # earns nothing: accepting it is the reviewer's job, not the finding's.
+    pending_reference = pending[0]["practice_reference"]
+    client.put(
+        f"/assessments/{assessment_id}/practice-findings/{pending_reference}",
+        json={"status": "satisfied", "rationale": "Looks right to me from the proposal alone."},
+    )
+    dashboard = client.get(f"/assessments/{assessment_id}/dashboard").json()
+    assert pending_reference in dashboard["situation"]["unsupported_satisfied_practices"]
+
+    # Rejecting that proposal must not change the answer either.
+    rejected = client.post(
+        f"/assessments/{assessment_id}/evidence/{pending[0]['id']}/review",
+        json={"decision": "rejected", "note": "This passage does not show the control."},
+    )
+    assert rejected.status_code == 200
+    dashboard = client.get(f"/assessments/{assessment_id}/dashboard").json()
+    assert pending_reference in dashboard["situation"]["unsupported_satisfied_practices"]
+
+
+# --- Finalization readiness gate (ADR-0058) ---
+
+
+def test_finalization_readiness_reports_ready_for_a_clean_assessment(client: TestClient) -> None:
+    create = client.post("/assessments", json={"name": "Test", "framework_name": "C2M2"})
+    assessment_id = create.json()["id"]
+
+    readiness = client.get(f"/assessments/{assessment_id}/finalization-readiness")
+    assert readiness.status_code == 200
+    body = readiness.json()
+    assert body["is_ready"] is True
+    assert body["blockers"] == []
+
+
+def test_finalization_readiness_reports_each_blocker_category(client: TestClient) -> None:
+    document_id = _ingest_sample_document(client)
+    create = client.post("/assessments", json={"name": "Test", "framework_name": "C2M2"})
+    assessment_id = create.json()["id"]
+
+    client.post(
+        f"/assessments/{assessment_id}/evidence",
+        json={"document_id": document_id, "practice_reference": "ACCESS-1a"},
+    )
+    client.post(f"/assessments/{assessment_id}/propose-mappings")  # creates pending proposals
+    client.post(
+        f"/assessments/{assessment_id}/practice-findings/ACCESS-1b/evidence-requests",
+        json={"note": "Need the quarterly access review export.", "requested_by": "Priya"},
+    )
+    client.put(
+        f"/assessments/{assessment_id}/practice-findings/ACCESS-1c",
+        json={"status": "satisfied", "rationale": "Believed satisfied without evidence."},
+    )
+    client.put(
+        f"/assessments/{assessment_id}/practice-findings/ACCESS-1d",
+        json={"status": "not_applicable", "rationale": "Believed out of scope."},
+    )
+
+    body = client.get(f"/assessments/{assessment_id}/finalization-readiness").json()
+    assert body["is_ready"] is False
+    categories = {blocker["category"] for blocker in body["blockers"]}
+    assert categories == {
+        "pending_ai_review",
+        "unresolved_evidence_request",
+        "unsupported_satisfied_finding",
+        "unsupported_not_applicable_finding",
+    }
+    satisfied = next(
+        b for b in body["blockers"] if b["category"] == "unsupported_satisfied_finding"
+    )
+    assert satisfied["affected_ids"] == ["ACCESS-1c"]
+    assert satisfied["count"] == 1
+
+
+def test_finalizing_with_blockers_returns_409_with_machine_readable_blockers(
+    client: TestClient,
+) -> None:
+    """The gate is enforced server-side, and the refusal says what to fix
+    without the caller parsing English."""
+    document_id = _ingest_sample_document(client)
+    create = client.post("/assessments", json={"name": "Test", "framework_name": "C2M2"})
+    assessment_id = create.json()["id"]
+    client.post(
+        f"/assessments/{assessment_id}/evidence",
+        json={"document_id": document_id, "practice_reference": "ACCESS-1a"},
+    )
+    client.put(
+        f"/assessments/{assessment_id}/practice-findings/ACCESS-1b",
+        json={"status": "satisfied", "rationale": "No evidence linked for this one."},
+    )
+    client.post(f"/assessments/{assessment_id}/status", json={"status": "in_review"})
+
+    refused = client.post(f"/assessments/{assessment_id}/status", json={"status": "finalized"})
+    assert refused.status_code == 409
+    body = refused.json()
+    assert [b["category"] for b in body["blockers"]] == ["unsupported_satisfied_finding"]
+    assert body["blockers"][0]["affected_ids"] == ["ACCESS-1b"]
+
+    # The assessment did not move.
+    assert client.get(f"/assessments/{assessment_id}").json()["status"] == "in_review"
+
+
+def test_finalization_succeeds_once_blockers_are_cleared(client: TestClient) -> None:
+    document_id = _ingest_sample_document(client)
+    create = client.post("/assessments", json={"name": "Test", "framework_name": "C2M2"})
+    assessment_id = create.json()["id"]
+    client.post(
+        f"/assessments/{assessment_id}/evidence",
+        json={"document_id": document_id, "practice_reference": "ACCESS-1a"},
+    )
+    client.put(
+        f"/assessments/{assessment_id}/practice-findings/ACCESS-1b",
+        json={"status": "satisfied", "rationale": "No evidence linked for this one."},
+    )
+    client.post(f"/assessments/{assessment_id}/status", json={"status": "in_review"})
+    assert client.post(
+        f"/assessments/{assessment_id}/status", json={"status": "finalized"}
+    ).status_code == 409
+
+    # Correct the unsupported finding to one the evidence actually supports.
+    client.put(
+        f"/assessments/{assessment_id}/practice-findings/ACCESS-1b",
+        json={"status": "not_satisfied", "rationale": "Evidence does not show this control."},
+    )
+    assert client.get(f"/assessments/{assessment_id}/finalization-readiness").json()["is_ready"]
+
+    finalized = client.post(f"/assessments/{assessment_id}/status", json={"status": "finalized"})
+    assert finalized.status_code == 200
+    assert finalized.json()["status"] == "finalized"
+
+    # Immutability of a finalized assessment is preserved.
+    blocked = client.post(
+        f"/assessments/{assessment_id}/evidence",
+        json={"document_id": document_id, "practice_reference": "ACCESS-1c"},
+    )
+    assert blocked.status_code == 409
