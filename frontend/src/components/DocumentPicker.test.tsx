@@ -62,6 +62,49 @@ describe('DocumentPicker', () => {
     expect(onChange).toHaveBeenCalledWith('doc-2')
   })
 
+  it('disambiguates documents that share a filename', () => {
+    // Re-uploading the same file is how you correct a bad ingest, and a
+    // slow synchronous upload invites a retry, so same-name copies are
+    // common. Labelling them by filename and date alone made them
+    // indistinguishable — worse than the UUID box this replaced, where
+    // at least the ids differed.
+    render(
+      <DocumentPicker
+        documents={[
+          doc({ id: 'aaaaaaaa-1111', uploaded_at: '2026-08-16T18:21:00Z' }),
+          doc({ id: 'bbbbbbbb-2222', uploaded_at: '2026-08-16T19:38:00Z' }),
+        ]}
+        isLoading={false}
+        value=""
+        onChange={() => {}}
+      />,
+    )
+    const options = screen.getAllByRole('option').filter((o) => o.textContent?.includes('.pdf'))
+    expect(options).toHaveLength(2)
+    // Each carries a distinct short id, so they are actually tellable apart.
+    expect(options[0].textContent).toContain('aaaaaaaa')
+    expect(options[1].textContent).toContain('bbbbbbbb')
+    expect(options[0].textContent).not.toEqual(options[1].textContent)
+    expect(screen.getByText(/share a filename/i)).toBeInTheDocument()
+  })
+
+  it('does not clutter labels when every filename is unique', () => {
+    // The disambiguator is opt-in on duplication; the common case stays
+    // readable rather than every row carrying a hex fragment.
+    render(
+      <DocumentPicker
+        documents={[doc(), doc({ id: 'doc-2', filename: 'incident_plan.pdf' })]}
+        isLoading={false}
+        value=""
+        onChange={() => {}}
+      />,
+    )
+    expect(screen.getByRole('option', { name: /access_policy\.pdf/ }).textContent).not.toMatch(
+      /doc-1/,
+    )
+    expect(screen.queryByText(/share a filename/i)).not.toBeInTheDocument()
+  })
+
   it('warns when the selected document has been superseded', () => {
     // ADR-0050: citing a policy that has since been replaced is a real
     // review error, so the chooser has to say so at selection time.

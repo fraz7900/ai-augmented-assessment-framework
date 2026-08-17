@@ -52,6 +52,33 @@ export default function DocumentPicker({ documents, isLoading, value, onChange }
 
   const selected = documents.find((d) => d.id === value)
 
+  // Same-filename duplicates are common in practice: re-uploading the
+  // same file is how you correct a bad ingest, and a synchronous upload
+  // that looks like it hung invites a retry. Labelling by filename and
+  // date alone made those copies indistinguishable in this list, which
+  // is worse than the UUID box it replaced -- there, at least, the ids
+  // differed. Only duplicated names get the extra time-and-id
+  // disambiguator, so the common case stays readable.
+  const duplicatedNames = new Set(
+    documents
+      .map((d) => d.filename)
+      .filter((name, index, all) => all.indexOf(name) !== index),
+  )
+
+  const label = (doc: DocumentSummary) => {
+    const uploaded = new Date(doc.uploaded_at)
+    const when = duplicatedNames.has(doc.filename)
+      ? `${uploaded.toLocaleDateString()} ${uploaded.toLocaleTimeString([], {
+          hour: '2-digit',
+          minute: '2-digit',
+        })}`
+      : uploaded.toLocaleDateString()
+    // A short id fragment breaks the tie when two copies share a name
+    // AND a minute, which a double-submit produces.
+    const shortId = duplicatedNames.has(doc.filename) ? ` · ${doc.id.slice(0, 8)}` : ''
+    return `${doc.filename}${doc.is_superseded ? ' (superseded)' : ''} — ${when}${shortId}`
+  }
+
   return (
     <div className="mt-1">
       <select
@@ -63,11 +90,26 @@ export default function DocumentPicker({ documents, isLoading, value, onChange }
         <option value="">Select a document…</option>
         {documents.map((doc) => (
           <option key={doc.id} value={doc.id}>
-            {doc.filename}
-            {doc.is_superseded ? ' (superseded)' : ''} — {new Date(doc.uploaded_at).toLocaleDateString()}
+            {label(doc)}
           </option>
         ))}
       </select>
+
+      {/*
+        Say it plainly rather than leaving the reviewer to notice the
+        repeated names themselves. Duplicates are usually accidental, and
+        linking the wrong copy produces citations that point at a
+        document nobody meant to use.
+      */}
+      {duplicatedNames.size > 0 && (
+        <p className="mt-1 flex items-start gap-1.5 text-xs text-slate-500">
+          <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" aria-hidden="true" />
+          <span>
+            Some documents share a filename — these are separate uploads, shown with their upload
+            time and id so you can tell them apart.
+          </span>
+        </p>
+      )}
 
       {selected?.is_superseded && (
         <p className="mt-1 flex items-start gap-1.5 text-xs text-amber-700">
