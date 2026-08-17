@@ -1,0 +1,380 @@
+<title>AI-Augmented Compliance Platform</title>
+<style>
+  /* ---- Tokens: complete light palette on bare :root ---- */
+  :root{
+    --ground:#EEF1EF;
+    --surface:#FFFFFF;
+    --surface-2:#F6F8F7;
+    --ink:#14191A;
+    --ink-2:#41504E;
+    --ink-3:#6B7A77;
+    --rule:#CBD5D1;
+    --rule-soft:#E1E8E5;
+    --accent:#1B5A4D;
+    --accent-2:#2C7D6B;
+    --accent-wash:#DCE9E4;
+    --amber:#7A5510;
+    --amber-wash:#F2E7CE;
+    --shadow:0 1px 2px rgba(20,25,26,.05), 0 8px 24px -12px rgba(20,25,26,.18);
+
+    --serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,"Times New Roman",serif;
+    --sans:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    --mono:ui-monospace,"SF Mono","Cascadia Mono","Segoe UI Mono",Menlo,Consolas,monospace;
+
+    --measure:68ch;
+    --page:1120px;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --ground:#0E1413;
+      --surface:#161E1C;
+      --surface-2:#1B2523;
+      --ink:#E4EBE8;
+      --ink-2:#AFBEBA;
+      --ink-3:#7E8F8B;
+      --rule:#2B3735;
+      --rule-soft:#212C2A;
+      --accent:#6DBFA8;
+      --accent-2:#8FD3BF;
+      --accent-wash:#1B2E29;
+      --amber:#D6AC5C;
+      --amber-wash:#2A2418;
+      --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px -12px rgba(0,0,0,.6);
+    }
+  }
+  :root[data-theme="dark"]{
+    --ground:#0E1413;
+    --surface:#161E1C;
+    --surface-2:#1B2523;
+    --ink:#E4EBE8;
+    --ink-2:#AFBEBA;
+    --ink-3:#7E8F8B;
+    --rule:#2B3735;
+    --rule-soft:#212C2A;
+    --accent:#6DBFA8;
+    --accent-2:#8FD3BF;
+    --accent-wash:#1B2E29;
+    --amber:#D6AC5C;
+    --amber-wash:#2A2418;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px -12px rgba(0,0,0,.6);
+  }
+
+  *{box-sizing:border-box;}
+  body{
+    background:var(--ground);
+    color:var(--ink);
+    font-family:var(--serif);
+    font-size:17px;
+    line-height:1.62;
+    margin:0;
+    padding:0 20px 96px;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:var(--page);margin:0 auto;}
+  p,li{max-width:var(--measure);}
+  a{color:var(--accent);text-decoration-thickness:1px;text-underline-offset:2px;}
+  a:focus-visible,summary:focus-visible{outline:2px solid var(--accent-2);outline-offset:3px;border-radius:2px;}
+
+  /* ---- Masthead ---- */
+  .mast{
+    border-bottom:1px solid var(--rule);
+    padding:72px 0 34px;
+    display:flex;flex-direction:column;gap:20px;
+  }
+  .eyebrow{
+    font-family:var(--sans);font-size:11px;font-weight:600;
+    letter-spacing:.16em;text-transform:uppercase;color:var(--accent);
+    display:flex;align-items:center;gap:10px;
+  }
+  .eyebrow::after{content:"";flex:1;height:1px;background:var(--rule-soft);max-width:120px;}
+  h1{
+    font-family:var(--serif);font-weight:600;
+    font-size:clamp(2.1rem,5.2vw,3.3rem);
+    line-height:1.08;letter-spacing:-.02em;margin:0;text-wrap:balance;max-width:22ch;
+  }
+  .standfirst{font-size:1.12rem;color:var(--ink-2);margin:0;max-width:60ch;}
+  .meta{
+    font-family:var(--mono);font-size:12.5px;color:var(--ink-3);
+    display:flex;flex-wrap:wrap;gap:8px 22px;margin:0;
+  }
+  .meta span{white-space:nowrap;}
+  .meta b{color:var(--ink-2);font-weight:600;}
+
+  /* ---- Metric strip ---- */
+  .metrics{
+    display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+    gap:1px;background:var(--rule-soft);
+    border:1px solid var(--rule-soft);border-radius:3px;overflow:hidden;
+    margin:34px 0 0;
+  }
+  .metric{background:var(--surface);padding:20px 18px;display:flex;flex-direction:column;gap:5px;}
+  .metric .n{
+    font-family:var(--mono);font-variant-numeric:tabular-nums;
+    font-size:1.72rem;font-weight:600;letter-spacing:-.02em;color:var(--ink);line-height:1;
+  }
+  .metric .l{
+    font-family:var(--sans);font-size:10.5px;font-weight:600;letter-spacing:.11em;
+    text-transform:uppercase;color:var(--ink-3);
+  }
+
+  /* ---- Sections ---- */
+  section{padding-top:64px;}
+  h2{
+    font-family:var(--serif);font-weight:600;font-size:1.62rem;letter-spacing:-.012em;
+    margin:0 0 6px;padding-left:15px;border-left:3px solid var(--accent);text-wrap:balance;
+  }
+  .kicker{
+    font-family:var(--sans);font-size:11px;font-weight:600;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--ink-3);margin:0 0 22px;padding-left:18px;
+  }
+  h3{
+    font-family:var(--sans);font-weight:650;font-size:.83rem;letter-spacing:.09em;
+    text-transform:uppercase;color:var(--ink-2);margin:38px 0 12px;
+  }
+
+  /* ---- Pipeline (a real ordered sequence) ---- */
+  .pipeline{list-style:none;margin:26px 0 0;padding:0;display:grid;gap:1px;background:var(--rule-soft);border:1px solid var(--rule-soft);border-radius:3px;overflow:hidden;}
+  .pipeline li{
+    background:var(--surface);padding:17px 20px;max-width:none;
+    display:grid;grid-template-columns:34px 1fr;gap:16px;align-items:baseline;
+  }
+  .pipeline .step{
+    font-family:var(--mono);font-size:12px;font-weight:600;color:var(--accent);
+    font-variant-numeric:tabular-nums;
+  }
+  .pipeline b{font-family:var(--sans);font-size:.87rem;font-weight:650;letter-spacing:.01em;display:block;margin-bottom:2px;}
+  .pipeline p{margin:0;font-size:.96rem;color:var(--ink-2);max-width:64ch;}
+
+  /* ---- Pull quote: the invariant ---- */
+  .invariant{
+    margin:38px 0 0;padding:26px 30px;
+    background:var(--accent-wash);border-left:3px solid var(--accent);border-radius:0 3px 3px 0;
+  }
+  .invariant p{margin:0;max-width:56ch;font-size:1.2rem;line-height:1.45;color:var(--ink);font-style:italic;}
+  .invariant .src{
+    font-family:var(--sans);font-style:normal;font-size:11px;font-weight:600;letter-spacing:.1em;
+    text-transform:uppercase;color:var(--accent);margin-top:12px;display:block;
+  }
+
+  /* ---- Negative space list (what it is not) ---- */
+  .nots{display:grid;gap:14px;margin:22px 0 0;padding:0;list-style:none;}
+  .nots li{
+    max-width:var(--measure);padding-left:26px;position:relative;color:var(--ink-2);font-size:1rem;
+  }
+  .nots li::before{
+    content:"";position:absolute;left:0;top:.62em;width:13px;height:1.5px;background:var(--ink-3);
+  }
+  .nots b{color:var(--ink);font-weight:600;}
+
+  /* ---- Tables ---- */
+  .scroll{overflow-x:auto;margin:22px 0 0;border:1px solid var(--rule-soft);border-radius:3px;background:var(--surface);}
+  table{border-collapse:collapse;width:100%;font-size:.9rem;min-width:640px;}
+  caption{
+    caption-side:top;text-align:left;font-family:var(--sans);font-size:11.5px;color:var(--ink-3);
+    padding:0 0 10px;max-width:var(--measure);
+  }
+  th,td{padding:11px 15px;text-align:left;vertical-align:top;border-bottom:1px solid var(--rule-soft);}
+  thead th{
+    font-family:var(--sans);font-size:10.5px;font-weight:650;letter-spacing:.11em;text-transform:uppercase;
+    color:var(--ink-3);background:var(--surface-2);border-bottom:1px solid var(--rule);white-space:nowrap;
+  }
+  tbody tr:last-child td{border-bottom:none;}
+  td.num,td.mono,th.num{font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap;}
+  td.num{text-align:right;}
+  .sprint-t td:first-child{font-family:var(--mono);font-weight:600;color:var(--accent);white-space:nowrap;}
+  .sprint-t td:nth-child(2){font-family:var(--sans);font-size:.83rem;font-weight:600;min-width:150px;}
+  .sprint-t td:last-child{font-family:var(--mono);font-size:.78rem;color:var(--ink-3);white-space:nowrap;}
+  .sprint-t td:nth-child(3){color:var(--ink-2);min-width:330px;}
+  tr.pivot td{background:var(--accent-wash);}
+  tr.pivot td:nth-child(2){color:var(--accent);}
+
+  .chip{
+    display:inline-block;font-family:var(--sans);font-size:10.5px;font-weight:650;
+    letter-spacing:.05em;padding:2.5px 8px;border-radius:2px;white-space:nowrap;
+  }
+  .chip-full{background:var(--accent-wash);color:var(--accent);}
+  .chip-part{background:var(--amber-wash);color:var(--amber);}
+
+  /* ---- Throughline ---- */
+  .through{display:grid;gap:1px;margin:24px 0 0;padding:0;list-style:none;background:var(--rule-soft);border:1px solid var(--rule-soft);border-radius:3px;overflow:hidden;}
+  .through li{background:var(--surface);padding:20px 22px;max-width:none;}
+  .through b{font-family:var(--sans);font-size:.86rem;font-weight:650;display:block;margin-bottom:5px;color:var(--ink);}
+  .through p{margin:0;color:var(--ink-2);font-size:.97rem;max-width:70ch;}
+
+  /* ---- Limitations ---- */
+  .limits{margin:24px 0 0;padding:0;list-style:none;display:grid;gap:12px;}
+  .limits li{
+    max-width:none;background:var(--surface);border:1px solid var(--rule-soft);
+    border-left:3px solid var(--amber);border-radius:0 3px 3px 0;padding:15px 20px;
+    color:var(--ink-2);font-size:.97rem;
+  }
+  .limits b{color:var(--ink);font-weight:600;}
+
+  .note{
+    margin:26px 0 0;padding:18px 22px;background:var(--surface-2);
+    border:1px solid var(--rule-soft);border-radius:3px;font-size:.95rem;color:var(--ink-2);
+  }
+  .note p{margin:0;max-width:70ch;}
+
+  footer{
+    margin-top:76px;padding-top:26px;border-top:1px solid var(--rule);
+    font-family:var(--mono);font-size:12px;color:var(--ink-3);
+    display:flex;flex-wrap:wrap;gap:8px 28px;
+  }
+
+  @media (max-width:640px){
+    body{font-size:16px;padding:0 16px 64px;}
+    .mast{padding:48px 0 28px;}
+    .pipeline li{grid-template-columns:26px 1fr;gap:12px;padding:15px 16px;}
+    section{padding-top:48px;}
+  }
+  @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;}}
+</style>
+
+<div class="wrap">
+
+  <header class="mast">
+    <div class="eyebrow">Project Status</div>
+    <h1>AI-Augmented Compliance Assessment Platform</h1>
+    <p class="standfirst">A local-first platform that helps a cybersecurity assessor map evidence to framework controls, score maturity, and defend every conclusion — without sending a single document to the cloud.</p>
+    <p class="meta">
+      <span><b>As of</b> Sprint 20 · 2026-08-17</span>
+      <span><b>Sector</b> Energy cybersecurity</span>
+      <span><b>Decisions</b> 58 ADRs</span>
+      <span><b>CI</b> green on main</span>
+    </p>
+  </header>
+
+  <div class="metrics">
+    <div class="metric"><span class="n">7</span><span class="l">Frameworks</span></div>
+    <div class="metric"><span class="n">1,267</span><span class="l">Practices</span></div>
+    <div class="metric"><span class="n">715</span><span class="l">Reviewed equivalences</span></div>
+    <div class="metric"><span class="n">534</span><span class="l">Tests passing</span></div>
+    <div class="metric"><span class="n">58</span><span class="l">Decision records</span></div>
+    <div class="metric"><span class="n">21</span><span class="l">Sprints delivered</span></div>
+  </div>
+
+  <section>
+    <h2>What the application does</h2>
+    <p class="kicker">The problem, and the pipeline</p>
+    <p>A cybersecurity compliance assessor reads an organization's policies and evidence, decides which framework controls that evidence actually satisfies, and defends those conclusions to an auditor. It is slow work, and the hardest part is not judgement but traceability — being able to answer <em>“why is this scored MIL2?”</em> six months later.</p>
+    <p>This platform supports that work without replacing the assessor.</p>
+
+    <ol class="pipeline">
+      <li><span class="step">01</span><div><b>Ingest</b><p>Policy and evidence documents — PDF including scanned via local OCR, DOCX, XLSX/CSV, plain text — into a local vector store, with page, row, and sheet provenance recorded per chunk.</p></div></li>
+      <li><span class="step">02</span><div><b>Propose</b><p>Evidence-to-control mappings by local semantic retrieval across 1,267 practices in 7 frameworks. Proposals are never auto-accepted.</p></div></li>
+      <li><span class="step">03</span><div><b>Review</b><p>A human accepts, edits, or rejects every proposal, and can request more evidence. Positive scoring credit exists only where an accepted or edited evidence link exists.</p></div></li>
+      <li><span class="step">04</span><div><b>Score</b><p>C2M2 cumulative maturity indicator levels and NIST CSF coverage, each computed the way its own framework defines — never averaged into a false composite.</p></div></li>
+      <li><span class="step">05</span><div><b>Report</b><p>An executive dashboard with quoted evidence citations, PDF/XLSX export, a sanitization pipeline for external sharing, and retrieval-only chat that answers by quoting reviewed evidence rather than generating prose.</p></div></li>
+      <li><span class="step">06</span><div><b>Finalize</b><p>The assessment freezes as an immutable audit record — and only once a readiness gate confirms no review work is outstanding.</p></div></li>
+    </ol>
+
+    <div class="invariant">
+      <p>No score exists without a linked evidence trail.</p>
+      <span class="src">The core invariant — present from sprint one</span>
+    </div>
+    <p style="margin-top:22px;">Everything else in the design follows from defending that claim.</p>
+
+    <h3>What it deliberately is not</h3>
+    <ul class="nots">
+      <li><b>Not an AI that decides compliance.</b> There is no LLM in the scoring path. Mapping is retrieval-only — a decision asked and re-confirmed four separate times and recorded as permanent architecture, not a deferred placeholder.</li>
+      <li><b>Not cloud-dependent.</b> Evidence never leaves local infrastructure. Embeddings run on local ONNX models; OCR bundles its own engine and weights. No code path can transmit evidence, by construction rather than by configuration.</li>
+      <li><b>Not multi-tenant.</b> Authentication, RBAC, and cloud deployment are explicitly out of MVP scope.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Frameworks transcribed</h2>
+    <p class="kicker">7 frameworks · 8 versions · 1,267 practices</p>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>Framework</th><th>Version</th><th class="num">Practices</th><th>Transcription</th><th>Constraint</th></tr></thead>
+        <tbody>
+          <tr><td>C2M2</td><td class="mono">2.1</td><td class="num">356</td><td><span class="chip chip-full">Full</span></td><td>—</td></tr>
+          <tr><td>PCI DSS</td><td class="mono">4.0.1</td><td class="num">249</td><td><span class="chip chip-part">Statements</span></td><td>Copyrighted</td></tr>
+          <tr><td>CIS Controls</td><td class="mono">v8</td><td class="num">153</td><td><span class="chip chip-full">Full</span></td><td>Creative Commons</td></tr>
+          <tr><td>NERC CIP</td><td class="mono">per standard</td><td class="num">141</td><td><span class="chip chip-full">Full</span></td><td>13 mandatory standards</td></tr>
+          <tr><td>NIST CSF</td><td class="mono">1.1</td><td class="num">108</td><td><span class="chip chip-full">Full</span></td><td>Public domain</td></tr>
+          <tr><td>NIST CSF</td><td class="mono">2.0</td><td class="num">106</td><td><span class="chip chip-full">Full</span></td><td>Public domain</td></tr>
+          <tr><td>ISO 27001</td><td class="mono">2022</td><td class="num">93</td><td><span class="chip chip-part">Titles only</span></td><td>Copyrighted</td></tr>
+          <tr><td>SOC 2</td><td class="mono">TSC 2017</td><td class="num">61</td><td><span class="chip chip-part">Statements</span></td><td>Copyrighted</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="note"><p>Copyright constraints are disclosed per framework rather than worked around. Each framework's licensing status was checked directly against the source document, never assumed from reputation.</p></div>
+  </section>
+
+  <section>
+    <h2>Sprint-by-sprint history</h2>
+    <p class="kicker">Sprints 0–20 · highlighted rows mark the three pivots</p>
+    <div class="scroll">
+      <table class="sprint-t">
+        <caption>MVP closed at Sprint 10; framework breadth completed at Sprint 16; Sprints 17–20 are the controlled-pilot readiness arc.</caption>
+        <thead><tr><th>Sprint</th><th>Theme</th><th>Key deliverables</th><th>ADRs</th></tr></thead>
+        <tbody>
+          <tr><td>0</td><td>Repo foundations</td><td>src-layout backend; framework data as versioned YAML, never hardcoded</td><td>0001–0004</td></tr>
+          <tr><td>1</td><td>Storage foundations</td><td>LanceDB vector store; hashed-vectorizer MVP embeddings</td><td>0005–0006</td></tr>
+          <tr><td>2</td><td>Relational store</td><td>SQLite via SQLModel</td><td>0007</td></tr>
+          <tr><td>2–3</td><td>Embeddings upgrade</td><td>Local semantic ONNX embeddings replace the MVP vectorizer</td><td>0008</td></tr>
+          <tr><td>3</td><td>C2M2 data</td><td>C2M2 encoded as verified structured data — partial, and said so</td><td>0009</td></tr>
+          <tr><td>4</td><td>NIST CSF 2.0</td><td>Encoded and scored by coverage, not maturity — the frameworks differ natively</td><td>0010</td></tr>
+          <tr><td>5</td><td>Mapping engine</td><td>Retrieval-only evidence↔control mapping; generative mapping deferred</td><td>0011</td></tr>
+          <tr><td>6</td><td>Dashboard</td><td>Executive dashboard and gap analysis; never averages an ordinal MIL</td><td>0012</td></tr>
+          <tr><td>7</td><td>Reporting</td><td>PDF/XLSX export, generated fresh, genuinely different layouts per format</td><td>0013</td></tr>
+          <tr><td>8</td><td>Chat</td><td>Retrieval-only “chat with your assessment” — the answer <em>is</em> the reviewed evidence</td><td>0014</td></tr>
+          <tr><td>9</td><td>Hardening</td><td>Testing and refactoring pass — measured fixes only, no speculative cleanup</td><td>0015</td></tr>
+          <tr class="pivot"><td>10</td><td>Frontend · MVP closure</td><td>React/TypeScript frontend; Docker stack; C2M2 fully transcribed (356/356); equivalence engine; retrieval-only confirmed permanent</td><td>0016–0020</td></tr>
+          <tr><td>11</td><td>NERC CIP</td><td>NERC CIP fully transcribed (141/141); equivalence schema generalized to N frameworks</td><td>0021–0024</td></tr>
+          <tr><td>12</td><td>CIS Controls v8</td><td>Full transcription — genuinely free licensing, unlike ISO 27001</td><td>0025</td></tr>
+          <tr><td>13</td><td>SOC 2</td><td>Criterion statements only; free-to-download ≠ licensed-to-reproduce</td><td>0026</td></tr>
+          <tr><td>14</td><td>PCI DSS</td><td>Section-level statements; found and fixed a real practice-ID collision bug</td><td>0027</td></tr>
+          <tr><td>15</td><td>CSF equivalence</td><td>NERC CIP↔NIST CSF 2.0 — highest hit rate of any pairing (107/141)</td><td>0028</td></tr>
+          <tr class="pivot"><td>16</td><td>Breadth complete</td><td>PCI DSS extended to 249 leaf requirements; all 80 NERC CIP↔PCI DSS entries re-reviewed at the new granularity — 60 survived, 20 dropped with disclosed reasons</td><td>0029</td></tr>
+          <tr><td>17</td><td>Pilot readiness audit</td><td>Practice-finding status and evidence audit trail, fixing a defect where “no evidence submitted” scored identically to “confirmed non-compliant”; framework-version pinning; sanitization pipeline; a benchmark that found an O(corpus) bug</td><td>0030–0033</td></tr>
+          <tr><td>18</td><td>Hardening · provenance · CI</td><td>Largest sprint by ADR count. Security hardening; document versioning and supersession flagging; XLSX/CSV row and sheet provenance; request-more-evidence workflow; failure-injection tests; TLS; GitHub Actions CI; multi-version registry</td><td>0034–0053</td></tr>
+          <tr><td>19</td><td>Real documents · OCR</td><td>Live testing on real policy PDFs found a chunker defect no unit test had — 140 of 148 chunks began or ended mid-word, corrupting the verbatim quotes the product's credibility rests on. Fixed 140→2. Then header normalisation, sentence chunking, local OCR, NIST CSF 1.1, upload retention</td><td>0054–0056</td></tr>
+          <tr class="pivot"><td>20</td><td>Scoring correctness</td><td>Positive scoring credit now requires a linked evidence trail, closing a path where a free-text rationale could raise a maturity level with nothing behind it; the evidence UI loads the pinned framework version; and a server-side finalization-readiness gate prevents freezing an assessment while review work is outstanding</td><td>0057–0058</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>Architectural throughline</h2>
+    <p class="kicker">Four commitments that recur in every sprint</p>
+    <ul class="through">
+      <li><b>Local-first by construction, not configuration</b><p>Evidence never leaves local infrastructure by default. When OCR was added, it was chosen so that no code path <em>can</em> transmit evidence — pdfium and the OCR weights ship inside their own wheels — rather than adding a setting that could be misset.</p></li>
+      <li><b>Framework structure is data, never code</b><p>Every framework lives in versioned YAML generated by a script carrying its own source citation. No scoring logic special-cases a framework, which is why C2M2's cumulative maturity and NIST CSF's coverage can coexist without either distorting the other.</p></li>
+      <li><b>Human review is structural, not advisory</b><p>AI proposals are visibly distinguished from human-confirmed findings at the data model, API, and UI layers. Nothing auto-accepts.</p></li>
+      <li><b>Verified over claimed; limitations disclosed</b><p>Fixes are confirmed by the benchmark or test that found the problem. Where something is incomplete — ISO 27001 titles-only, equivalence entries dropped at finer granularity, documents predating the retention policy — it is written down as a known limitation instead of quietly omitted.</p></li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Known limitations, disclosed</h2>
+    <p class="kicker">Stated deliberately — a compliance tool that hid them would undercut its own argument</p>
+    <ul class="limits">
+      <li><b>Three frameworks are partially transcribed for copyright reasons</b> — ISO 27001 (titles only), SOC 2 and PCI DSS (requirement statements only). All three are disclosed per framework.</li>
+      <li><b>Upload retention is not retroactive.</b> Documents ingested before the retention policy have no retained original and cannot be re-ingested if chunking improves again.</li>
+      <li><b>27 of 30 stored documents predate the document registry</b> and so carry no content hash to verify a retained original against.</li>
+      <li><b>Existing chunks are not migrated when chunking improves.</b> Re-chunking would invalidate the chunk IDs that reviewed evidence links point at, so re-ingestion is an explicit operator action.</li>
+      <li><b>No authentication, RBAC, or multi-tenancy.</b> The deployment stack is designed for a single trusted machine and must not be exposed to a network.</li>
+      <li><b>Sprint 20's correctness fixes can lower previously-reported scores</b> where a finding claimed credit without evidence behind it. That is the intended effect; no historical data was rewritten.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Roadmap</h2>
+    <p class="kicker">Breadth is finished; depth is the direction</p>
+    <p>Every framework-breadth item and every cross-framework equivalence pairing named in the project charter is delivered. Remaining charter items — continuous monitoring, multi-tenant authentication, cloud deployment — are all explicitly out of MVP scope.</p>
+    <p>The current direction is pilot readiness rather than breadth: making the platform's conclusions defensible enough that a real organization could rely on them, which is what Sprints 17–20 were for.</p>
+  </section>
+
+  <footer>
+    <span>Charter · PROJECT_CHARTER.md</span>
+    <span>Decisions · docs/adr/ (58)</span>
+    <span>Live status · docs/current_sprint.md</span>
+    <span>Sprint 20 · 2026-08-17</span>
+  </footer>
+
+</div>
