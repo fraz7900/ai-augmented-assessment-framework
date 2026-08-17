@@ -49,24 +49,54 @@ what you're touching before editing it:
 ## Commands
 
 ```
-cd backend && source .venv/bin/activate && pytest          # 449 tests as of Sprint 19 — run before finishing any backend change
+cd backend && source .venv/bin/activate && pytest          # 462 tests as of Sprint 19 — run before finishing any backend change
 cd backend && source .venv/bin/activate && ruff check .    # lint
 cd backend && source .venv/bin/activate && uvicorn compliance_platform.main:app --reload   # run the API, http://127.0.0.1:8000/docs
-cd frontend && npm run test    # vitest, 22 tests as of Sprint 19 — run before finishing any frontend change
+cd frontend && npm run test    # vitest, 30 tests as of Sprint 19 — run before finishing any frontend change
 cd frontend && npm run dev     # run the UI, http://localhost:5173
 ```
 First `uvicorn` startup can take a couple of minutes if this checkout sits on a slow/synced
 filesystem (e.g. OneDrive) — not a hang, let it finish. The backend suite is slow for the same
 reason (~10 minutes for a full green run there; ADR-0044's complexity-scaling performance tests are
-deliberately part of it) — budget for that rather than assuming it has hung. On a fresh clone, `npm
-install` needs `--legacy-peer-deps` (a real `openapi-typescript`/TypeScript peer conflict, see
-ADR-0016) and, on
-this same class of slow/synced filesystem, can intermittently leave `node_modules/.bin` or
-transitive optional deps (e.g. `esbuild`) incompletely installed — if `npm run test`/`dev` reports
-a missing binary or vitest workers time out with no error, delete `node_modules` and reinstall
-rather than assuming the source is broken. Relatedly, a first `npm run test` there can report
-"no tests" plus a handful of errors and still pass cleanly on an immediate re-run — retry once
-before treating that as a real failure.
+deliberately part of it) — budget for that rather than assuming it has hung. On a fresh clone, `npm install` needs `--legacy-peer-deps` (a real
+`openapi-typescript`/TypeScript peer conflict, see ADR-0016).
+
+### When the frontend suite will not run
+
+On this class of slow/synced filesystem `node_modules` can end up subtly incomplete, and the
+symptom is **not** an obvious missing-binary error. It looks like this:
+
+```
+Test Files  no tests            (or: 2 passed, 4 errors — the count varies per run)
+Errors      6 errors
+Error: [vitest-pool]: Failed to start forks worker for test files ...
+Caused by: Error: [vitest-pool-runner]: Timeout waiting for worker to respond
+```
+
+**Diagnose before fixing.** If every error is `Failed to start forks worker` and there are
+**zero** assertion failures, the code is fine and the runner is not — a run that reaches your
+tests will pass them. Two corroborating signals: `npx tsc -b` exits 0, and the run takes far
+longer than it should (400s+ against a normal ~90s). A *different* set of files failing on each
+run is the same tell; a real breakage is deterministic.
+
+Remedies, cheapest first:
+
+1. **Re-run it.** A single flaky run is common.
+2. **`npx vitest run --maxWorkers=1`.** Serialising avoids the worker-startup contention entirely
+   and is the fastest way to get a trustworthy answer. (`--pool=threads` and
+   `--poolOptions.forks.singleFork` are *not* accepted by this vitest version — don't bother.)
+3. **Stop anything else heavy first** — the backend suite, a `docker compose build`. Running the
+   two suites concurrently on this filesystem reliably starves the vitest workers, and the pass
+   count tracks system load.
+4. **Delete `node_modules` and reinstall.** This does work, but be aware it may not fix it on the
+   first attempt — one reinstall left the symptom in place during Sprint 19 and a later one
+   (performed by `npm audit fix`) cleared it completely. Don't conclude from a single failed
+   reinstall that the advice is wrong.
+
+**CI is the authority.** `frontend-checks` runs the same suite on a clean GitHub runner with none
+of these problems. If it is green there and failing here with worker-startup errors, the code is
+fine — that exact situation occurred repeatedly in Sprint 19. Push and let CI settle it rather
+than chasing the local environment indefinitely.
 
 ## Repo housekeeping
 
