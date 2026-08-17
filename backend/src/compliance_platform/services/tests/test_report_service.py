@@ -23,6 +23,7 @@ from compliance_platform.models.framework import (
     Objective,
     Practice,
 )
+from compliance_platform.services import report_service
 from compliance_platform.services.report_service import build_dashboard
 
 
@@ -279,3 +280,71 @@ def test_citation_not_flagged_when_a_different_document_is_superseded() -> None:
     )
 
     assert report.complication[0].gaps[0].cited_evidence[0].is_superseded is False
+
+
+# --- Situation interpretation (executive-reporting.mdc: every number
+# needs a "so what") ---
+
+
+def test_situation_so_what_leads_with_the_trust_question_when_review_is_pending() -> None:
+    """An executive reading a maturity score must be told first how much
+    of it rests on findings no human has confirmed."""
+    lines = report_service._situation_so_what(
+        total=10, accepted=3, edited=0, rejected=0, pending=7, unpopulated=[], status="draft"
+    )
+    assert "provisional" in lines[0]
+    assert "7 of 10" in lines[0]
+
+
+def test_situation_so_what_says_so_when_everything_is_human_reviewed() -> None:
+    lines = report_service._situation_so_what(
+        total=8, accepted=6, edited=2, rejected=0, pending=0, unpopulated=[], status="finalized"
+    )
+    assert "human-reviewed" in lines[0]
+    # The reassuring "available to cite" line is only earned once nothing
+    # is pending -- otherwise it would sit under a contradicting warning.
+    assert any("available to cite" in line for line in lines)
+
+
+def test_situation_so_what_does_not_reassure_while_review_is_outstanding() -> None:
+    lines = report_service._situation_so_what(
+        total=10, accepted=3, edited=0, rejected=0, pending=7, unpopulated=[], status="draft"
+    )
+    assert not any("available to cite" in line for line in lines)
+
+
+def test_situation_so_what_explains_an_empty_assessment_rather_than_implying_compliance() -> None:
+    """Zero evidence and zero gaps can read as "nothing wrong". It is
+    the opposite: nothing has been assessed."""
+    lines = report_service._situation_so_what(
+        total=0, accepted=0, edited=0, rejected=0, pending=0, unpopulated=[], status="draft"
+    )
+    assert len(lines) == 1
+    assert "unassessed" in lines[0]
+    assert "not a compliant one" in lines[0]
+
+
+def test_situation_so_what_warns_that_unpopulated_domains_understate_the_work() -> None:
+    lines = report_service._situation_so_what(
+        total=5,
+        accepted=5,
+        edited=0,
+        rejected=0,
+        pending=0,
+        unpopulated=["GV", "RC"],
+        status="draft",
+    )
+    domain_line = next(line for line in lines if "GV" in line)
+    assert "excluded from scoring" in domain_line
+    assert "understate" in domain_line
+
+
+def test_situation_so_what_stays_silent_about_counts_that_are_zero() -> None:
+    """A sentence per field would satisfy the rule's letter and defeat
+    its purpose. A count earns a line only when it changes what someone
+    should do."""
+    lines = report_service._situation_so_what(
+        total=4, accepted=4, edited=0, rejected=0, pending=0, unpopulated=[], status="finalized"
+    )
+    assert not any("rejected" in line for line in lines)
+    assert not any("edited them" in line for line in lines)

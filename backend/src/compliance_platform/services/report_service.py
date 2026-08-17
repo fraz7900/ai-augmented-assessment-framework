@@ -107,7 +107,97 @@ def _build_situation(
         rejected_count=counts[EvidenceReviewStatus.REJECTED],
         pending_ai_review_count=counts[EvidenceReviewStatus.PENDING],
         unpopulated_domains=unpopulated,
+        so_what=_situation_so_what(
+            total=len(evidence_links),
+            accepted=counts[EvidenceReviewStatus.ACCEPTED],
+            edited=counts[EvidenceReviewStatus.EDITED],
+            rejected=counts[EvidenceReviewStatus.REJECTED],
+            pending=counts[EvidenceReviewStatus.PENDING],
+            unpopulated=unpopulated,
+            status=assessment.status.value,
+        ),
     )
+
+
+def _situation_so_what(
+    total: int,
+    accepted: int,
+    edited: int,
+    rejected: int,
+    pending: int,
+    unpopulated: list[str],
+    status: str,
+) -> list[str]:
+    """One consequence sentence per number that has one.
+
+    Deliberately not a sentence per field. Padding every count with
+    filler ("4 items were rejected, which means 4 items were rejected")
+    would satisfy the letter of executive-reporting.mdc and defeat its
+    purpose, which is that a reader should not have to work out why a
+    number matters. A count only earns a line here when its value
+    changes what someone should do or how far they should trust the
+    report.
+    """
+    lines: list[str] = []
+
+    if total == 0:
+        return [
+            "No evidence has been linked yet, so every practice in this framework is currently "
+            "unassessed — the scores below reflect an empty assessment, not a compliant one."
+        ]
+
+    # The trust question, and the reason this is first: an executive
+    # reading a maturity score needs to know how much of it rests on
+    # findings a human has actually confirmed.
+    reviewed = accepted + edited
+    if pending:
+        lines.append(
+            f"{pending} of {total} evidence links are still AI-proposed and unreviewed, so this "
+            "report is provisional: those findings have not been confirmed by a person and should "
+            "not be presented as assessed until they are."
+        )
+    else:
+        lines.append(
+            f"All {total} evidence links have been human-reviewed, so the findings below rest on "
+            "confirmed evidence rather than unreviewed AI proposals."
+        )
+
+    if rejected:
+        lines.append(
+            f"{rejected} proposed link(s) were reviewed and rejected — evidence was considered "
+            "and judged not to support the practice, which is a deliberate finding, not a gap in "
+            "review."
+        )
+
+    if edited:
+        lines.append(
+            f"{edited} link(s) were accepted only after a reviewer edited them, indicating the "
+            "retrieval was close but not correct on its own for those practices."
+        )
+
+    if unpopulated:
+        lines.append(
+            f"{len(unpopulated)} domain(s) ({', '.join(unpopulated)}) have no transcribed "
+            "practices yet, so they are excluded from scoring entirely — overall figures describe "
+            "the remaining domains only and understate the work outstanding."
+        )
+
+    if status != "finalized":
+        lines.append(
+            f"This assessment is still {status.replace('_', ' ')}, so the figures can change; they "
+            "are a working position rather than a signed-off result."
+        )
+
+    # Only claim confirmed coverage when there is some AND nothing is
+    # pending -- otherwise the reassuring sentence would sit directly
+    # under the warning that contradicts it.
+    if reviewed and not pending:
+        lines.append(
+            f"{reviewed} human-confirmed link(s) are available to cite as evidence in the gap "
+            "analysis below."
+        )
+
+    return lines
 
 
 def _domain_so_what(

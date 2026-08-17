@@ -123,6 +123,17 @@ def build_pdf_report(dashboard: DashboardReport) -> bytes:
             + ", ".join(s.unpopulated_domains)
             + ".",
         )
+    # What those counts MEAN (executive-reporting.mdc's "every number
+    # needs a so what"). The counts above are the same figures the
+    # dashboard shows; these are the same interpretation the dashboard
+    # shows, computed once in report_service so the exported document and
+    # the screen can never disagree about what the numbers imply.
+    if s.so_what:
+        pdf.ln(2)
+        pdf.set_font("Helvetica", "I", 10)
+        for sentence in s.so_what:
+            _line(pdf, 5, f"- {sentence}")
+        pdf.set_font("Helvetica", "", 10)
     pdf.ln(2)
     pdf.set_font("Helvetica", "B", 11)
     _line(pdf, 6, dashboard.overall.headline)
@@ -224,6 +235,11 @@ def build_xlsx_report(dashboard: DashboardReport) -> bytes:
         ("Pending AI Review (not yet scored)", s.pending_ai_review_count),
         ("Unpopulated Domains", ", ".join(s.unpopulated_domains) or "(none)"),
     ]
+    # One row per interpretation sentence, rather than all of them joined
+    # into a single cell: a spreadsheet reader filters and sorts rows, and
+    # a paragraph crammed into one cell is unreadable at the column width
+    # any of these sheets use.
+    situation_rows += [("What this means", sentence) for sentence in s.so_what]
     for row in situation_rows:
         situation_ws.append(row)
     situation_ws.column_dimensions["A"].width = 32

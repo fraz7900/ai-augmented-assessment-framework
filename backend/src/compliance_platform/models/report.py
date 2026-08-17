@@ -103,6 +103,20 @@ class Situation(BaseModel):
     rejected_count: int
     pending_ai_review_count: int
     unpopulated_domains: list[str]
+    # executive-reporting.mdc: "a gap count should never appear in
+    # executive-facing output without one sentence connecting it to a
+    # business or risk consequence." DomainGapGroup.so_what and
+    # OverallSummary.headline already satisfied that rule; this section
+    # did not, and it is the one an executive reads FIRST — five bare
+    # integers with labels, including the two that decide whether the
+    # whole report can be relied on at all (evidence still awaiting human
+    # review, and domains that cannot be assessed).
+    #
+    # Computed here rather than written in the frontend so the PDF and
+    # XLSX exports carry the same interpretation. The rule governs "any
+    # executive report", not just the dashboard, and the frontend
+    # deliberately re-derives nothing.
+    so_what: list[str] = []
 
 
 class OverallSummary(BaseModel):

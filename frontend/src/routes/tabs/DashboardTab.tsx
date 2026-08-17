@@ -1,4 +1,5 @@
 import { useOutletContext } from 'react-router-dom'
+import { Download, Info } from 'lucide-react'
 import { reportUrl, useDashboard } from '../../api/assessments'
 import ScoreHeadline from '../../components/ScoreHeadline'
 import GapGroup from '../../components/GapGroup'
@@ -28,14 +29,16 @@ export default function DashboardTab() {
         <div className="flex gap-2">
           <a
             href={reportUrl(assessmentId, 'pdf')}
-            className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
           >
+            <Download className="h-4 w-4" aria-hidden="true" />
             Download PDF
           </a>
           <a
             href={reportUrl(assessmentId, 'xlsx')}
-            className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
           >
+            <Download className="h-4 w-4" aria-hidden="true" />
             Download XLSX
           </a>
         </div>
@@ -68,6 +71,36 @@ export default function DashboardTab() {
             {situation.unpopulated_domains.length > 0 ? situation.unpopulated_domains.join(', ') : 'None'}
           </p>
         </div>
+
+        {/*
+          What those counts mean. executive-reporting.mdc requires every
+          number in executive-facing output to carry a consequence, and
+          this panel was five bare integers — including the two that
+          decide how far the rest of the report can be trusted.
+
+          Rendered from situation.so_what rather than composed here: the
+          same sentences appear in the PDF and XLSX exports, so screen
+          and document cannot drift into saying different things about
+          the same figures.
+        */}
+        {situation.so_what.length > 0 && (
+          <div className="col-span-2 border-t border-slate-100 pt-3 sm:col-span-3">
+            <p className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-slate-500">
+              <Info className="h-3.5 w-3.5" aria-hidden="true" />
+              What this means
+            </p>
+            <ul className="mt-1.5 space-y-1.5">
+              {situation.so_what.map((sentence) => (
+                <li key={sentence} className="flex gap-2 text-sm text-slate-700">
+                  <span aria-hidden="true" className="text-slate-300">
+                    —
+                  </span>
+                  <span>{sentence}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
 
       <div>

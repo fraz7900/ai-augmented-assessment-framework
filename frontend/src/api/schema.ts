@@ -1363,6 +1363,11 @@ export interface components {
             pending_ai_review_count: number;
             /** Unpopulated Domains */
             unpopulated_domains: string[];
+            /**
+             * So What
+             * @default []
+             */
+            so_what: string[];
         };
         /** StatusTransitionRequest */
         StatusTransitionRequest: {
