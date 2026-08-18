@@ -69,15 +69,29 @@ ParseResult = tuple[
 _PDF_NORMALIZER_VERSION = "1"
 
 
-def _parser_version(file_type: FileType, *, ocr_used: bool = False) -> str:
+def _parser_version(file_type: FileType, *, status: ParseStatus | None = None) -> str:
     if file_type == FileType.PDF:
-        if ocr_used:
+        if status == ParseStatus.SUCCESS_OCR:
             # pypdf never produced this text -- pdfium rendered the page
             # and the OCR recogniser read it. Naming pypdf here would be
             # wrong, not just incomplete.
             from compliance_platform.services import ocr
 
             return f"{ocr.engine_version()}+cp_pdf_normalizer=={_PDF_NORMALIZER_VERSION}"
+        if status == ParseStatus.SUCCESS_PARTIAL_OCR:
+            # Both really did produce text in this document, so both are
+            # named. Recording only the recogniser would misattribute
+            # every page that had a real text layer; recording only pypdf
+            # would hide that some pages are approximate -- and
+            # parser_version is what ADR-0042 makes citations reproducible
+            # against.
+            from compliance_platform.services import ocr
+
+            return (
+                f"pypdf=={importlib.metadata.version('pypdf')}"
+                f"+{ocr.engine_version()}"
+                f"+cp_pdf_normalizer=={_PDF_NORMALIZER_VERSION}"
+            )
         return (
             f"pypdf=={importlib.metadata.version('pypdf')}"
             f"+cp_pdf_normalizer=={_PDF_NORMALIZER_VERSION}"
@@ -331,6 +345,55 @@ def _ocr_pdf(content: bytes, page_count: int, settings: Settings) -> ParseResult
     return text, ParseStatus.SUCCESS_OCR, warnings, _page_boundaries_for(page_texts), None
 
 
+def _ocr_missing_pages(
+    content: bytes,
+    page_texts: list[str],
+    textless: list[int],
+    settings: Settings,
+) -> tuple[list[str], list[int], list[str]] | None:
+    """OCR only the pages pypdf found no text on, splicing the results
+    into `page_texts`.
+
+    Returns (merged_page_texts, recovered_page_indices, warnings), or
+    None when OCR is unavailable or recovered nothing -- in which case
+    the caller keeps the pypdf text exactly as it was. A document that
+    parsed acceptably must never become worse for having tried OCR.
+    """
+    from compliance_platform.services import ocr  # deferred: loads ONNX models
+
+    try:
+        ocr_page_texts, warnings = ocr.ocr_pdf_page_texts(
+            content,
+            dpi=settings.ocr_render_dpi,
+            min_confidence=settings.ocr_min_confidence,
+            max_pages=settings.ocr_max_pages,
+            only_pages=set(textless),
+        )
+    except ocr.OcrUnavailableError as exc:
+        _logger.warning("ocr unavailable for partial-scan recovery: %s", exc)
+        return None
+
+    ocr_page_texts = _normalise_page_texts(ocr_page_texts)
+
+    merged = list(page_texts)
+    recovered: list[int] = []
+    for index in textless:
+        if index >= len(ocr_page_texts):
+            continue
+        candidate = ocr_page_texts[index]
+        # Only replace when OCR actually did better than what was there.
+        # Recognising a genuinely blank page yields noise or nothing, and
+        # substituting that for an honestly-empty page would manufacture
+        # evidence text out of a blank sheet.
+        if len(candidate) >= _MIN_CHARS_PER_PAGE and len(candidate) > len(merged[index]):
+            merged[index] = candidate
+            recovered.append(index)
+
+    if not recovered:
+        return None
+    return merged, recovered, warnings
+
+
 def parse_pdf(content: bytes, settings: Settings | None = None) -> ParseResult:
     settings = settings if settings is not None else Settings()
     warnings: list[str] = []
@@ -384,6 +447,43 @@ def parse_pdf(content: bytes, settings: Settings | None = None) -> ParseResult:
         else:
             warnings.append("OCR is disabled by configuration (ocr_enabled=false).")
         return text, ParseStatus.UNSUPPORTED_SCANNED, warnings, page_boundaries, None
+
+    # A document can clear the average and still be part scan. Judging
+    # scannedness only on the whole-document average silently loses those
+    # pages: a real 18-page deck in this project's own test corpus has 13
+    # pages with no text layer, but the 5 pages that do have one lift the
+    # average to ~138 chars/page, so it parsed as a clean SUCCESS with
+    # 72% of its content missing and no warning at all. Nothing
+    # downstream could detect that -- the chunks simply did not exist,
+    # and an assessor would have read "no evidence found" for content
+    # that was sitting in the document.
+    textless = [i for i, page in enumerate(page_texts) if len(page) < _MIN_CHARS_PER_PAGE]
+    if textless and settings.ocr_enabled:
+        recovered = _ocr_missing_pages(content, page_texts, textless, settings)
+        if recovered is not None:
+            page_texts, recovered_pages, ocr_warnings = recovered
+            text = "\n\n".join(page_texts)
+            # Recomputed from the spliced pages, never carried over: an
+            # OCR'd page is a different length than the empty one it
+            # replaced, so reusing the old boundaries would misattribute
+            # every citation after the first recovered page (ADR-0042).
+            page_boundaries = _page_boundaries_for(page_texts)
+            warnings.extend(ocr_warnings)
+            warnings.append(
+                f"{len(recovered_pages)} of {page_count} pages had no text layer and were "
+                f"read by local OCR (page(s) "
+                f"{', '.join(str(i + 1) for i in recovered_pages[:10])}"
+                f"{', and others' if len(recovered_pages) > 10 else ''}). Text from those "
+                "pages is approximate -- verify any passage against the source page before "
+                "relying on it as evidence."
+            )
+            # SUCCESS_OCR, not SUCCESS: part of this document's text came
+            # from the recogniser, and a reviewer has to be told that.
+            # Deliberately not a new fourth status -- the meaningful
+            # distinction for a reader is "OCR was involved, treat quotes
+            # as approximate", which SUCCESS_OCR already carries, and the
+            # warning above says exactly which pages.
+            return text, ParseStatus.SUCCESS_PARTIAL_OCR, warnings, page_boundaries, None
 
     return text, ParseStatus.SUCCESS, warnings, page_boundaries, None
 
@@ -641,7 +741,7 @@ def parse_document(
         file_type=file_type,
         submitter=submitter,
         content_hash=_content_hash(content),
-        parser_version=_parser_version(file_type, ocr_used=status == ParseStatus.SUCCESS_OCR),
+        parser_version=_parser_version(file_type, status=status),
     )
 
     return ParsedDocument(

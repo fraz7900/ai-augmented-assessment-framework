@@ -9,6 +9,7 @@ tests/README.md.
 from __future__ import annotations
 
 from collections.abc import Iterator
+from concurrent.futures import Future
 from pathlib import Path
 
 import pytest
@@ -262,3 +263,148 @@ def test_multi_page_pdf_chunks_carry_a_real_page_number_end_to_end(client: TestC
     assert len(chunks) >= 2
     page_numbers = {c["page_number"] for c in chunks}
     assert page_numbers == {1, 2}  # real page provenance, not discarded before chunking
+
+
+# ---- Asynchronous ingestion -----------------------------------------
+#
+# These use an inline executor so a poll immediately after the upload
+# sees a finished job. The real deployment uses a single background
+# worker; what is under test here is the endpoint contract and the job
+# record, not the thread pool.
+
+
+class _InlineExecutor:
+    def submit(self, fn, /, *args, **kwargs):
+        future: Future = Future()
+        try:
+            future.set_result(fn(*args, **kwargs))
+        except BaseException as exc:  # pragma: no cover - the worker must not raise
+            future.set_exception(exc)
+        return future
+
+
+@pytest.fixture
+def async_client(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> Iterator[TestClient]:
+    monkeypatch.setattr(dependencies, "get_cached_ingestion_executor", _InlineExecutor)
+    yield client
+
+
+def test_async_ingest_returns_202_with_a_pollable_job(async_client: TestClient) -> None:
+    content = b"Multi factor authentication is required for all remote access to critical systems."
+    response = async_client.post(
+        "/ingest/async",
+        files={"file": ("policy.txt", content, "text/plain")},
+        data={"submitter": "test-suite"},
+    )
+
+    assert response.status_code == 202
+    job = response.json()
+    assert job["filename"] == "policy.txt"
+    assert job["submitter"] == "test-suite"
+
+    polled = async_client.get(f"/ingest/jobs/{job['id']}")
+    assert polled.status_code == 200
+    body = polled.json()
+    assert body["status"] == "succeeded"
+    assert body["chunk_count"] >= 1
+    assert body["parse_status"] == "success"
+    assert body["embedding_backend"] == "semantic_local_onnx"
+    assert body["document_id"]
+
+
+def test_async_ingested_document_is_really_in_the_vector_store(
+    async_client: TestClient,
+) -> None:
+    """A job that claims success has to mean the same thing the
+    synchronous endpoint means -- chunks actually queryable, not just a
+    row saying so."""
+    content = b"Incidents are triaged within fifteen minutes during business hours by the SOC."
+    response = async_client.post(
+        "/ingest/async", files={"file": ("ir.txt", content, "text/plain")}
+    )
+    document_id = response.json()["id"]
+    job = async_client.get(f"/ingest/jobs/{document_id}").json()
+
+    chunks = dependencies.get_cached_vector_repository().chunks_for_document(job["document_id"])
+    assert len(chunks) >= 1
+
+
+def test_async_ingest_records_a_rejected_document_as_a_failed_job(
+    async_client: TestClient,
+) -> None:
+    """The case the synchronous endpoint answers with 422. Asynchronously
+    the upload itself succeeded, so the rejection has to survive on the
+    job instead of in the response status."""
+    response = async_client.post(
+        "/ingest/async", files={"file": ("empty.txt", b"", "text/plain")}
+    )
+    assert response.status_code == 202
+
+    job = async_client.get(f"/ingest/jobs/{response.json()['id']}").json()
+    assert job["status"] == "failed"
+    assert job["failure_category"] == "unsupported_document"
+    assert job["document_id"] is None
+
+
+def test_async_ingest_rejects_an_oversized_upload_immediately(
+    async_client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    settings = dependencies.get_cached_settings()
+    monkeypatch.setattr(settings, "max_upload_bytes", 10)
+
+    response = async_client.post(
+        "/ingest/async", files={"file": ("big.txt", b"x" * 50, "text/plain")}
+    )
+
+    assert response.status_code == 400
+    assert "maximum upload size" in response.json()["detail"]
+    assert async_client.get("/ingest/jobs").json() == []
+
+
+def test_async_ingest_refuses_work_beyond_the_queue_limit(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """429 rather than 503: the server is healthy, and waiting is the
+    correct response."""
+
+    class _NeverRunExecutor:
+        def submit(self, fn, /, *args, **kwargs):
+            return Future()
+
+    monkeypatch.setattr(dependencies, "get_cached_ingestion_executor", _NeverRunExecutor)
+    monkeypatch.setattr(dependencies.get_cached_settings(), "max_pending_ingestions", 1)
+
+    first = client.post("/ingest/async", files={"file": ("a.txt", b"content here", "text/plain")})
+    assert first.status_code == 202
+
+    second = client.post("/ingest/async", files={"file": ("b.txt", b"content here", "text/plain")})
+    assert second.status_code == 429
+
+
+def test_polling_an_unknown_job_is_a_404(async_client: TestClient) -> None:
+    assert async_client.get("/ingest/jobs/not-a-real-job").status_code == 404
+
+
+def test_jobs_are_listed_newest_first(async_client: TestClient) -> None:
+    for name in ("first.txt", "second.txt"):
+        async_client.post(
+            "/ingest/async",
+            files={"file": (name, b"Access control policy content for the corpus.", "text/plain")},
+        )
+
+    listed = async_client.get("/ingest/jobs").json()
+    assert [job["filename"] for job in listed] == ["second.txt", "first.txt"]
+
+
+def test_the_synchronous_endpoint_still_works_unchanged(client: TestClient) -> None:
+    """Async ingestion is additive. The existing endpoint is still
+    correct for small documents and nothing about it was deprecated."""
+    content = b"Access control policy content for the corpus."
+    response = client.post(
+        "/ingest",
+        files={"file": ("policy.txt", content, "text/plain")},
+    )
+    assert response.status_code == 200
+    assert response.json()["chunk_count"] >= 1

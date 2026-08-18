@@ -38,6 +38,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/ingest/async": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ingest Document Async
+         * @description Queue a document and return immediately with a job to poll.
+         *
+         *     The synchronous POST /ingest above is unchanged and still correct
+         *     for small documents. This exists because that one holds the request
+         *     open for the whole parse/chunk/embed pass, which a large or scanned
+         *     document can push past the proxy's read ceiling -- returning a
+         *     gateway timeout that is indistinguishable from a rejection and
+         *     leaves no record the work ever started.
+         *
+         *     202 rather than 201: nothing has been created yet at this point
+         *     except the intent to try.
+         */
+        post: operations["ingest_document_async_ingest_async_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ingest/jobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Ingestion Jobs */
+        get: operations["list_ingestion_jobs_ingest_jobs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ingest/jobs/{job_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Ingestion Job */
+        get: operations["get_ingestion_job_ingest_jobs__job_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/assessments": {
         parameters: {
             query?: never;
@@ -661,6 +725,15 @@ export interface components {
              */
             changed_at?: string;
         };
+        /** Body_ingest_document_async_ingest_async_post */
+        Body_ingest_document_async_ingest_async_post: {
+            /** File */
+            file: string;
+            /** Submitter */
+            submitter?: string | null;
+            /** Supersedes Document Id */
+            supersedes_document_id?: string | null;
+        };
         /** Body_ingest_document_ingest_post */
         Body_ingest_document_ingest_post: {
             /** File */
@@ -1102,6 +1175,68 @@ export interface components {
             detail?: components["schemas"]["ValidationError"][];
         };
         /**
+         * IngestionJobFailure
+         * @description Why an ingestion job failed, as a closed set rather than prose.
+         *
+         *     Same discipline as ADR-0058's FinalizationBlockerCategory: the UI
+         *     decides what to render and whether a retry is worth offering, and
+         *     parsing English to make that decision breaks the first time the
+         *     wording improves. The human-readable detail lives alongside this in
+         *     failure_message; this field is what code branches on.
+         * @enum {string}
+         */
+        IngestionJobFailure: "unsupported_document" | "unknown_superseded_document" | "too_large" | "interrupted" | "internal_error";
+        /**
+         * IngestionJobStatus
+         * @enum {string}
+         */
+        IngestionJobStatus: "queued" | "running" | "succeeded" | "failed";
+        /**
+         * IngestionJobView
+         * @description One ingestion job as the API returns it.
+         *
+         *     Deliberately not the IngestionJob table row: parse_warnings is a
+         *     real list here rather than the JSON string the row stores, and
+         *     callers should not be reading a persistence detail. The success
+         *     fields mirror IngestionResult exactly, so a client that already
+         *     handles the synchronous response can reuse the same rendering once
+         *     status is "succeeded".
+         */
+        IngestionJobView: {
+            /** Id */
+            id: string;
+            status: components["schemas"]["IngestionJobStatus"];
+            /** Filename */
+            filename: string;
+            /** Submitter */
+            submitter?: string | null;
+            /** Supersedes Document Id */
+            supersedes_document_id?: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Started At */
+            started_at?: string | null;
+            /** Finished At */
+            finished_at?: string | null;
+            /** Document Id */
+            document_id?: string | null;
+            /** Chunk Count */
+            chunk_count?: number | null;
+            parse_status?: components["schemas"]["ParseStatus"] | null;
+            /** Parser Version */
+            parser_version?: string | null;
+            /** Embedding Backend */
+            embedding_backend?: string | null;
+            /** Parse Warnings */
+            parse_warnings?: string[];
+            failure_category?: components["schemas"]["IngestionJobFailure"] | null;
+            /** Failure Message */
+            failure_message?: string | null;
+        };
+        /**
          * IngestionResult
          * @description Returned by the ingestion API and service layer.
          */
@@ -1185,7 +1320,7 @@ export interface components {
          * ParseStatus
          * @enum {string}
          */
-        ParseStatus: "success" | "success_ocr" | "unsupported_scanned" | "encoding_failure" | "empty" | "failed";
+        ParseStatus: "success" | "success_ocr" | "success_partial_ocr" | "unsupported_scanned" | "encoding_failure" | "empty" | "failed";
         /** Practice */
         Practice: {
             /** Id */
@@ -1533,6 +1668,101 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["IngestionResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    ingest_document_async_ingest_async_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_ingest_document_async_ingest_async_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IngestionJobView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_ingestion_jobs_ingest_jobs_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IngestionJobView"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_ingestion_job_ingest_jobs__job_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IngestionJobView"];
                 };
             };
             /** @description Validation Error */
