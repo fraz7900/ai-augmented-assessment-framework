@@ -145,6 +145,41 @@ docker compose --profile ollama up
 This exists so the generative extraction path ADR-0011/ADR-0014 evaluated and deliberately did not
 take remains a real, runnable option, without adding a default-on service nothing uses.
 
+## Backup and restore
+
+Everything this product exists to produce lives in one Docker volume, `<project>_compliance-data`:
+the SQLite assessment database — findings, evidence links, both audit trails, the finalization seals
+— and the LanceDB vector store the citations point into. A tool whose central claim is an immutable
+audit record needs a way to copy that record; until Sprint 21 there was none, which is why this
+section exists.
+
+```bash
+scripts/backup.sh                 # -> ./backups/compliance-data-<UTC timestamp>.tar.gz + .sha256
+scripts/backup.sh /mnt/archive    # or write it somewhere durable
+scripts/restore.sh ./backups/compliance-data-20260818T204500Z.tar.gz
+```
+
+**The stack is stopped for the duration of a backup, deliberately.** SQLite can be copied
+consistently while running (`.backup`), but LanceDB is a directory of files with no equivalent API,
+and a half-copied vector store restores into an assessment whose citations point at chunks that are
+not there. Seconds of downtime on a single-user deployment is a far cheaper price than a backup that
+looks fine and is not.
+
+Each archive is written with a `.sha256` beside it, and `restore.sh` checks it before touching
+anything. Restore replaces the volume's entire contents and requires typing the volume name to
+confirm — it is the one operation in this repo that can destroy an audit record, so it does not have
+a `--force`.
+
+**After restoring, verify rather than assume.** For each finalized assessment,
+`GET /api/assessments/{id}/verify` recomputes its seal against the restored data (ADR-0060). A
+`verified` result says what came back is what was archived; `altered` says it is not. That is a
+stronger check than any amount of `tar` output, and a restore is exactly the moment it earns its
+keep.
+
+Not automated: there is no schedule, no rotation, and no off-machine copy. Those are operator
+decisions that depend on where this is deployed, and inventing a policy here would be a guess
+dressed as a default. What the repo provides is a correct, verifiable snapshot on demand.
+
 ## Verification
 
 Live-verified end to end (see ADR-0017's Consequences section for the original full list, ADR-0045's

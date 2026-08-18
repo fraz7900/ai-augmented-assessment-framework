@@ -21,6 +21,7 @@ from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel
 
 from compliance_platform.api.dependencies import get_assessment_service
+from compliance_platform.core.identity import get_actor
 from compliance_platform.models.assessment import (
     Assessment,
     AssessmentStatus,
@@ -122,8 +123,11 @@ def transition_status(
     assessment_id: str,
     request: StatusTransitionRequest,
     service: AssessmentService = Depends(get_assessment_service),
+    actor: str = Depends(get_actor),
 ) -> Assessment:
-    return service.transition_status(assessment_id, request.status, note=request.note)
+    return service.transition_status(
+        assessment_id, request.status, note=request.note, actor=actor
+    )
 
 
 @router.get("/{assessment_id}/finalization-readiness", response_model=FinalizationReadiness)
@@ -178,8 +182,10 @@ def link_evidence(
     assessment_id: str,
     request: LinkEvidenceRequest,
     service: AssessmentService = Depends(get_assessment_service),
+    actor: str = Depends(get_actor),
 ) -> EvidenceLink:
     return service.link_evidence(
+        actor=actor,
         assessment_id=assessment_id,
         document_id=request.document_id,
         practice_reference=request.practice_reference,
@@ -331,6 +337,7 @@ def review_evidence(
     evidence_link_id: str,
     request: ReviewEvidenceRequest,
     service: AssessmentService = Depends(get_assessment_service),
+    actor: str = Depends(get_actor),
 ) -> EvidenceLink:
     """Applies a human accept/edit/reject decision to a pending evidence
     link — see services/assessment_service.py.review_evidence and the
@@ -346,6 +353,7 @@ def review_evidence(
             decision=request.decision,
             corrected_practice_reference=request.corrected_practice_reference,
             note=request.note,
+            actor=actor,
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -359,6 +367,7 @@ def set_practice_finding(
     practice_reference: str,
     request: SetPracticeFindingRequest,
     service: AssessmentService = Depends(get_assessment_service),
+    actor: str = Depends(get_actor),
 ) -> PracticeFinding:
     """Records a reviewer's explicit compliance judgment for one
     practice — SATISFIED, PARTIALLY_SATISFIED, NOT_SATISFIED,
@@ -374,6 +383,7 @@ def set_practice_finding(
         practice_reference=practice_reference,
         status=request.status,
         rationale=request.rationale,
+        actor=actor,
     )
 
 
@@ -406,6 +416,7 @@ def request_more_evidence(
     practice_reference: str,
     request: RequestMoreEvidenceRequest,
     service: AssessmentService = Depends(get_assessment_service),
+    actor: str = Depends(get_actor),
 ) -> EvidenceRequest:
     """Records a reviewer's explicit request that someone go find and
     upload more evidence for this practice (ADR-0043) — a workflow
@@ -419,6 +430,7 @@ def request_more_evidence(
         practice_reference=practice_reference,
         note=request.note,
         requested_by=request.requested_by,
+        actor=actor,
     )
 
 
@@ -438,6 +450,7 @@ def resolve_evidence_request(
     request_id: str,
     request: ResolveEvidenceRequestRequest,
     service: AssessmentService = Depends(get_assessment_service),
+    actor: str = Depends(get_actor),
 ) -> EvidenceRequest:
     """Marks an evidence request resolved. Always explicit -- never
     inferred from a new evidence link being added, since linking
@@ -445,7 +458,10 @@ def resolve_evidence_request(
     requested.
     """
     return service.resolve_evidence_request(
-        assessment_id=assessment_id, request_id=request_id, resolved_by=request.resolved_by
+        assessment_id=assessment_id,
+        request_id=request_id,
+        resolved_by=request.resolved_by,
+        actor=actor,
     )
 
 
@@ -453,13 +469,14 @@ def resolve_evidence_request(
 def propose_mappings(
     assessment_id: str,
     service: AssessmentService = Depends(get_assessment_service),
+    actor: str = Depends(get_actor),
 ) -> list[EvidenceLink]:
     """Runs the retrieval-based mapping engine (services/mapping_service.py,
     ADR-0011) and persists any resulting proposals as AI-proposed,
     pending-review evidence links — always over documents already
     associated with this assessment, never the whole vector store.
     """
-    return service.propose_mappings(assessment_id)
+    return service.propose_mappings(assessment_id, actor=actor)
 
 
 @router.post("/{assessment_id}/chat", response_model=ChatResponse)

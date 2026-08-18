@@ -55,7 +55,7 @@ from compliance_platform.models.assessment import (
 # adding one field to the record would invalidate every seal ever
 # written, and "the record was altered" is the one thing this must never
 # say wrongly.
-CURRENT_SEAL_VERSION = "1"
+CURRENT_SEAL_VERSION = "2"
 
 
 class UnknownSealVersionError(Exception):
@@ -186,7 +186,30 @@ def _payload_v1(
     }
 
 
-_PAYLOAD_BUILDERS = {"1": _payload_v1}
+def _payload_v2(**record: Any) -> dict[str, Any]:
+    """Version 2 adds the actor fields (ADR-0061) to version 1's payload.
+
+    Attribution has to be sealed or it is not worth much: a record that
+    can be silently reassigned to a different reviewer answers "who
+    decided this" no better than one that never recorded it. Version 1
+    is kept and still used for seals written before those columns
+    existed -- the whole reason the version is stored beside the digest.
+    """
+    payload = _payload_v1(**record)
+    payload["seal_version"] = "2"
+    for sealed, link in zip(payload["evidence_links"], sorted(
+        record["evidence_links"], key=lambda link: link.id
+    ), strict=True):
+        sealed["created_by"] = link.created_by
+        sealed["reviewed_by"] = link.reviewed_by
+    for sealed, change in zip(
+        payload["status_history"], record["status_history"], strict=True
+    ):
+        sealed["actor"] = change.actor
+    return payload
+
+
+_PAYLOAD_BUILDERS = {"1": _payload_v1, "2": _payload_v2}
 
 
 def compute_seal(
@@ -211,6 +234,7 @@ def compute_seal(
         practice_finding_history=practice_finding_history,
         evidence_requests=evidence_requests,
     )
+    assert payload["seal_version"] == version
     # sort_keys and fixed separators so the digest depends on the values
     # and nothing else -- not on dict insertion order, not on whether
     # some json version decided to pad after a comma.

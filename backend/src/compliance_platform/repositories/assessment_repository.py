@@ -73,6 +73,12 @@ class AssessmentRepository:
         )
         _add_missing_columns(
             self._engine,
+            "evidencelink",
+            {"created_by": "TEXT", "reviewed_by": "TEXT"},
+        )
+        _add_missing_columns(self._engine, "assessmentstatuschange", {"actor": "TEXT"})
+        _add_missing_columns(
+            self._engine,
             "assessment",
             {
                 "framework_version": "TEXT",
@@ -159,7 +165,11 @@ class AssessmentRepository:
             return list(session.exec(select(Assessment)).all())
 
     def update_status(
-        self, assessment_id: str, new_status: AssessmentStatus, note: str | None = None
+        self,
+        assessment_id: str,
+        new_status: AssessmentStatus,
+        note: str | None = None,
+        actor: str | None = None,
     ) -> Assessment | None:
         with Session(self._engine) as session:
             assessment = session.get(Assessment, assessment_id)
@@ -175,6 +185,7 @@ class AssessmentRepository:
                     from_status=previous_status,
                     to_status=new_status,
                     note=note,
+                    actor=actor,
                 )
             )
             session.commit()
@@ -235,6 +246,7 @@ class AssessmentRepository:
         review_status: EvidenceReviewStatus,
         practice_reference: str | None = None,
         note: str | None = None,
+        reviewed_by: str | None = None,
     ) -> EvidenceLink | None:
         """Applies a human review decision (accept/edit/reject) to an
         existing evidence link. practice_reference is only passed for an
@@ -248,6 +260,7 @@ class AssessmentRepository:
             self._assert_writable(session, link.assessment_id)
             link.review_status = review_status
             link.reviewed_at = datetime.now(UTC)
+            link.reviewed_by = reviewed_by
             if practice_reference is not None:
                 # Preserve whatever practice_reference this link had
                 # *before* this edit — captured only on the first edit
