@@ -238,7 +238,7 @@
     <h1>AI-Augmented Compliance Assessment Platform</h1>
     <p class="standfirst">A local-first platform that helps a cybersecurity assessor map evidence to framework controls, score maturity, and defend every conclusion — without sending a single document to the cloud.</p>
     <p class="meta">
-      <span><b>As of</b> Sprint 20 · 2026-08-17</span>
+      <span><b>As of</b> Sprint 21 · 2026-08-18</span>
       <span><b>Sector</b> Energy cybersecurity</span>
       <span><b>Decisions</b> 60 ADRs</span>
       <span><b>CI</b> green on main</span>
@@ -249,7 +249,7 @@
     <div class="metric"><span class="n">7</span><span class="l">Frameworks</span></div>
     <div class="metric"><span class="n">1,267</span><span class="l">Practices</span></div>
     <div class="metric"><span class="n">715</span><span class="l">Reviewed equivalences</span></div>
-    <div class="metric"><span class="n">534</span><span class="l">Tests passing</span></div>
+    <div class="metric"><span class="n">603</span><span class="l">Tests passing</span></div>
     <div class="metric"><span class="n">58</span><span class="l">Decision records</span></div>
     <div class="metric"><span class="n">21</span><span class="l">Sprints delivered</span></div>
   </div>
@@ -333,7 +333,8 @@
           <tr><td>17</td><td>Pilot readiness audit</td><td>Practice-finding status and evidence audit trail, fixing a defect where “no evidence submitted” scored identically to “confirmed non-compliant”; framework-version pinning; sanitization pipeline; a benchmark that found an O(corpus) bug</td><td>0030–0033</td></tr>
           <tr><td>18</td><td>Hardening · provenance · CI</td><td>Largest sprint by ADR count. Security hardening; document versioning and supersession flagging; XLSX/CSV row and sheet provenance; request-more-evidence workflow; failure-injection tests; TLS; GitHub Actions CI; multi-version registry</td><td>0034–0053</td></tr>
           <tr><td>19</td><td>Real documents · OCR</td><td>Live testing on real policy PDFs found a chunker defect no unit test had — 140 of 148 chunks began or ended mid-word, corrupting the verbatim quotes the product's credibility rests on. Fixed 140→2. Then header normalisation, sentence chunking, local OCR, NIST CSF 1.1, upload retention</td><td>0054–0056</td></tr>
-          <tr class="pivot"><td>20</td><td>Scoring correctness</td><td>Positive scoring credit now requires a linked evidence trail, closing a path where a free-text rationale could raise a maturity level with nothing behind it; the evidence UI loads the pinned framework version; and a server-side finalization-readiness gate prevents freezing an assessment while review work is outstanding</td><td>0057–0058</td></tr>
+          <tr><td>20</td><td>Scoring correctness</td><td>Positive scoring credit now requires a linked evidence trail, closing a path where a free-text rationale could raise a maturity level with nothing behind it; the evidence UI loads the pinned framework version; and a server-side finalization-readiness gate prevents freezing an assessment while review work is outstanding</td><td>0057–0058</td></tr>
+          <tr class="pivot"><td>21</td><td>Ingestion limits · a defensible record</td><td>Ingestion moved behind a pollable job queue, so a document past the proxy's 300s read ceiling — a 505-page manual, a scan needing OCR throughout — can be ingested at all; part-scanned PDFs now OCR only the pages lacking a text layer. Then R-12, open since Sprint 2: the write lock moved into the transaction that performs the write, and the finalized record is sealed with a SHA-256 printed into every export, so alteration by anything — including a text editor on the database file — is detectable</td><td>0059–0060</td></tr>
         </tbody>
       </table>
     </div>
@@ -360,6 +361,10 @@
       <li><b>Existing chunks are not migrated when chunking improves.</b> Re-chunking would invalidate the chunk IDs that reviewed evidence links point at, so re-ingestion is an explicit operator action.</li>
       <li><b>No authentication, RBAC, or multi-tenancy.</b> The deployment stack is designed for a single trusted machine and must not be exposed to a network.</li>
       <li><b>Sprint 20's correctness fixes can lower previously-reported scores</b> where a finding claimed credit without evidence behind it. That is the intended effect; no historical data was rewritten.</li>
+      <li><b>The audit trail records what changed and when, but never who.</b> No table carries an actor, so a finalized record cannot name the human who made a decision. Distinct from the multi-tenancy item above — attribution is not RBAC — and the next thing being fixed.</li>
+      <li><b>There is no backup or restore procedure.</b> The whole audit record lives in one Docker volume.</li>
+      <li><b>Assessments finalized before the seal existed carry none.</b> They report unsealed, never verified, and are deliberately not sealed retroactively — a seal written today would attest only that the record has not changed since today.</li>
+      <li><b>A seal proves nothing on its own.</b> It is evidence only when compared against a copy that left the database, which is why every export prints it — and that depends on someone having kept an export.</li>
     </ul>
   </section>
 
@@ -374,7 +379,7 @@
     <span>Charter · PROJECT_CHARTER.md</span>
     <span>Decisions · docs/adr/ (58)</span>
     <span>Live status · docs/current_sprint.md</span>
-    <span>Sprint 20 · 2026-08-17</span>
+    <span>Sprint 21 · 2026-08-18</span>
   </footer>
 
 </div>

@@ -1,6 +1,6 @@
 # AI-Augmented Compliance Assessment Platform — Project Status
 
-**As of:** Sprint 20 (2026-08-17)
+**As of:** Sprint 21 (2026-08-18)
 **Charter:** `PROJECT_CHARTER.md` · **Decisions:** `docs/adr/` (60 ADRs) · **Live status:** `docs/current_sprint.md`
 
 This is the living project snapshot, maintained current. `docs/project-status-sprint16.md` is a frozen
@@ -29,8 +29,9 @@ assessor:
 5. **Report** — an executive dashboard with quoted evidence citations, PDF/XLSX export, a
    sanitization pipeline for sharing externally, and retrieval-only chat that answers questions by
    quoting the assessment's own reviewed evidence rather than generating prose.
-6. **Finalize** — the assessment freezes as an immutable audit record, and only once a readiness gate
-   confirms no review work is outstanding.
+6. **Finalize** — the assessment freezes as an immutable audit record, only once a readiness gate
+   confirms no review work is outstanding, and sealed with a digest that makes later alteration
+   detectable rather than merely disallowed.
 
 **The core invariant, present from the start: no score exists without a linked evidence trail.**
 Everything else in the design follows from defending that claim.
@@ -53,7 +54,7 @@ Everything else in the design follows from defending that claim.
 |---|---|
 | **Frameworks** | 7 frameworks, 8 transcribed framework-versions, 1,267 practices |
 | **Cross-framework equivalence** | 715 human-reviewed entries across 8 pairings; 121 of 141 NERC CIP practices have at least one reviewed equivalent |
-| **Tests** | 493 backend, 41 frontend; `ruff` clean; CI green on `main` |
+| **Tests** | 546 backend, 57 frontend; `ruff` clean; CI green on `main` |
 | **Architecture decisions** | 60 ADRs |
 | **Deployment** | Docker Compose stack with TLS, hardened for single-user / small-team hosting |
 
@@ -101,6 +102,7 @@ licensing status was checked directly against the source document, never assumed
 | 18 | **Hardening, provenance, CI** | Largest sprint by ADR count. Security hardening; document versioning + supersession flagging; XLSX/CSV parsing with row/sheet provenance; request-more-evidence workflow; failure-injection tests; TLS; GitHub Actions CI; multi-version framework registry | 0034–0053 |
 | 19 | **Real-document testing and the disclosed tail** | Live API testing on real policy PDFs found a chunker defect no unit test had: 140 of 148 PDF chunks began or ended mid-word, corrupting the verbatim quotes the product's credibility rests on — fixed, 140→2. Then header/footer normalisation, sentence-boundary chunking, **local OCR** (a charter scope reversal), **NIST CSF 1.1** as the first real second version, and upload retention | 0054–0056 |
 | 20 | **Scoring and finalization correctness** | Positive scoring credit now requires a linked evidence trail — closing a path where a free-text rationale could raise a maturity level with nothing behind it; the evidence UI now loads the framework version the assessment is pinned to; and an authoritative server-side finalization-readiness gate prevents freezing an assessment as an immutable record while review work is outstanding | 0057–0058 |
+| 21 | **Ingestion limits and a defensible record** | Ingestion moved behind a pollable job queue, so a document larger than the proxy's 300s read ceiling — a 505-page manual, a scan needing OCR throughout — can be ingested at all; part-scanned PDFs now OCR only the pages that lack a text layer. Then R-12, open since Sprint 2: the finalized-assessment write lock moved into the transaction that performs the write, and the finalized record is **sealed** with a SHA-256 printed into every export, so alteration by anything — including a text editor on the SQLite file — is detectable | 0059–0060 |
 
 ---
 
@@ -139,6 +141,17 @@ These are stated deliberately; a compliance tool that hid them would undercut it
   machine and must not be exposed to a network.
 - **Sprint 20's correctness fixes can lower previously-reported scores** where a finding claimed credit
   without evidence behind it. That is the intended effect; no historical data was rewritten.
+- **The audit trail records what changed and when, but never who.** No table carries an actor, so a
+  finalized record cannot name the human who made a decision. Distinct from the multi-tenancy item
+  above — attribution is not RBAC — and the next thing being fixed.
+- **There is no backup or restore procedure.** The whole audit record lives in one Docker volume.
+- **Assessments finalized before ADR-0060 carry no seal.** They report `unsealed`, never `verified`,
+  and are deliberately not sealed retroactively: a seal written today would attest only that the
+  record has not changed since today.
+- **A seal proves nothing on its own.** It is evidence only when compared against a copy that left the
+  database — which is why every export prints it. That depends on someone having kept an export.
+- **The risk register stops at R-32 (Sprint 14).** Sprints 17–21's risks are recorded in their ADRs
+  and in `docs/current_sprint.md`, not yet in the register.
 
 ---
 
@@ -149,4 +162,7 @@ Every framework-breadth item and every cross-framework equivalence pairing named
 multi-tenant authentication, cloud deployment — are all explicitly "Won't (for MVP)" scope.
 
 The current direction is pilot-readiness rather than breadth: making the platform's conclusions
-defensible enough that a real organization could rely on them, which is what Sprints 17–20 were for.
+defensible enough that a real organization could rely on them, which is what Sprints 17–21 were for.
+Sprint 21 closed the last structural gap in that argument for the record itself; what remains is
+about the people using it — attribution of decisions to a verified identity, and an operational story
+for the data (backup, restore) that a pilot would need before real evidence lands.
