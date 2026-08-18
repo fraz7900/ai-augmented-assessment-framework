@@ -1,82 +1,121 @@
-Current sprint: Sprint 20 — P0 correctness tranche: make scoring and finalization defensible for a controlled pilot
-Objective: correctness and auditability over new features or UI polish. Three deliverables, all
-implemented and verified; no new frameworks, no async ingestion, no auth/RBAC/multi-tenancy, and no
-refactors outside the three.
-Status: The three P0 deliverables are complete. Verified 2026-08-17 on this OneDrive-backed
-checkout: **493 backend tests passing** (6m07s), `ruff check .` clean, **41 frontend tests passing**
-across 8 files, `tsc -b` clean, `npm run build` clean, `npm run lint` clean (2 pre-existing
-fast-refresh warnings in `EvidenceSourceBadge.tsx`, untouched by this sprint). Reviewed and merged
-to `main` via PR #1 — commit `ae2a468`, merge commit `861ec10` — and pushed; CI green on that
-push.
-P0.1 — positive scoring credit now requires a linked evidence trail (ADR-0057, which supersedes ONLY
-ADR-0030 Decision 3's "SATISFIED counts a practice as performed even with zero evidence links" and
-that decision's unconditional NOT_APPLICABLE handling; the rest of ADR-0030 stands and is relied
-upon). The superseded clause conflicted directly with this repo's governing invariant (AGENTS.md
-rule 2 and `.cursor/rules/assessment-generation.mdc`: "no score exists without a linked evidence
-trail"), and was reachable through the shipped API — a PUT with a free-text rationale raised a
-domain's MIL with nothing behind it. Now: SATISFIED confers credit only with an ACCEPTED/EDITED
-link; NOT_APPLICABLE needs the same basis because shrinking the denominator moves a score exactly as
-the numerator does; PENDING and REJECTED never confer credit (counting PENDING would auto-accept an
-AI proposal by the back door); negative findings (NOT_SATISFIED, INSUFFICIENT_EVIDENCE,
-PARTIALLY_SATISFIED) are deliberately unaffected, since the invariant guards unsupported *credit*,
-not caution. Unsupported findings remain recorded with their rationale and history, and are surfaced
-on the dashboard rather than silently ignored. `services/scoring_service.py` was not touched and no
-framework is special-cased: the change lives entirely in the one credit function both
-`compute_scores` and `build_dashboard` already shared, so the score endpoint and the dashboard
-cannot disagree.
-P0.2 — the evidence UI now loads the framework version the assessment is actually pinned to
-(ADR-0058). `useFramework` took no version, cached under `['framework', name]`, and sent no
-`?version=`, so a NIST CSF 1.1 assessment validated practice references and rendered practice text
-against 2.0. Harmless until ADR-0055 added a real second version, and then reachable — the two CSF
-versions share a name and, being differently numbered (`ID.AM-1` vs `ID.AM-01`), share no practice
-ids at all. Version is now in the cache key AND the query string; a null `framework_version` (legacy
-assessments) still resolves latest. Practice lookup, the manual practice datalist, edited AI
-mappings and displayed practice text all read the one definition object, so a single change fixes
-all four. The cache-collision test was confirmed to fail against the pre-fix hook.
-P0.3 — an authoritative finalization-readiness gate (ADR-0058). `transition_status` previously
-validated only the state machine, so an assessment could be frozen as authoritative — and its
-evidence trail locked immutable — with AI proposals unreviewed, evidence requests open, and findings
-claiming credit ADR-0057 refuses. New `FinalizationReadiness` model and
-`GET /assessments/{id}/finalization-readiness` return machine-readable blocker categories with
-counts and affected ids (never prose to parse). Blocks on: pending AI proposals, unresolved evidence
-requests, unsupported SATISFIED findings, unsupported NOT_APPLICABLE findings, and a pinned
-framework version that no longer resolves. Confirmed gaps, rejected evidence, NOT_SATISFIED,
-PARTIALLY_SATISFIED and INSUFFICIENT_EVIDENCE deliberately do NOT block — a finalized assessment
-reporting an organization as non-compliant is a legitimate, complete result, and gating it would
-re-create the very pressure to misreport that ADR-0030 existed to remove. Enforced in the service,
-not the UI: the frontend is not an integrity boundary, and the refusal is a 409 carrying the same
-structured blockers. The Overview tab queries readiness, renders the checklist, disables Finalize
-with a stated reason, refreshes after evidence review / finding changes / mapping proposals /
-evidence-request create and resolve, and hides itself once finalized so a settled assessment is
-never simultaneously described as provisional.
-Test changes worth naming: six pre-existing tests changed, all setup or superseded expectations,
-never a weakened assertion. Two encoded ADR-0030's superseded scoring clause and now assert the
-inverse with the reasoning attached. Three finalized an assessment with outstanding work purely to
-reach the finalized state before testing immutability; they clear the blocker first and say so. The
-golden-path E2E test failed legitimately — it excluded a practice as NOT_APPLICABLE on the strength
-of "confirmed with the CISO", exactly the assertion-not-artifact case ADR-0057 addresses — and was
-updated to demonstrate the correct workflow instead: a signed scope memo was added to the fictional
-corpus, linked as the exclusion's basis, and the test now also asserts readiness reports no
-unsupported findings. That preserves end-to-end coverage of the exclusion path, which simply
-flipping the assertion would have lost.
-Corrections to previously-stated status: Sprint 19's entry said 449 backend / 22 frontend tests —
-those were accurate then and are superseded by the counts above. It also said `main` was "ahead of
-`origin/main` until someone pushes it"; Sprint 19 was pushed and CI-verified (runs green through
-commit `4244afd`). It further recorded the `libgl1`/`libglib2.0-0` Dockerfile addition as
-"statically reasoned only" because Docker was unavailable — that is no longer true: the image was
-built, `import cv2` succeeded inside the container, and OCR of an image-only PDF ran end to end
-there, so ADR-0055's disclosure on that point is now closed.
-Next (P1, not started): the evidence-request and practice-finding UIs do not yet surface which
-specific practices are blocking finalization from the Evidence tab itself — the checklist names them
-but the reviewer must navigate manually. An "applicability attestation" record type was considered
-and deliberately deferred (see ADR-0057's Alternatives): it is worth revisiting only if real pilot
-use shows scope exclusions are routinely backed by artifacts that do not fit the document model.
-Also still open from Sprint 19, unchanged: upload retention is not retroactive, so the 6 of 30
-documents whose originals were discarded before ADR-0056 stay permanently un-re-ingestible; and 27
-of 30 stored documents have no `Document` registry row (predating ADR-0039), which also means they
-have no `content_hash` to verify a retained original against. Explicitly out of scope this sprint and
-not begun: new frameworks, asynchronous ingestion, assessment-document association, document
-archival/deletion, legacy registry backfill, bulk evidence acceptance, and
+Current sprint: Sprint 21 — unblock ingestion of the documents this product is actually for, and
+make the finalized record defensible rather than merely locked
+Objective: two independent tranches, both merged. First, remove the hard limit that stopped a
+large or scanned document being ingested at all. Second, close R-12, open in the risk register
+since Sprint 2. No new frameworks, no auth/RBAC/multi-tenancy, no refactors outside the two.
+Status: Both tranches are complete, merged to `main`, and CI-verified there — async ingestion via
+PR #2 (`05efacf`, merge `147e111`), the finalization work via PR #3 (`9e8dbce` + `68e1788`, merge
+`9234c39`), and the decisions recorded afterwards as ADR-0059 and ADR-0060 (`09e4999`). Verified
+2026-08-18: **546 backend tests passing**, `ruff check .` clean, **57 frontend tests passing**
+across 10 files, `tsc -b` clean, `npm run lint` clean (the same 2 pre-existing fast-refresh
+warnings in `EvidenceSourceBadge.tsx`, untouched again this sprint). CI is green on `main` through
+`09e4999`. Nothing is left in the working tree.
+T1 — asynchronous ingestion, with selective OCR alongside it (ADR-0059). Ingestion held the HTTP
+request open for the whole parse/chunk/embed pass, and nginx closes a proxied read at 300s — about
+200 pages at the measured ~0.7s per chunk. Past that the browser was told "gateway timeout" about
+an ingestion that was still running, with no record the work had started and no way to tell a
+timeout from a rejection. That ceiling is reachable with ordinary evidence for this product (a
+505-page manual, a deck needing OCR on most pages), and `deployment/frontend.nginx.conf` had
+already named the fix in Sprint 18: "background ingestion with a job-status endpoint, not a bigger
+number." Now: `POST /ingest/async` records an `IngestionJob` and returns 202; `GET
+/ingest/jobs[/{id}]` is polled for the outcome. `IngestionService.ingest()` is called unchanged,
+so ADR-0046's compensating delete and ADR-0055's retain-after-registry-write ordering keep their
+exact sequence instead of being re-derived somewhere they could drift. One worker (CPU-bound work
+on a machine that may also be running the browser; FIFO for free), a bounded queue
+(`max_pending_ingestions`, 429 when full, restoring the backpressure that waiting on the request
+used to provide), failure categories as a closed enum rather than prose, and a sweep on startup
+that fails anything a restart stranded — a row reading RUNNING forever is a worse answer than one
+saying it was interrupted. Selective OCR rides along because the same documents motivate it: a
+part-text-layer, part-scanned PDF now OCRs only the pages pypdf found nothing on, at its own
+`SUCCESS_PARTIAL_OCR` status with a composite `parser_version` naming both engines.
+T1 frontend. The browser uploads exclusively through the queue and polls the job — no size
+threshold, because that would put the two paths' behaviour on opposite sides of a number nobody
+can see, and the boundary case (a 24MB scan that OCRs for six minutes) is where being wrong costs
+most. Consequences worth naming: caches refresh when the job *succeeds*, not when the upload is
+accepted, since a 202 means the work was taken and refreshing then shows a list that still lacks
+the file just uploaded; Upload stays disabled for the whole job rather than the POST, because the
+POST now returns in about a second while the work runs for minutes; a "Recent uploads" list exists
+because the outcome no longer arrives in the upload's own response, and "is it in the document
+list?" cannot separate still-running from failed; and `UploadProgress` no longer says "don't close
+this tab", which was true when the work lived in the request and is false now. The unused
+synchronous hook was deleted; the synchronous endpoint itself remains and is still tested.
+T2 — the finalized-assessment write lock, and a tamper-evident seal (ADR-0060). R-12 said nothing
+outside `AssessmentService` stopped a direct-repository call writing through the
+audit-immutability guarantee; it was carried honestly for eighteen sprints on the reasoning that
+no code path did this, while ADR-0058's finalization gate was built on top of that same single
+layer. Investigating it found a second defect the entry had never named, on the sanctioned path
+rather than around it: the service read the status through `get_assessment()` (one session, opened
+and closed) and then wrote through a second session, so an assessment finalized between those two
+moments was written to anyway — R-11's check-then-act bug class, on the one guarantee meant to be
+absolute. `AssessmentRepository._assert_writable` now re-reads the status inside the transaction
+that performs the write, on the five methods the service already guards. `update_status` is
+excluded (it must reach FINALIZED) and `create_sanitization_approval` is excluded (the service
+does not block it either; approving a sanitized export adds no claim to the record). The service
+checks stay — they produce the 409 before any work is done — and the repository check logs at
+error level, because a backstop that fires silently stops being a backstop. On the race
+specifically: SQLite's default rollback journal is sufficient here, verified rather than assumed
+(`journal_mode=delete`, and no WAL or `isolation_level` configuration anywhere in the codebase),
+so `BEGIN IMMEDIATE` was deliberately not bundled.
+T2 detection. Prevention is application code and does not survive a text editor, so the whole
+record — assessment, evidence links, practice findings, both append-only history trails, evidence
+requests — is canonicalised into one SHA-256 at finalization, and `GET /assessments/{id}/verify`
+recomputes it against the current database. Four states, not a boolean: "no seal" and "seal does
+not match" are opposite situations, an unsealed record is unverified rather than untrustworthy,
+and a seal from a build that knows a payload shape this one does not is `unverifiable` rather than
+`altered`. Every outcome is a 200, because a detected alteration is that endpoint working. The
+seal is printed into every PDF and XLSX export, which is the part that makes it evidence: a digest
+stored beside the record it protects proves nothing against someone who edits the record and
+recomputes the digest, so it only bites once a copy exists elsewhere — and this product already
+hands people copies. Three canonicalisation decisions each prevent a seal that reports an
+untouched record as altered: timestamps normalised to UTC without an offset at fixed precision
+(the models are tz-aware, SQLite stores no offset), `updated_at` and the seal columns excluded
+from the payload (storing the seal updates the row), and explicit per-version field lists rather
+than a model dump. A seal is written once and never replaced. A per-row hash chain was considered
+and rejected: one digest covers the finalized record completely, and a chain is a second mechanism
+to keep correct on every write for localisation nobody has asked for.
+Tooling and documentation fixed in passing, each because this sprint hit it: the repo now carries
+a `permissions.allow` list of the read-only commands it actually runs (`54183a9`), derived from
+transcript frequency rather than guesswork; AGENTS.md's frontend-test troubleshooting said
+`--pool=threads` is "not accepted by this vitest version" when it is accepted by 4.1.10 and is the
+remedy that works (the default forks pool with `--maxWorkers=1` still lost 6 of 9 files to
+worker-startup timeouts at 640s, while `--pool=threads --maxWorkers=1` ran all 10 green in 149s,
+twice) — corrected with the measurements, since the wrong note sent earlier sprints chasing
+reinstalls; and both test counts in AGENTS.md were stale.
+Corrections to previously-stated status: this file's Sprint 20 entry said "Nothing is committed —
+the work sits in the working tree for review." That was true when written and stopped being true
+the same day; Sprint 20 merged via PR #1 and was pushed with CI green. Corrected in `11ae269`,
+which names the commits rather than describing a state, because a SHA cannot go stale — this is
+the second sprint running that this sentence has been wrong, Sprint 19's entry having made the
+identical mistake. Also superseded: Sprint 20's counts of 493 backend / 41 frontend tests,
+accurate then, are now 546 / 57. And one claim made during this sprint was simply wrong: PR #2 and
+PR #3 were described as touching different files and merging cleanly in either order. They both
+add to `models/assessment.py`, `models/schemas.py`, and `assessment_repository.py`; #3 conflicted
+after #2 landed. Both conflicts were independent additions at one spot, both sides were kept,
+nothing was dropped, and the combined tree was re-tested (546 passing) rather than trusted — see
+`2a2aba8`.
+Next (not started): the seal has no frontend surface at all — nothing displays it or offers a
+verify action, so the mechanism is reachable only via the API and the printed exports. Beyond
+that, the highest-value gaps found while auditing this sprint are ordered: (1) the audit trail
+records what changed and when but never *who* — `PracticeFindingChange`, `AssessmentStatusChange`
+and `EvidenceLink` carry timestamps and no actor, so a finalized record cannot name the human who
+decided anything, and nginx already authenticates every request against `.htpasswd` without that
+identity ever reaching the application; (2) there is no backup or restore story anywhere in
+`deployment/`, `docs/architecture/`, or the README, for a product whose central claim is an
+immutable audit record living in one Docker volume; (3) the risk register stops at R-32 (Sprint
+14), so Sprints 17–21's real risks live only in ADRs and this file — in a project whose
+differentiator is disclosed limitations, the disclosure artifact has drifted; (4) `Document` has
+no `assessment_id` while every other table does, so any assessment can link any document — fine
+for one organisation, wrong the moment two pilot clients share an instance.
+`docs/project-status.md` and its HTML rendering still describe Sprint 20 apart from the ADR count.
+Also open and unchanged from earlier sprints: upload retention is not retroactive, so the 6 of 30
+documents whose originals were discarded before ADR-0056 stay permanently un-re-ingestible; 27 of
+30 stored documents have no `Document` registry row (predating ADR-0039) and therefore no
+`content_hash` to verify a retained original against; and assessments finalized before ADR-0060
+carry no seal, are reported `unsealed` rather than `verified`, and are deliberately not sealed
+retroactively. Ingestion jobs accumulate with no retention policy, which is disclosed in ADR-0059
+rather than solved.
+Explicitly out of scope this sprint and not begun: new frameworks, assessment-document
+association, document archival/deletion, legacy registry backfill, bulk evidence acceptance, and
 authentication/RBAC/multi-tenancy/cloud deployment.
 Charter: PROJECT_CHARTER.md
 Constraint: local-first by default. Evidence content must not be sent
