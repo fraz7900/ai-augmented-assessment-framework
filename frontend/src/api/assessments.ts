@@ -9,6 +9,7 @@ import type {
   EvidenceLink,
   EvidenceRequest,
   FinalizationReadiness,
+  SealVerification,
   LinkEvidenceRequest,
   PracticeFinding,
   PracticeFindingChange,
@@ -31,6 +32,7 @@ const keys = {
   evidenceRequests: (id: string) => ['assessments', id, 'evidence-requests'] as const,
   finalizationReadiness: (id: string) =>
     ['assessments', id, 'finalization-readiness'] as const,
+  sealVerification: (id: string) => ['assessments', id, 'seal-verification'] as const,
 }
 
 export function useAssessments() {
@@ -145,6 +147,28 @@ export function useFinalizationReadiness(assessmentId: string | undefined) {
         `/assessments/${assessmentId}/finalization-readiness`,
       ),
     enabled: !!assessmentId,
+  })
+}
+
+/**
+ * Check a finalized assessment against the seal written when it was
+ * finalized (ADR-0060).
+ *
+ * Deliberately NOT run on render. Verification is a question somebody
+ * asks — "is this record still the record?" — and an answer that
+ * appears before anyone asked reads as decoration. It also costs a full
+ * re-read and re-hash of the assessment, which is not something to do
+ * every time a tab mounts.
+ */
+export function useVerifySeal(assessmentId: string | undefined) {
+  return useQuery({
+    queryKey: keys.sealVerification(assessmentId ?? ''),
+    queryFn: () => apiClient.get<SealVerification>(`/assessments/${assessmentId}/verify`),
+    enabled: false,
+    // A verdict has a moment attached to it. Keeping a stale one around
+    // would let the panel say "verified" about a check run before an
+    // edit that has happened since.
+    gcTime: 0,
   })
 }
 

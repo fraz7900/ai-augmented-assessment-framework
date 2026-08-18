@@ -181,6 +181,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/assessments/{assessment_id}/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Verify Seal
+         * @description Check a finalized assessment against the seal written when it was
+         *     finalized (R-12).
+         *
+         *     Answers the question an auditor asks about a compliance record:
+         *     not "can your software edit this?" but "can you show nothing did?"
+         *     The stored and recomputed digests are both returned, so anyone
+         *     holding an exported report can compare its printed seal against
+         *     this without trusting the verdict field.
+         *
+         *     Deliberately a plain 200 for every outcome, including ALTERED. A
+         *     non-2xx would make a detected alteration look like a failure to
+         *     answer, and this endpoint answering successfully is exactly what a
+         *     detected alteration IS.
+         */
+        get: operations["verify_seal_assessments__assessment_id__verify_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/assessments/{assessment_id}/status-history": {
         parameters: {
             query?: never;
@@ -697,6 +729,12 @@ export interface components {
              * Format: date-time
              */
             updated_at?: string;
+            /** Sealed Digest */
+            sealed_digest?: string | null;
+            /** Sealed At */
+            sealed_at?: string | null;
+            /** Seal Version */
+            seal_version?: string | null;
         };
         /**
          * AssessmentStatus
@@ -724,6 +762,8 @@ export interface components {
              * Format: date-time
              */
             changed_at?: string;
+            /** Actor */
+            actor?: string | null;
         };
         /** Body_ingest_document_async_ingest_async_post */
         Body_ingest_document_async_ingest_async_post: {
@@ -993,6 +1033,10 @@ export interface components {
             created_at?: string;
             /** Reviewed At */
             reviewed_at?: string | null;
+            /** Created By */
+            created_by?: string | null;
+            /** Reviewed By */
+            reviewed_by?: string | null;
         };
         /**
          * EvidenceRequest
@@ -1540,6 +1584,38 @@ export interface components {
             custom_terms: string[];
         };
         /**
+         * SealVerification
+         * @description Whether a finalized assessment still matches the seal written at
+         *     finalization (R-12). Both digests are returned so a holder of an
+         *     exported report can compare against what the export printed.
+         */
+        SealVerification: {
+            /** Assessment Id */
+            assessment_id: string;
+            status: components["schemas"]["SealVerificationStatus"];
+            /** Sealed Digest */
+            sealed_digest?: string | null;
+            /** Computed Digest */
+            computed_digest?: string | null;
+            /** Sealed At */
+            sealed_at?: string | null;
+            /** Seal Version */
+            seal_version?: string | null;
+            /** Detail */
+            detail: string;
+        };
+        /**
+         * SealVerificationStatus
+         * @description The outcome of checking a finalized assessment against its seal.
+         *
+         *     Four values, not a boolean: "no seal exists" and "the seal does not
+         *     match" are opposite situations that a boolean would collapse into
+         *     the same false. An unsealed assessment is unverified, which is not
+         *     the same as untrustworthy; an altered one is a finding.
+         * @enum {string}
+         */
+        SealVerificationStatus: "verified" | "altered" | "unsealed" | "unverifiable";
+        /**
          * SensitivityCategory
          * @description The mission-named categories this project can actually detect.
          *     Names, facility/location names, and employee/account/vendor/customer
@@ -1592,6 +1668,8 @@ export interface components {
              * @default []
              */
             unsupported_not_applicable_practices: string[];
+            /** Finalization Seal */
+            finalization_seal?: string | null;
             /**
              * So What
              * @default []
@@ -1863,7 +1941,9 @@ export interface operations {
     transition_status_assessments__assessment_id__status_post: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "x-remote-user"?: string | null;
+            };
             path: {
                 assessment_id: string;
             };
@@ -1913,6 +1993,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["FinalizationReadiness"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    verify_seal_assessments__assessment_id__verify_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                assessment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SealVerification"];
                 };
             };
             /** @description Validation Error */
@@ -1991,7 +2102,9 @@ export interface operations {
     link_evidence_assessments__assessment_id__evidence_post: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "x-remote-user"?: string | null;
+            };
             path: {
                 assessment_id: string;
             };
@@ -2226,7 +2339,9 @@ export interface operations {
     review_evidence_assessments__assessment_id__evidence__evidence_link_id__review_post: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "x-remote-user"?: string | null;
+            };
             path: {
                 assessment_id: string;
                 evidence_link_id: string;
@@ -2262,7 +2377,9 @@ export interface operations {
     set_practice_finding_assessments__assessment_id__practice_findings__practice_reference__put: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "x-remote-user"?: string | null;
+            };
             path: {
                 assessment_id: string;
                 practice_reference: string;
@@ -2361,7 +2478,9 @@ export interface operations {
     request_more_evidence_assessments__assessment_id__practice_findings__practice_reference__evidence_requests_post: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "x-remote-user"?: string | null;
+            };
             path: {
                 assessment_id: string;
                 practice_reference: string;
@@ -2428,7 +2547,9 @@ export interface operations {
     resolve_evidence_request_assessments__assessment_id__evidence_requests__request_id__resolve_post: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "x-remote-user"?: string | null;
+            };
             path: {
                 assessment_id: string;
                 request_id: string;
@@ -2464,7 +2585,9 @@ export interface operations {
     propose_mappings_assessments__assessment_id__propose_mappings_post: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "x-remote-user"?: string | null;
+            };
             path: {
                 assessment_id: string;
             };
