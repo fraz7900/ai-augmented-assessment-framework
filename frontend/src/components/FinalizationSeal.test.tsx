@@ -73,7 +73,10 @@ describe('FinalizationSeal', () => {
       }),
     })
     expect(screen.getByText(/this record has changed since it was finalized/i)).toBeInTheDocument()
-    expect(screen.getByText('a'.repeat(64))).toBeInTheDocument()
+    // The sealed digest appears twice by design — once as the seal
+    // itself, once in the comparison — so this asserts the pair rather
+    // than uniqueness.
+    expect(screen.getAllByText('a'.repeat(64))).toHaveLength(2)
     expect(screen.getByText('b'.repeat(64))).toBeInTheDocument()
   })
 
