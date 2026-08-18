@@ -9,6 +9,7 @@ a future sprint needs PostgreSQL for multi-tenant deployment.
 
 from __future__ import annotations
 
+import json
 from collections.abc import Iterable
 from datetime import UTC, datetime
 from pathlib import Path
@@ -24,6 +25,9 @@ from compliance_platform.models.assessment import (
     EvidenceLink,
     EvidenceRequest,
     EvidenceReviewStatus,
+    IngestionJob,
+    IngestionJobFailure,
+    IngestionJobStatus,
     PracticeFinding,
     PracticeFindingChange,
     PracticeFindingStatus,
@@ -387,3 +391,127 @@ class AssessmentRepository:
             session.commit()
             session.refresh(request)
             return request
+
+    # ---- Ingestion jobs (async ingestion) ----------------------------
+    #
+    # These run from a worker thread, not the request thread. That is
+    # safe here because every method in this class opens and closes its
+    # own Session against a shared engine whose pool hands out a
+    # per-thread connection -- verified directly rather than assumed,
+    # the same way ADR-0037 verified the vector store's read path under
+    # concurrent load.
+
+    def create_ingestion_job(self, job: IngestionJob) -> IngestionJob:
+        with Session(self._engine) as session:
+            session.add(job)
+            session.commit()
+            session.refresh(job)
+            return job
+
+    def get_ingestion_job(self, job_id: str) -> IngestionJob | None:
+        with Session(self._engine) as session:
+            return session.get(IngestionJob, job_id)
+
+    def list_ingestion_jobs(self, limit: int = 50) -> list[IngestionJob]:
+        """Most recently created first, so an operator sees the run they
+        just started without paging."""
+        with Session(self._engine) as session:
+            statement = (
+                select(IngestionJob).order_by(col(IngestionJob.created_at).desc()).limit(limit)
+            )
+            return list(session.exec(statement).all())
+
+    def mark_ingestion_job_running(self, job_id: str) -> IngestionJob | None:
+        with Session(self._engine) as session:
+            job = session.get(IngestionJob, job_id)
+            if job is None:
+                return None
+            job.status = IngestionJobStatus.RUNNING
+            job.started_at = datetime.now(UTC)
+            session.add(job)
+            session.commit()
+            session.refresh(job)
+            return job
+
+    def complete_ingestion_job(
+        self,
+        job_id: str,
+        *,
+        document_id: str,
+        chunk_count: int,
+        parse_status: str,
+        parser_version: str,
+        embedding_backend: str,
+        parse_warnings: list[str],
+    ) -> IngestionJob | None:
+        with Session(self._engine) as session:
+            job = session.get(IngestionJob, job_id)
+            if job is None:
+                return None
+            job.status = IngestionJobStatus.SUCCEEDED
+            job.finished_at = datetime.now(UTC)
+            job.document_id = document_id
+            job.chunk_count = chunk_count
+            job.parse_status = parse_status
+            job.parser_version = parser_version
+            job.embedding_backend = embedding_backend
+            job.parse_warnings_json = json.dumps(parse_warnings)
+            session.add(job)
+            session.commit()
+            session.refresh(job)
+            return job
+
+    def fail_ingestion_job(
+        self,
+        job_id: str,
+        *,
+        category: IngestionJobFailure,
+        message: str,
+        parse_warnings: list[str] | None = None,
+    ) -> IngestionJob | None:
+        with Session(self._engine) as session:
+            job = session.get(IngestionJob, job_id)
+            if job is None:
+                return None
+            job.status = IngestionJobStatus.FAILED
+            job.finished_at = datetime.now(UTC)
+            job.failure_category = category
+            job.failure_message = message
+            if parse_warnings is not None:
+                job.parse_warnings_json = json.dumps(parse_warnings)
+            session.add(job)
+            session.commit()
+            session.refresh(job)
+            return job
+
+    def fail_interrupted_ingestion_jobs(self) -> int:
+        """Fail every job left QUEUED or RUNNING by a previous process.
+
+        Jobs live in the database but the executor that runs them lives
+        in memory, so a restart (crash, redeploy, or an ordinary
+        `docker compose up`) strands anything mid-flight: nothing will
+        ever pick it up again, and a row that says RUNNING forever is
+        worse than one that says it was interrupted. Called once at
+        startup. Returns how many were swept, so the caller can log a
+        real number rather than assert success.
+        """
+        with Session(self._engine) as session:
+            statement = select(IngestionJob).where(
+                col(IngestionJob.status).in_(
+                    [IngestionJobStatus.QUEUED, IngestionJobStatus.RUNNING]
+                )
+            )
+            stranded = list(session.exec(statement).all())
+            for job in stranded:
+                job.status = IngestionJobStatus.FAILED
+                job.finished_at = datetime.now(UTC)
+                job.failure_category = IngestionJobFailure.INTERRUPTED
+                job.failure_message = (
+                    "The server restarted while this document was being ingested. "
+                    "Upload it again. If this document already appears in the "
+                    "document list, it finished before the restart and does not "
+                    "need re-uploading."
+                )
+                session.add(job)
+            session.commit()
+            return len(stranded)

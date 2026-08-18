@@ -267,6 +267,83 @@ class Document(SQLModel, table=True):
     parser_version: str = ""
 
 
+class IngestionJobStatus(StrEnum):
+    QUEUED = "queued"
+    RUNNING = "running"
+    SUCCEEDED = "succeeded"
+    FAILED = "failed"
+
+
+class IngestionJobFailure(StrEnum):
+    """Why an ingestion job failed, as a closed set rather than prose.
+
+    Same discipline as ADR-0058's FinalizationBlockerCategory: the UI
+    decides what to render and whether a retry is worth offering, and
+    parsing English to make that decision breaks the first time the
+    wording improves. The human-readable detail lives alongside this in
+    failure_message; this field is what code branches on.
+    """
+
+    UNSUPPORTED_DOCUMENT = "unsupported_document"
+    UNKNOWN_SUPERSEDED_DOCUMENT = "unknown_superseded_document"
+    TOO_LARGE = "too_large"
+    INTERRUPTED = "interrupted"
+    INTERNAL_ERROR = "internal_error"
+
+
+class IngestionJob(SQLModel, table=True):
+    """One queued/running/finished attempt to ingest one uploaded file.
+
+    Ingestion was synchronous until now: the HTTP request held open for
+    the whole parse/chunk/embed pass, so a large or scanned document
+    could exceed the proxy's 300s read ceiling
+    (deployment/frontend.nginx.conf) and fail as a gateway timeout with
+    no record that the work had ever started. A 505-page PDF, or one
+    needing OCR on most of its pages, is ordinary real evidence -- so
+    that ceiling was a real functional limit, not a theoretical one.
+
+    This record is what makes the work observable once the response no
+    longer carries it: the upload returns immediately with a job id, and
+    the client polls this row. It deliberately stores the *outcome*
+    fields of IngestionResult rather than replacing it -- the
+    synchronous endpoint still exists and still returns the same shape,
+    because nothing about it was wrong for small documents.
+
+    A job row is never deleted on failure. A failed ingestion is exactly
+    the case an operator needs to see, and discarding the record would
+    reproduce the gateway-timeout problem this table exists to fix.
+    """
+
+    id: str = Field(default_factory=_new_id, primary_key=True)
+    status: IngestionJobStatus = Field(default=IngestionJobStatus.QUEUED, index=True)
+    filename: str
+    submitter: str | None = None
+    supersedes_document_id: str | None = None
+
+    created_at: datetime = Field(default_factory=_utcnow, index=True)
+    started_at: datetime | None = None
+    finished_at: datetime | None = None
+
+    # Populated only on success. document_id is the same identifier the
+    # vector store and every EvidenceLink already use -- not a second
+    # ID scheme (see Document.id).
+    document_id: str | None = Field(default=None, index=True)
+    chunk_count: int | None = None
+    parse_status: str | None = None
+    parser_version: str | None = None
+    embedding_backend: str | None = None
+
+    # Parse warnings are a list, and this project has no JSON column
+    # convention yet (ADR-0007 keeps the SQLite schema deliberately
+    # plain). Stored as a JSON string and decoded at the repository
+    # boundary rather than introducing a sa_column here for one field --
+    # services and the API only ever see list[str].
+    parse_warnings_json: str = "[]"
+
+    failure_category: IngestionJobFailure | None = None
+    failure_message: str | None = None
+
+
 class EvidenceRequest(SQLModel, table=True):
     """A reviewer's explicit request that someone go find and upload
     MORE evidence for a specific practice (Sprint 18, ADR-0043) —

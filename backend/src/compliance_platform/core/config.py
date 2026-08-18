@@ -43,6 +43,13 @@ class Settings(BaseSettings):
 
     # Ingestion validation (see services/document_parsers.py).
     max_upload_bytes: int = 25 * 1024 * 1024  # 25 MB
+    # Backpressure for asynchronous ingestion. A queued job holds its
+    # uploaded bytes in memory until a worker frees up, so this bounds
+    # that commitment at roughly max_pending_ingestions *
+    # max_upload_bytes in the worst case. The synchronous endpoint got
+    # this bound for free by making the caller wait; accepting uploads
+    # immediately removes it, so it is reintroduced deliberately.
+    max_pending_ingestions: int = 10
     # NOTE: there is deliberately no `allowed_extensions` setting. One
     # existed, was never read by any code path, and had drifted to list
     # only PDF/DOCX/TXT/MD -- omitting the XLSX/CSV support added in

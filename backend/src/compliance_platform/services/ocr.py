@@ -87,14 +87,23 @@ def ocr_pdf_page_texts(
     dpi: int,
     min_confidence: float,
     max_pages: int,
+    only_pages: set[int] | None = None,
 ) -> tuple[list[str], list[str]]:
-    """OCR every page of a PDF, returning (page_texts, warnings).
+    """OCR a PDF's pages, returning (page_texts, warnings).
 
     `page_texts` always has exactly one entry per PDF page, using "" for
     any page that was skipped or yielded nothing. parse_pdf builds
     page_boundaries by walking this list in step with the pages, so a
     short list would silently misattribute every subsequent page's
     citations (ADR-0042).
+
+    `only_pages` (zero-based indices) restricts OCR to specific pages,
+    for a document where pypdf already extracted real text from the
+    rest. Rendering and recognising a page costs seconds, so OCRing
+    pages that already have a text layer would make a mostly-digital
+    document pay the full scanned-document price for nothing -- and
+    would risk replacing good extracted text with approximate OCR of the
+    same page. None means every page, which is the fully-scanned case.
     """
     try:
         import pypdfium2 as pdfium
@@ -109,19 +118,39 @@ def ocr_pdf_page_texts(
     document = pdfium.PdfDocument(io.BytesIO(content))
     try:
         page_count = len(document)
+        candidates = [
+            index
+            for index in range(page_count)
+            if only_pages is None or index in only_pages
+        ]
         # A large scan is the realistic worst case for wall-clock time
         # (seconds per page), so it is bounded and *disclosed* rather than
-        # left to run for an unbounded period behind a request.
-        pages_to_read = min(page_count, max_pages)
-        if page_count > max_pages:
-            warnings.append(
-                f"Document has {page_count} pages; OCR was limited to the first {max_pages}. "
-                "Later pages contain no extracted text and no evidence can be cited from them."
-            )
+        # left to run for an unbounded period behind a request. The bound
+        # counts pages actually OCR'd, so a mixed document spends its
+        # budget on the pages that need it instead of on pages whose text
+        # pypdf already had.
+        if len(candidates) > max_pages:
+            skipped = candidates[max_pages:]
+            candidates = candidates[:max_pages]
+            if only_pages is None:
+                warnings.append(
+                    f"Document has {page_count} pages; OCR was limited to the first "
+                    f"{max_pages}. Later pages contain no extracted text and no evidence "
+                    "can be cited from them."
+                )
+            else:
+                warnings.append(
+                    f"{len(skipped) + max_pages} pages had no text layer; OCR was limited "
+                    f"to {max_pages} of them. Pages "
+                    f"{', '.join(str(i + 1) for i in skipped[:10])}"
+                    f"{' and others' if len(skipped) > 10 else ''} contain no extracted "
+                    "text and no evidence can be cited from them."
+                )
+        targets = set(candidates)
 
         page_texts: list[str] = []
         for index in range(page_count):
-            if index >= pages_to_read:
+            if index not in targets:
                 page_texts.append("")
                 continue
             try:

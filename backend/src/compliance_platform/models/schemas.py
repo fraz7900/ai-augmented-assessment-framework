@@ -8,10 +8,17 @@ models/README.md.
 
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime
 from enum import StrEnum
 
 from pydantic import BaseModel, Field
+
+from compliance_platform.models.assessment import (
+    IngestionJob,
+    IngestionJobFailure,
+    IngestionJobStatus,
+)
 
 
 class FileType(StrEnum):
@@ -33,6 +40,16 @@ class ParseStatus(StrEnum):
     # SUCCESS must decide about this case explicitly rather than
     # inheriting an answer.
     SUCCESS_OCR = "success_ocr"
+    # Part of the document had a real text layer and part did not, so
+    # some pages were read by pypdf and others by OCR. A distinct value
+    # for the same reason SUCCESS_OCR is: it changes how a reviewer
+    # should read a quotation. "All of this is approximate" and "pages 3,
+    # 5 and 7 are approximate, the rest is exact" are different
+    # instructions, and collapsing them into SUCCESS_OCR would make a
+    # mostly-exact document look wholly untrustworthy -- while
+    # collapsing into SUCCESS would hide that any of it is approximate,
+    # which is the defect this value was added to fix.
+    SUCCESS_PARTIAL_OCR = "success_partial_ocr"
     UNSUPPORTED_SCANNED = "unsupported_scanned"
     ENCODING_FAILURE = "encoding_failure"
     EMPTY = "empty"
@@ -141,6 +158,67 @@ class IngestionResult(BaseModel):
     chunk_count: int
     embedding_backend: str
     parser_version: str
+
+
+class IngestionJobView(BaseModel):
+    """One ingestion job as the API returns it.
+
+    Deliberately not the IngestionJob table row: parse_warnings is a
+    real list here rather than the JSON string the row stores, and
+    callers should not be reading a persistence detail. The success
+    fields mirror IngestionResult exactly, so a client that already
+    handles the synchronous response can reuse the same rendering once
+    status is "succeeded".
+    """
+
+    id: str
+    status: IngestionJobStatus
+    filename: str
+    submitter: str | None = None
+    supersedes_document_id: str | None = None
+
+    created_at: datetime
+    started_at: datetime | None = None
+    finished_at: datetime | None = None
+
+    document_id: str | None = None
+    chunk_count: int | None = None
+    parse_status: ParseStatus | None = None
+    parser_version: str | None = None
+    embedding_backend: str | None = None
+    parse_warnings: list[str] = Field(default_factory=list)
+
+    failure_category: IngestionJobFailure | None = None
+    failure_message: str | None = None
+
+    @classmethod
+    def from_job(cls, job: IngestionJob) -> IngestionJobView:
+        try:
+            warnings = json.loads(job.parse_warnings_json)
+        except (ValueError, TypeError):
+            # A row written by a future/older shape should degrade to
+            # "no warnings recorded" rather than turning a status poll
+            # into a 500 -- the poll is how a client finds out anything
+            # at all, so it must not be the thing that breaks.
+            warnings = []
+        return cls(
+            id=job.id,
+            status=job.status,
+            filename=job.filename,
+            submitter=job.submitter,
+            supersedes_document_id=job.supersedes_document_id,
+            created_at=job.created_at,
+            started_at=job.started_at,
+            finished_at=job.finished_at,
+            document_id=job.document_id,
+            chunk_count=job.chunk_count,
+            parse_status=ParseStatus(job.parse_status) if job.parse_status else None,
+            parser_version=job.parser_version,
+            embedding_backend=job.embedding_backend,
+            parse_warnings=list(warnings) if isinstance(warnings, list) else [],
+            failure_category=job.failure_category,
+            failure_message=job.failure_message,
+        )
 
 
 class FinalizationBlockerCategory(StrEnum):

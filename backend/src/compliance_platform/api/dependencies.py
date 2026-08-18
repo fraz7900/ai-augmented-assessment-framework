@@ -9,6 +9,7 @@ here, never build a VectorRepository or Embedder themselves.
 
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 from functools import lru_cache
 
 from compliance_platform.ai.embeddings import Embedder, get_embedder
@@ -17,6 +18,7 @@ from compliance_platform.repositories.assessment_repository import AssessmentRep
 from compliance_platform.repositories.vector_repository import VectorRepository
 from compliance_platform.services.assessment_service import AssessmentService
 from compliance_platform.services.framework_loader import FrameworkRegistry
+from compliance_platform.services.ingestion_job_service import IngestionJobService
 from compliance_platform.services.ingestion_service import IngestionService
 
 
@@ -60,6 +62,30 @@ def get_ingestion_service() -> IngestionService:
         vector_repository=get_cached_vector_repository(),
         embedder=get_cached_embedder(),
         document_repository=get_cached_assessment_repository(),
+    )
+
+
+@lru_cache
+def get_cached_ingestion_executor() -> ThreadPoolExecutor:
+    """One worker, deliberately.
+
+    Parsing, OCR and embedding are CPU-bound, and this is a
+    single-user/small-team local product (charter Section 12) that may
+    be sharing a laptop with the browser it is being driven from.
+    Running several documents at once would not finish the queue any
+    sooner and would make the machine unusable while it happened. One
+    worker also gives the queue FIFO order for free, so "the document I
+    uploaded first finishes first" holds without extra machinery.
+    """
+    return ThreadPoolExecutor(max_workers=1, thread_name_prefix="ingest")
+
+
+def get_ingestion_job_service() -> IngestionJobService:
+    return IngestionJobService(
+        settings=get_cached_settings(),
+        ingestion_service=get_ingestion_service(),
+        job_repository=get_cached_assessment_repository(),
+        executor=get_cached_ingestion_executor(),
     )
 
 

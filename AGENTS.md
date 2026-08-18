@@ -49,10 +49,11 @@ what you're touching before editing it:
 ## Commands
 
 ```
-cd backend && source .venv/bin/activate && pytest          # 462 tests as of Sprint 19 — run before finishing any backend change
+cd backend && source .venv/bin/activate && pytest          # 514 tests as of Sprint 21 — run before finishing any backend change
 cd backend && source .venv/bin/activate && ruff check .    # lint
 cd backend && source .venv/bin/activate && uvicorn compliance_platform.main:app --reload   # run the API, http://127.0.0.1:8000/docs
-cd frontend && npm run test    # vitest, 30 tests as of Sprint 19 — run before finishing any frontend change
+cd frontend && npm run test    # vitest, 57 tests as of Sprint 21 — run before finishing any frontend change
+                               # (if it will not run, see the troubleshooting section below)
 cd frontend && npm run dev     # run the UI, http://localhost:5173
 ```
 First `uvicorn` startup can take a couple of minutes if this checkout sits on a slow/synced
@@ -82,13 +83,20 @@ run is the same tell; a real breakage is deterministic.
 Remedies, cheapest first:
 
 1. **Re-run it.** A single flaky run is common.
-2. **`npx vitest run --maxWorkers=1`.** Serialising avoids the worker-startup contention entirely
-   and is the fastest way to get a trustworthy answer. (`--pool=threads` and
-   `--poolOptions.forks.singleFork` are *not* accepted by this vitest version — don't bother.)
-3. **Stop anything else heavy first** — the backend suite, a `docker compose build`. Running the
+2. **`npx vitest run --pool=threads --maxWorkers=1`.** This is the one that reliably works. The
+   failure is in starting *forked processes* — vitest's default pool — and threads sidestep it
+   rather than merely reducing the contention. Measured in Sprint 21 on this checkout: the default
+   pool with `--maxWorkers=1` still lost 6 of 9 files to worker-startup timeouts and took 640s,
+   while `--pool=threads --maxWorkers=1` ran all 10 files green in 149s, twice.
+   (`--pool=threads` *is* accepted by vitest 4.1.10; an earlier version of this note said it was
+   not, which sent Sprint 20 chasing the wrong remedies. `--poolOptions.forks.singleFork` is still
+   not accepted.)
+3. **`--maxWorkers=1` on its own** — serialising the default forks pool. Worth one try, but it did
+   *not* fix the symptom the last time it was measured; prefer 2.
+4. **Stop anything else heavy first** — the backend suite, a `docker compose build`. Running the
    two suites concurrently on this filesystem reliably starves the vitest workers, and the pass
    count tracks system load.
-4. **Delete `node_modules` and reinstall.** This does work, but be aware it may not fix it on the
+5. **Delete `node_modules` and reinstall.** This does work, but be aware it may not fix it on the
    first attempt — one reinstall left the symptom in place during Sprint 19 and a later one
    (performed by `npm audit fix`) cleared it completely. Don't conclude from a single failed
    reinstall that the advice is wrong.

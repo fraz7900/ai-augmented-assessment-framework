@@ -65,7 +65,9 @@ class DocumentRepositoryProtocol(Protocol):
 # be told it is approximate. Every other status is a real, expected
 # failure the document-parsing rule requires be surfaced, not continued
 # past.
-_ACCEPTED_PARSE_STATUSES = frozenset({ParseStatus.SUCCESS, ParseStatus.SUCCESS_OCR})
+_ACCEPTED_PARSE_STATUSES = frozenset(
+    {ParseStatus.SUCCESS, ParseStatus.SUCCESS_OCR, ParseStatus.SUCCESS_PARTIAL_OCR}
+)
 
 
 class IngestionService:
