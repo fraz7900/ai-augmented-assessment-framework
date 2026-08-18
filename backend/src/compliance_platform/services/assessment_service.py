@@ -17,6 +17,7 @@ from collections.abc import Iterable
 from typing import Protocol
 
 from compliance_platform.ai.embeddings import Embedder
+from compliance_platform.core.errors import AssessmentFinalizedError
 from compliance_platform.models.assessment import (
     Assessment,
     AssessmentStatus,
@@ -127,14 +128,6 @@ class AssessmentNotReadyForFinalizationError(Exception):
         categories = ", ".join(sorted({b.category.value for b in blockers}))
         super().__init__(
             f"Assessment '{assessment_id}' is not ready to finalize; outstanding: {categories}."
-        )
-
-
-class AssessmentFinalizedError(Exception):
-    def __init__(self, assessment_id: str) -> None:
-        self.assessment_id = assessment_id
-        super().__init__(
-            f"Assessment '{assessment_id}' is finalized; evidence links can no longer be added."
         )
 
 

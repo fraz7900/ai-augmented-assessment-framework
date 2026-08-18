@@ -9,6 +9,7 @@ a future sprint needs PostgreSQL for multi-tenant deployment.
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Iterable
 from datetime import UTC, datetime
 from pathlib import Path
@@ -16,6 +17,7 @@ from pathlib import Path
 from sqlalchemy import text
 from sqlmodel import Session, SQLModel, col, create_engine, select
 
+from compliance_platform.core.errors import AssessmentFinalizedError
 from compliance_platform.models.assessment import (
     Assessment,
     AssessmentStatus,
@@ -29,6 +31,8 @@ from compliance_platform.models.assessment import (
     PracticeFindingStatus,
     SanitizationApproval,
 )
+
+_logger = logging.getLogger(__name__)
 
 
 def _add_missing_columns(engine, table: str, columns: dict[str, str]) -> None:
@@ -61,6 +65,54 @@ class AssessmentRepository:
             self._engine, "evidencelink", {"original_practice_reference": "TEXT"}
         )
         _add_missing_columns(self._engine, "assessment", {"framework_version": "TEXT"})
+
+    def _assert_writable(self, session: Session, assessment_id: str) -> None:
+        """Refuse a write to a finalized assessment, inside the caller's
+        own transaction.
+
+        AssessmentService checks this before calling any of these
+        methods and that check stays: it is what turns the refusal into
+        a 409 before any work happens, and it can say which operation
+        was refused. This one exists because that check cannot do two
+        other things.
+
+        First, it closes a real check-then-act window (R-11's bug class,
+        R-12's risk). The service reads the assessment through
+        get_assessment(), which opens a session, reads, and closes it —
+        then calls one of these methods, which opens a *second* session
+        to write. An assessment finalized between those two moments was
+        written to anyway. Reading the status in the same transaction as
+        the write removes the window: on SQLite's default rollback
+        journal the shared lock taken by this read is held until the
+        write commits, so a concurrent finalize cannot land in between.
+
+        Second, it applies to callers that never went through the
+        service at all — a script, a future endpoint, a migration. R-12
+        has recorded since Sprint 2 that nothing prevented such a caller
+        from writing straight through the audit-immutability guarantee,
+        and ADR-0058's finalization gate has since been built on top of
+        that same single layer of enforcement.
+
+        Reaching this raise means a caller skipped the service check, so
+        it is logged: a backstop that fires silently is one that stops
+        being a backstop and starts being the only check.
+
+        A missing assessment is deliberately NOT an error here. There is
+        no lock to enforce on an assessment that does not exist, the
+        service already raises AssessmentNotFoundError long before this
+        point, and inventing a second opinion in the repository would
+        change behaviour this change has no business changing.
+        """
+        assessment = session.get(Assessment, assessment_id)
+        if assessment is None:
+            return
+        if assessment.status == AssessmentStatus.FINALIZED:
+            _logger.error(
+                "blocked a write to finalized assessment %s at the repository layer; "
+                "the caller bypassed AssessmentService's check",
+                assessment_id,
+            )
+            raise AssessmentFinalizedError(assessment_id)
 
     def create_assessment(
         self, name: str, framework_name: str, framework_version: str | None = None
@@ -136,6 +188,7 @@ class AssessmentRepository:
 
     def add_evidence_link(self, link: EvidenceLink) -> EvidenceLink:
         with Session(self._engine) as session:
+            self._assert_writable(session, link.assessment_id)
             session.add(link)
             session.commit()
             session.refresh(link)
@@ -176,6 +229,7 @@ class AssessmentRepository:
             link = session.get(EvidenceLink, evidence_link_id)
             if link is None:
                 return None
+            self._assert_writable(session, link.assessment_id)
             link.review_status = review_status
             link.reviewed_at = datetime.now(UTC)
             if practice_reference is not None:
@@ -209,6 +263,7 @@ class AssessmentRepository:
         and ADR-0030.
         """
         with Session(self._engine) as session:
+            self._assert_writable(session, assessment_id)
             statement = select(PracticeFinding).where(
                 PracticeFinding.assessment_id == assessment_id,
                 PracticeFinding.practice_reference == practice_reference,
@@ -353,6 +408,7 @@ class AssessmentRepository:
 
     def create_evidence_request(self, request: EvidenceRequest) -> EvidenceRequest:
         with Session(self._engine) as session:
+            self._assert_writable(session, request.assessment_id)
             session.add(request)
             session.commit()
             session.refresh(request)
@@ -381,6 +437,7 @@ class AssessmentRepository:
             request = session.get(EvidenceRequest, request_id)
             if request is None:
                 return None
+            self._assert_writable(session, request.assessment_id)
             request.resolved_at = datetime.now(UTC)
             request.resolved_by = resolved_by
             session.add(request)
