@@ -1,7 +1,7 @@
 # AI-Augmented Compliance Assessment Platform — Project Status
 
 **As of:** Sprint 20 (2026-08-17)
-**Charter:** `PROJECT_CHARTER.md` · **Decisions:** `docs/adr/` (58 ADRs) · **Live status:** `docs/current_sprint.md`
+**Charter:** `PROJECT_CHARTER.md` · **Decisions:** `docs/adr/` (60 ADRs) · **Live status:** `docs/current_sprint.md`
 
 This is the living project snapshot, maintained current. `docs/project-status-sprint16.md` is a frozen
 historical snapshot at Sprint 16 and is deliberately not updated.
@@ -54,7 +54,7 @@ Everything else in the design follows from defending that claim.
 | **Frameworks** | 7 frameworks, 8 transcribed framework-versions, 1,267 practices |
 | **Cross-framework equivalence** | 715 human-reviewed entries across 8 pairings; 121 of 141 NERC CIP practices have at least one reviewed equivalent |
 | **Tests** | 493 backend, 41 frontend; `ruff` clean; CI green on `main` |
-| **Architecture decisions** | 58 ADRs |
+| **Architecture decisions** | 60 ADRs |
 | **Deployment** | Docker Compose stack with TLS, hardened for single-user / small-team hosting |
 
 ### Frameworks transcribed
