@@ -102,6 +102,15 @@ def build_pdf_report(dashboard: DashboardReport) -> bytes:
         f"Framework: {s.framework_name}   |   Status: {s.status}   |   "
         f"Generated: {generated_at}",
     )
+    # The finalization seal, printed so a copy of it leaves the database
+    # with the report (models/report.py's Situation.finalization_seal).
+    # A reader holding this PDF a year from now can check the value
+    # against GET /assessments/{id}/verify and find out whether the
+    # record still says what it said here.
+    if s.finalization_seal:
+        pdf.set_font("Courier", "", 7)
+        _line(pdf, 5, f"Finalization seal (SHA-256): {s.finalization_seal}")
+        pdf.set_font("Helvetica", "", 10)
     pdf.ln(4)
 
     pdf.set_font("Helvetica", "B", 13)
@@ -223,6 +232,14 @@ def build_xlsx_report(dashboard: DashboardReport) -> bytes:
     _write_header(situation_ws, ["Field", "Value"])
     situation_rows = [
         ("Generated", generated_at),
+        # Present only once the assessment is finalized; see the PDF
+        # header above and Situation.finalization_seal for why it is
+        # printed into the export at all.
+        *(
+            [("Finalization Seal (SHA-256)", s.finalization_seal)]
+            if s.finalization_seal
+            else []
+        ),
         ("Assessment Name", s.assessment_name),
         ("Framework", s.framework_name),
         ("Scoring Model", s.scoring_model),

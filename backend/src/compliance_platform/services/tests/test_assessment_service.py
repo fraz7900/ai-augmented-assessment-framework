@@ -10,6 +10,7 @@ from datetime import UTC, datetime
 
 import pytest
 
+from compliance_platform.core.errors import AssessmentAlreadySealedError
 from compliance_platform.models.assessment import (
     Assessment,
     AssessmentStatus,
@@ -183,6 +184,24 @@ class _FakeAssessmentRepository:
             for c in self._finding_history.get(assessment_id, [])
             if c.practice_reference == practice_reference
         ]
+
+    def practice_finding_history_for_assessment(
+        self, assessment_id: str
+    ) -> list[PracticeFindingChange]:
+        return list(self._finding_history.get(assessment_id, []))
+
+    def store_finalization_seal(
+        self, assessment_id: str, digest: str, seal_version: str
+    ) -> Assessment | None:
+        assessment = self._assessments.get(assessment_id)
+        if assessment is None:
+            return None
+        if assessment.sealed_digest is not None:
+            raise AssessmentAlreadySealedError(assessment_id)
+        assessment.sealed_digest = digest
+        assessment.seal_version = seal_version
+        assessment.sealed_at = datetime.now(UTC)
+        return assessment
 
     def create_sanitization_approval(self, approval: SanitizationApproval) -> SanitizationApproval:
         self._sanitization_approvals.setdefault(approval.assessment_id, []).append(approval)

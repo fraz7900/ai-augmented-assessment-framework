@@ -170,6 +170,7 @@ def _build_situation(
         rejected_count=counts[EvidenceReviewStatus.REJECTED],
         pending_ai_review_count=counts[EvidenceReviewStatus.PENDING],
         unpopulated_domains=unpopulated,
+        finalization_seal=assessment.sealed_digest,
         unsupported_satisfied_practices=unsupported_satisfied,
         unsupported_not_applicable_practices=unsupported_not_applicable,
         so_what=_situation_so_what(

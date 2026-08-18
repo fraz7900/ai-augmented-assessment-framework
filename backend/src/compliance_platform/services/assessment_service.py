@@ -11,12 +11,14 @@ the assessment-generation skill).
 from __future__ import annotations
 
 import hashlib
+import hmac
 import json
 import logging
 from collections.abc import Iterable
-from typing import Protocol
+from typing import Any, Protocol
 
 from compliance_platform.ai.embeddings import Embedder
+from compliance_platform.core.errors import AssessmentFinalizedError
 from compliance_platform.models.assessment import (
     Assessment,
     AssessmentStatus,
@@ -41,7 +43,10 @@ from compliance_platform.models.schemas import (
     FinalizationBlocker,
     FinalizationBlockerCategory,
     FinalizationReadiness,
+    SealVerification,
+    SealVerificationStatus,
 )
+from compliance_platform.services import audit_seal
 from compliance_platform.services.chat_service import answer_question
 from compliance_platform.services.export_service import build_pdf_report, build_xlsx_report
 from compliance_platform.services.mapping_service import find_mapping_candidates
@@ -127,14 +132,6 @@ class AssessmentNotReadyForFinalizationError(Exception):
         categories = ", ".join(sorted({b.category.value for b in blockers}))
         super().__init__(
             f"Assessment '{assessment_id}' is not ready to finalize; outstanding: {categories}."
-        )
-
-
-class AssessmentFinalizedError(Exception):
-    def __init__(self, assessment_id: str) -> None:
-        self.assessment_id = assessment_id
-        super().__init__(
-            f"Assessment '{assessment_id}' is finalized; evidence links can no longer be added."
         )
 
 
@@ -333,6 +330,12 @@ class AssessmentRepositoryProtocol(Protocol):
         set_by: str = "human",
     ) -> PracticeFinding: ...
     def practice_findings_for_assessment(self, assessment_id: str) -> list[PracticeFinding]: ...
+    def practice_finding_history_for_assessment(
+        self, assessment_id: str
+    ) -> list[PracticeFindingChange]: ...
+    def store_finalization_seal(
+        self, assessment_id: str, digest: str, seal_version: str
+    ) -> Assessment | None: ...
     def practice_finding_history(
         self, assessment_id: str, practice_reference: str
     ) -> list[PracticeFindingChange]: ...
@@ -625,7 +628,119 @@ class AssessmentService:
             assessment.status,
             new_status,
         )
+        if new_status == AssessmentStatus.FINALIZED:
+            updated = self._seal(updated)
         return updated
+
+    def _seal(self, assessment: Assessment) -> Assessment:
+        """Write the tamper-evidence digest for a just-finalized
+        assessment (R-12, services/audit_seal.py).
+
+        Sealed here rather than inside update_status because the seal
+        covers the record as a whole -- evidence links, findings, both
+        history trails, evidence requests -- and the repository layer
+        deliberately does not know what constitutes "the record".
+
+        The digest is computed from a fresh read of the stored rows, not
+        from anything held in memory, so the bytes hashed at
+        finalization are the same bytes verification will re-read later.
+        """
+        digest = audit_seal.compute_seal(
+            version=audit_seal.CURRENT_SEAL_VERSION, **self._seal_inputs(assessment)
+        )
+        sealed = self._assessments.store_finalization_seal(
+            assessment.id, digest, audit_seal.CURRENT_SEAL_VERSION
+        )
+        if sealed is None:  # pragma: no cover - existence already checked by the caller
+            raise AssessmentNotFoundError(assessment.id)
+        _logger.info(
+            "finalization seal written id=%s version=%s digest=%s",
+            assessment.id,
+            audit_seal.CURRENT_SEAL_VERSION,
+            digest,
+        )
+        return sealed
+
+    def _seal_inputs(self, assessment: Assessment) -> dict[str, Any]:
+        return {
+            "assessment": assessment,
+            "status_history": self._assessments.status_history(assessment.id),
+            "evidence_links": self._assessments.evidence_for_assessment(assessment.id),
+            "practice_findings": self._assessments.practice_findings_for_assessment(
+                assessment.id
+            ),
+            "practice_finding_history": (
+                self._assessments.practice_finding_history_for_assessment(assessment.id)
+            ),
+            "evidence_requests": self._assessments.evidence_requests_for_assessment(
+                assessment.id
+            ),
+        }
+
+    def verify_finalization_seal(self, assessment_id: str) -> SealVerification:
+        """Recompute a finalized assessment's digest and compare it with
+        the one stored at finalization.
+
+        This is the question an auditor actually asks -- not "will your
+        software let someone edit this?" but "can you show nothing did?"
+        A mismatch does not say what changed or who changed it; it says
+        the record is no longer the one that was finalized, which is
+        itself the finding. Investigation starts there.
+        """
+        assessment = self.get_assessment(assessment_id)
+
+        if assessment.sealed_digest is None or assessment.seal_version is None:
+            return SealVerification(
+                assessment_id=assessment_id,
+                status=SealVerificationStatus.UNSEALED,
+                detail=(
+                    "This assessment carries no finalization seal, so there is nothing to "
+                    "verify it against. Assessments finalized before sealing existed are "
+                    "deliberately not sealed retroactively - a seal written now would attest "
+                    "only that the record has not changed since today."
+                ),
+            )
+
+        try:
+            computed = audit_seal.compute_seal(
+                version=assessment.seal_version, **self._seal_inputs(assessment)
+            )
+        except audit_seal.UnknownSealVersionError as exc:
+            return SealVerification(
+                assessment_id=assessment_id,
+                status=SealVerificationStatus.UNVERIFIABLE,
+                sealed_digest=assessment.sealed_digest,
+                sealed_at=assessment.sealed_at,
+                seal_version=assessment.seal_version,
+                detail=str(exc),
+            )
+
+        matches = hmac.compare_digest(computed, assessment.sealed_digest)
+        if not matches:
+            _logger.error(
+                "finalization seal mismatch id=%s sealed=%s computed=%s",
+                assessment_id,
+                assessment.sealed_digest,
+                computed,
+            )
+        return SealVerification(
+            assessment_id=assessment_id,
+            status=(
+                SealVerificationStatus.VERIFIED if matches else SealVerificationStatus.ALTERED
+            ),
+            sealed_digest=assessment.sealed_digest,
+            computed_digest=computed,
+            sealed_at=assessment.sealed_at,
+            seal_version=assessment.seal_version,
+            detail=(
+                "The stored record still matches the seal written when this assessment was "
+                "finalized."
+                if matches
+                else "The stored record no longer matches the seal written when this "
+                "assessment was finalized. Something has changed it since - treat the "
+                "assessment as unreliable until the change is explained."
+            ),
+        )
 
     def status_history(self, assessment_id: str) -> list[AssessmentStatusChange]:
         self.get_assessment(assessment_id)  # raises AssessmentNotFoundError if missing

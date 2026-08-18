@@ -221,6 +221,42 @@ class IngestionJobView(BaseModel):
         )
 
 
+class SealVerificationStatus(StrEnum):
+    """The outcome of checking a finalized assessment against its seal.
+
+    Four values, not a boolean: "no seal exists" and "the seal does not
+    match" are opposite situations that a boolean would collapse into
+    the same false. An unsealed assessment is unverified, which is not
+    the same as untrustworthy; an altered one is a finding.
+    """
+
+    VERIFIED = "verified"
+    ALTERED = "altered"
+    # Never finalized, or finalized before sealing existed. Deliberately
+    # not back-filled — see Assessment.sealed_digest.
+    UNSEALED = "unsealed"
+    # Sealed by a build that knows a payload shape this one does not.
+    # Reported as its own state rather than as ALTERED, because the
+    # record may be perfectly intact and this build simply cannot say.
+    UNVERIFIABLE = "unverifiable"
+
+
+class SealVerification(BaseModel):
+    """Whether a finalized assessment still matches the seal written at
+    finalization (R-12). Both digests are returned so a holder of an
+    exported report can compare against what the export printed."""
+
+    assessment_id: str
+    status: SealVerificationStatus
+    sealed_digest: str | None = None
+    computed_digest: str | None = None
+    sealed_at: datetime | None = None
+    seal_version: str | None = None
+    detail: str
+
+
+
+
 class FinalizationBlockerCategory(StrEnum):
     """Why an assessment cannot be finalized yet (ADR-0058).
 

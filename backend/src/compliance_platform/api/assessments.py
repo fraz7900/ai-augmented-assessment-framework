@@ -37,7 +37,7 @@ from compliance_platform.models.assessment import (
 from compliance_platform.models.chat import ChatResponse
 from compliance_platform.models.report import DashboardReport
 from compliance_platform.models.sanitization import SanitizationPreview
-from compliance_platform.models.schemas import FinalizationReadiness
+from compliance_platform.models.schemas import FinalizationReadiness, SealVerification
 from compliance_platform.services.assessment_service import AssessmentService
 
 router = APIRouter(prefix="/assessments", tags=["assessments"])
@@ -141,6 +141,28 @@ def get_finalization_readiness(
     define a second one.
     """
     return service.finalization_readiness(assessment_id)
+
+
+@router.get("/{assessment_id}/verify", response_model=SealVerification)
+def verify_seal(
+    assessment_id: str,
+    service: AssessmentService = Depends(get_assessment_service),
+) -> SealVerification:
+    """Check a finalized assessment against the seal written when it was
+    finalized (R-12).
+
+    Answers the question an auditor asks about a compliance record:
+    not "can your software edit this?" but "can you show nothing did?"
+    The stored and recomputed digests are both returned, so anyone
+    holding an exported report can compare its printed seal against
+    this without trusting the verdict field.
+
+    Deliberately a plain 200 for every outcome, including ALTERED. A
+    non-2xx would make a detected alteration look like a failure to
+    answer, and this endpoint answering successfully is exactly what a
+    detected alteration IS.
+    """
+    return service.verify_finalization_seal(assessment_id)
 
 
 @router.get("/{assessment_id}/status-history", response_model=list[AssessmentStatusChange])
