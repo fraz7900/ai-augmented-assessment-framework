@@ -111,6 +111,18 @@ class Situation(BaseModel):
     # GET /assessments/{id}/finalization-readiness as blockers.
     unsupported_satisfied_practices: list[str] = []
     unsupported_not_applicable_practices: list[str] = []
+    # The tamper-evidence digest written when this assessment was
+    # finalized (R-12, services/audit_seal.py). None until then.
+    #
+    # It is on the report specifically so that it LEAVES the database:
+    # a seal stored only next to the record it protects proves nothing
+    # against someone who edits the record and recomputes the seal over
+    # it. Printed into the PDF and XLSX exports, a copy of it survives
+    # in every downloaded report, and anyone holding one can check it
+    # against GET /assessments/{id}/verify later. That comparison is
+    # the actual tamper-evidence; the stored digest alone is only
+    # bookkeeping.
+    finalization_seal: str | None = None
     # executive-reporting.mdc: "a gap count should never appear in
     # executive-facing output without one sentence connecting it to a
     # business or risk consequence." DomainGapGroup.so_what and

@@ -17,7 +17,10 @@ from pathlib import Path
 from sqlalchemy import text
 from sqlmodel import Session, SQLModel, col, create_engine, select
 
-from compliance_platform.core.errors import AssessmentFinalizedError
+from compliance_platform.core.errors import (
+    AssessmentAlreadySealedError,
+    AssessmentFinalizedError,
+)
 from compliance_platform.models.assessment import (
     Assessment,
     AssessmentStatus,
@@ -64,7 +67,16 @@ class AssessmentRepository:
         _add_missing_columns(
             self._engine, "evidencelink", {"original_practice_reference": "TEXT"}
         )
-        _add_missing_columns(self._engine, "assessment", {"framework_version": "TEXT"})
+        _add_missing_columns(
+            self._engine,
+            "assessment",
+            {
+                "framework_version": "TEXT",
+                "sealed_digest": "TEXT",
+                "sealed_at": "DATETIME",
+                "seal_version": "TEXT",
+            },
+        )
 
     def _assert_writable(self, session: Session, assessment_id: str) -> None:
         """Refuse a write to a finalized assessment, inside the caller's
@@ -324,6 +336,57 @@ class AssessmentRepository:
                 .order_by(text("rowid"))
             )
             return list(session.exec(statement).all())
+
+    def practice_finding_history_for_assessment(
+        self, assessment_id: str
+    ) -> list[PracticeFindingChange]:
+        """Every practice-finding transition in this assessment, oldest
+        first. practice_finding_history() answers the same question for
+        one practice; the finalization seal needs the whole trail in one
+        deterministic order, and rowid is this repository's established
+        authority for insertion order (see status_history)."""
+        with Session(self._engine) as session:
+            statement = (
+                select(PracticeFindingChange)
+                .where(PracticeFindingChange.assessment_id == assessment_id)
+                .order_by(text("rowid"))
+            )
+            return list(session.exec(statement).all())
+
+    def store_finalization_seal(
+        self, assessment_id: str, digest: str, seal_version: str
+    ) -> Assessment | None:
+        """Record the tamper-evidence digest for a just-finalized
+        assessment.
+
+        Deliberately not behind _assert_writable: this is the one write
+        that must happen to an assessment that is already FINALIZED, and
+        it is the write the lock exists to make meaningful. It touches
+        only the seal columns, which are excluded from the sealed
+        payload itself (services/audit_seal.py), so sealing cannot
+        invalidate its own seal.
+
+        Refuses to overwrite an existing seal. Re-sealing a record is
+        indistinguishable from covering up an edit to it, so it is not
+        an operation this repository offers.
+        """
+        with Session(self._engine) as session:
+            assessment = session.get(Assessment, assessment_id)
+            if assessment is None:
+                return None
+            if assessment.sealed_digest is not None:
+                _logger.error(
+                    "refused to overwrite the existing finalization seal on assessment %s",
+                    assessment_id,
+                )
+                raise AssessmentAlreadySealedError(assessment_id)
+            assessment.sealed_digest = digest
+            assessment.seal_version = seal_version
+            assessment.sealed_at = datetime.now(UTC)
+            session.add(assessment)
+            session.commit()
+            session.refresh(assessment)
+            return assessment
 
     def create_sanitization_approval(self, approval: SanitizationApproval) -> SanitizationApproval:
         with Session(self._engine) as session:

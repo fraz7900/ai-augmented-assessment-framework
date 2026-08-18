@@ -32,3 +32,21 @@ class AssessmentFinalizedError(Exception):
             f"Assessment '{assessment_id}' is finalized; its audit record can no longer "
             "be modified."
         )
+
+
+class AssessmentAlreadySealedError(Exception):
+    """An attempt to write a finalization seal over one that exists.
+
+    Raised by the repository rather than the service because it guards
+    an invariant of the stored record, not a workflow rule: a record
+    that can be re-sealed is one where an edit can be covered up by
+    recomputing the digest over the edited version, which would leave
+    the seal looking valid and meaning nothing.
+    """
+
+    def __init__(self, assessment_id: str) -> None:
+        self.assessment_id = assessment_id
+        super().__init__(
+            f"Assessment '{assessment_id}' already carries a finalization seal; a seal is "
+            "written once and never replaced."
+        )

@@ -85,6 +85,22 @@ class Assessment(SQLModel, table=True):
     created_at: datetime = Field(default_factory=_utcnow)
     updated_at: datetime = Field(default_factory=_utcnow)
 
+    # Tamper-evidence for the finalized record (R-12 Step 2). Written
+    # once, at the moment of finalization, over the whole assessment --
+    # see services/audit_seal.py for what is covered and, just as
+    # importantly, what this does and does not prove. None for any
+    # assessment that has never been finalized, and for assessments
+    # finalized before this existed: an unsealed record is reported as
+    # unsealed, never as verified, and never back-filled, because a seal
+    # computed today over a record that may already have been altered
+    # would attest to nothing while looking like it attested to
+    # something.
+    sealed_digest: str | None = None
+    sealed_at: datetime | None = None
+    # Which canonical payload shape the digest was computed over, so a
+    # later change to that shape does not invalidate existing seals.
+    seal_version: str | None = None
+
 
 class EvidenceLink(SQLModel, table=True):
     """Associates an ingested document (Sprint 1, identified by
