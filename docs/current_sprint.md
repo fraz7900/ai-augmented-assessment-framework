@@ -5,8 +5,9 @@ refactors outside the three.
 Status: The three P0 deliverables are complete. Verified 2026-08-17 on this OneDrive-backed
 checkout: **493 backend tests passing** (6m07s), `ruff check .` clean, **41 frontend tests passing**
 across 8 files, `tsc -b` clean, `npm run build` clean, `npm run lint` clean (2 pre-existing
-fast-refresh warnings in `EvidenceSourceBadge.tsx`, untouched by this sprint). Nothing is committed —
-the work sits in the working tree for review.
+fast-refresh warnings in `EvidenceSourceBadge.tsx`, untouched by this sprint). Reviewed and merged
+to `main` via PR #1 — commit `ae2a468`, merge commit `861ec10` — and pushed; CI green on that
+push.
 P0.1 — positive scoring credit now requires a linked evidence trail (ADR-0057, which supersedes ONLY
 ADR-0030 Decision 3's "SATISFIED counts a practice as performed even with zero evidence links" and
 that decision's unconditional NOT_APPLICABLE handling; the rest of ADR-0030 stands and is relied
