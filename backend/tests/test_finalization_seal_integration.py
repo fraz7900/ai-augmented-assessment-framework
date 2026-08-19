@@ -100,7 +100,12 @@ def test_finalizing_writes_a_seal(client: TestClient) -> None:
     assert body["status"] == "verified"
     assert body["sealed_digest"] == body["computed_digest"]
     assert len(body["sealed_digest"]) == 64  # SHA-256, hex
-    assert body["seal_version"] == "1"
+    # Pinned as a literal, not read from CURRENT_SEAL_VERSION: an
+    # unnoticed bump is exactly what this should catch, since every seal
+    # already written was computed under the old payload. Was "1" when
+    # ADR-0060 shipped; ADR-0061 added the actor fields, which have to be
+    # sealed or attribution could be silently rewritten.
+    assert body["seal_version"] == "2"
 
 
 def test_verification_is_stable_when_nothing_changes(client: TestClient) -> None:

@@ -26,12 +26,15 @@ places they still need to update.
 
 from __future__ import annotations
 
+import os
 import re
 from pathlib import Path
 
 from compliance_platform.core.config import Settings
 
-DEPLOYMENT = Path(__file__).resolve().parents[2] / "deployment"
+REPO_ROOT = Path(__file__).resolve().parents[2]
+DEPLOYMENT = REPO_ROOT / "deployment"
+COMPOSE_FILE = DEPLOYMENT / "docker-compose.yml"
 DOCKERFILE = DEPLOYMENT / "backend.Dockerfile"
 NGINX_CONF = DEPLOYMENT / "frontend.nginx.conf"
 
@@ -163,3 +166,53 @@ def test_redirected_paths_point_at_the_persistent_volume() -> None:
             f"{_settings_env_name(name)} is set to {value!r}, which is not on the /data volume. "
             "Anything written outside /data does not survive container recreation."
         )
+
+# --- backup and restore (Sprint 21) -----------------------------------
+#
+# The scripts are shell, so this cannot run them meaningfully in CI
+# without Docker and a live stack. What it CAN do is the thing that
+# actually rots: check that they still name the same volume the compose
+# file defines, and that the documented commitment has a file behind it.
+# This repo has been bitten before by a documented capability that was
+# never built (the sanitization pipeline, ADR-0032).
+
+BACKUP_SCRIPT = REPO_ROOT / "scripts" / "backup.sh"
+RESTORE_SCRIPT = REPO_ROOT / "scripts" / "restore.sh"
+
+
+def test_the_backup_and_restore_scripts_exist_and_are_executable() -> None:
+    for script in (BACKUP_SCRIPT, RESTORE_SCRIPT):
+        assert script.is_file(), f"{script.name} is documented in deployment/README.md"
+        assert os.access(script, os.X_OK), f"{script.name} is not executable"
+
+
+def test_the_scripts_target_the_volume_the_compose_file_declares() -> None:
+    """A renamed volume would leave both scripts silently backing up
+    nothing, or restoring into a volume nothing reads."""
+    compose = COMPOSE_FILE.read_text("utf-8")
+    declared = re.findall(r"^  ([a-z0-9-]+):$", compose, re.MULTILINE)
+    assert "compliance-data" in declared, "compose no longer declares a compliance-data volume"
+
+    for script in (BACKUP_SCRIPT, RESTORE_SCRIPT):
+        assert "_compliance-data" in script.read_text("utf-8"), (
+            f"{script.name} does not reference the compliance-data volume"
+        )
+
+
+def test_the_restore_script_has_no_force_flag() -> None:
+    """Restore destroys an audit record. The confirmation prompt is the
+    point, and a flag that skips it would be the first thing reached for
+    in a hurry."""
+    body = RESTORE_SCRIPT.read_text("utf-8")
+    assert "--force" not in body
+    assert "read -r -p" in body
+
+
+def test_backup_and_restore_are_documented_for_an_operator() -> None:
+    readme = (REPO_ROOT / "deployment" / "README.md").read_text("utf-8")
+    assert "## Backup and restore" in readme
+    assert "scripts/backup.sh" in readme
+    assert "scripts/restore.sh" in readme
+    # The restore-time verification step is the reason the seal exists;
+    # losing it from the docs would lose the point.
+    assert "/verify" in readme

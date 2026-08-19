@@ -2,10 +2,12 @@ import { useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import {
   useFinalizationReadiness,
+  useVerifySeal,
   useStatusHistory,
   useTransitionStatus,
 } from '../../api/assessments'
 import FinalizationChecklist from '../../components/FinalizationChecklist'
+import FinalizationSeal from '../../components/FinalizationSeal'
 import StatusBadge from '../../components/StatusBadge'
 import type { AssessmentTabContext } from '../AssessmentDetailPage'
 import type { AssessmentStatus } from '../../api/types'
@@ -25,6 +27,12 @@ export default function OverviewTab() {
   const transition = useTransitionStatus(assessmentId)
   const { data: readiness, isLoading: readinessLoading } =
     useFinalizationReadiness(assessmentId)
+  const {
+    data: verification,
+    refetch: verifySeal,
+    isFetching: isVerifying,
+    error: verifyError,
+  } = useVerifySeal(assessmentId)
   const [note, setNote] = useState('')
 
   const target = nextStatus[assessment.status]
@@ -101,6 +109,22 @@ export default function OverviewTab() {
           isFinalized={isFinalized}
         />
       </div>
+
+      {/*
+        Only once finalized. Before that there is nothing sealed, and
+        offering the control anyway would imply a draft is meant to be
+        immutable — the same reason the checklist hides itself after
+        finalization (ADR-0058).
+      */}
+      {isFinalized && (
+        <FinalizationSeal
+          seal={assessment.sealed_digest}
+          verification={verification}
+          isVerifying={isVerifying}
+          error={verifyError}
+          onVerify={() => void verifySeal()}
+        />
+      )}
 
       <div className="rounded-lg border border-slate-200 bg-white p-4">
         <h2 className="font-semibold text-slate-900">Status history</h2>

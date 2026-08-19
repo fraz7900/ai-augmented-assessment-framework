@@ -90,7 +90,11 @@ class _FakeAssessmentRepository:
         return list(self._assessments.values())
 
     def update_status(
-        self, assessment_id: str, new_status: AssessmentStatus, note: str | None = None
+        self,
+        assessment_id: str,
+        new_status: AssessmentStatus,
+        note: str | None = None,
+        actor: str | None = None,
     ) -> Assessment | None:
         assessment = self._assessments.get(assessment_id)
         if assessment is None:
@@ -127,11 +131,13 @@ class _FakeAssessmentRepository:
         review_status: EvidenceReviewStatus,
         practice_reference: str | None = None,
         note: str | None = None,
+        reviewed_by: str | None = None,
     ) -> EvidenceLink | None:
         link = self.get_evidence_link(evidence_link_id)
         if link is None:
             return None
         link.review_status = review_status
+        link.reviewed_by = reviewed_by
         link.reviewed_at = datetime.now(UTC)
         if practice_reference is not None:
             link.practice_reference = practice_reference

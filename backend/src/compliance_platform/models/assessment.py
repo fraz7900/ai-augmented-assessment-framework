@@ -139,6 +139,16 @@ class EvidenceLink(SQLModel, table=True):
     confidence: float | None = None
     created_at: datetime = Field(default_factory=_utcnow)
     reviewed_at: datetime | None = None
+    # Who created this link, and who made the accept/edit/reject
+    # decision on it (ADR-0061). Both are the authenticated identity the
+    # proxy forwarded, never a client-supplied name -- see
+    # core/identity.py. None on rows written before attribution existed,
+    # which is a different fact from `unauthenticated` and is kept
+    # distinguishable on purpose. An AI-proposed link is created by the
+    # mapping engine, so created_by records the operator who asked for
+    # the proposals; `source` already says a human did not choose it.
+    created_by: str | None = None
+    reviewed_by: str | None = None
 
 
 class AssessmentStatusChange(SQLModel, table=True):
@@ -154,6 +164,10 @@ class AssessmentStatusChange(SQLModel, table=True):
     to_status: AssessmentStatus
     note: str | None = None
     changed_at: datetime = Field(default_factory=_utcnow)
+    # Who made this transition (ADR-0061). Most consequential on the one
+    # into FINALIZED: "this assessment was frozen as authoritative" is a
+    # claim somebody made, and until now the record could not say who.
+    actor: str | None = None
 
 
 class PracticeFinding(SQLModel, table=True):

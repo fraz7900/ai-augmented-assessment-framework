@@ -217,6 +217,53 @@ def test_the_seal_fields_themselves_are_not_sealed() -> None:
     assert _seal(assessment=already_sealed) == _seal()
 
 
+# --- attribution is sealed too (v2) -----------------------------------
+
+
+def test_a_reassigned_reviewer_changes_the_digest() -> None:
+    # Attribution has to be sealed or it is not worth much: a record
+    # whose reviewer can be silently swapped answers "who decided this"
+    # no better than one that never recorded it (ADR-0061).
+    assert _seal(evidence_links=[_link(reviewed_by="someone.else")]) != _seal(
+        evidence_links=[_link(reviewed_by="priya")]
+    )
+
+
+def test_a_rewritten_finalizer_changes_the_digest() -> None:
+    frozen_by_priya = AssessmentStatusChange(
+        assessment_id="a-1",
+        from_status=AssessmentStatus.IN_REVIEW,
+        to_status=AssessmentStatus.FINALIZED,
+        changed_at=_WHEN,
+        actor="priya",
+    )
+    frozen_by_someone_else = AssessmentStatusChange(
+        assessment_id="a-1",
+        from_status=AssessmentStatus.IN_REVIEW,
+        to_status=AssessmentStatus.FINALIZED,
+        changed_at=_WHEN,
+        actor="marcus",
+    )
+    assert _seal(status_history=[frozen_by_priya]) != _seal(
+        status_history=[frozen_by_someone_else]
+    )
+
+
+def test_version_1_ignores_the_actor_fields_it_predates() -> None:
+    # An old seal must keep verifying. Version 1 was written before
+    # these columns existed, so its payload cannot depend on them --
+    # otherwise every pre-ADR-0061 seal would start reporting a record
+    # nobody touched as altered.
+    with_actor = _seal(evidence_links=[_link(reviewed_by="priya")], version="1")
+    without = _seal(evidence_links=[_link()], version="1")
+    assert with_actor == without
+
+
+def test_version_2_is_the_one_written_today() -> None:
+    assert audit_seal.CURRENT_SEAL_VERSION == "2"
+    assert _seal() == _seal(version="2")
+
+
 # --- version handling -------------------------------------------------
 
 

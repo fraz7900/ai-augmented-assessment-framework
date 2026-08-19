@@ -19,6 +19,7 @@ from typing import Any, Protocol
 
 from compliance_platform.ai.embeddings import Embedder
 from compliance_platform.core.errors import AssessmentFinalizedError
+from compliance_platform.core.identity import UNAUTHENTICATED_ACTOR
 from compliance_platform.models.assessment import (
     Assessment,
     AssessmentStatus,
@@ -308,7 +309,11 @@ class AssessmentRepositoryProtocol(Protocol):
     def get_assessment(self, assessment_id: str) -> Assessment | None: ...
     def list_assessments(self) -> list[Assessment]: ...
     def update_status(
-        self, assessment_id: str, new_status: AssessmentStatus, note: str | None = None
+        self,
+        assessment_id: str,
+        new_status: AssessmentStatus,
+        note: str | None = None,
+        actor: str | None = None,
     ) -> Assessment | None: ...
     def status_history(self, assessment_id: str) -> list[AssessmentStatusChange]: ...
     def add_evidence_link(self, link: EvidenceLink) -> EvidenceLink: ...
@@ -320,6 +325,7 @@ class AssessmentRepositoryProtocol(Protocol):
         review_status: EvidenceReviewStatus,
         practice_reference: str | None = None,
         note: str | None = None,
+        reviewed_by: str | None = None,
     ) -> EvidenceLink | None: ...
     def set_practice_finding(
         self,
@@ -605,7 +611,11 @@ class AssessmentService:
         )
 
     def transition_status(
-        self, assessment_id: str, new_status: AssessmentStatus, note: str | None = None
+        self,
+        assessment_id: str,
+        new_status: AssessmentStatus,
+        note: str | None = None,
+        actor: str = UNAUTHENTICATED_ACTOR,
     ) -> Assessment:
         assessment = self.get_assessment(assessment_id)
         allowed = _ALLOWED_TRANSITIONS[assessment.status]
@@ -619,14 +629,17 @@ class AssessmentService:
             readiness = self.finalization_readiness(assessment_id)
             if not readiness.is_ready:
                 raise AssessmentNotReadyForFinalizationError(assessment_id, readiness.blockers)
-        updated = self._assessments.update_status(assessment_id, new_status, note=note)
+        updated = self._assessments.update_status(
+            assessment_id, new_status, note=note, actor=actor
+        )
         if updated is None:  # pragma: no cover - existence already checked above
             raise AssessmentNotFoundError(assessment_id)
         _logger.info(
-            "assessment status transition id=%s %s -> %s",
+            "assessment status transition id=%s %s -> %s actor=%s",
             assessment_id,
             assessment.status,
             new_status,
+            actor,
         )
         if new_status == AssessmentStatus.FINALIZED:
             updated = self._seal(updated)
@@ -754,6 +767,7 @@ class AssessmentService:
         chunk_id: str | None = None,
         note: str | None = None,
         source: EvidenceSource = EvidenceSource.MANUAL,
+        actor: str = UNAUTHENTICATED_ACTOR,
     ) -> EvidenceLink:
         assessment = self.get_assessment(assessment_id)
         if assessment.status == AssessmentStatus.FINALIZED:
@@ -787,6 +801,7 @@ class AssessmentService:
             note=note,
             source=source,
             review_status=review_status,
+            created_by=actor,
         )
         created = self._assessments.add_evidence_link(link)
         _logger.info(
@@ -989,6 +1004,7 @@ class AssessmentService:
         decision: EvidenceReviewStatus,
         corrected_practice_reference: str | None = None,
         note: str | None = None,
+        actor: str = UNAUTHENTICATED_ACTOR,
     ) -> EvidenceLink:
         """Applies a human accept/edit/reject decision to a pending
         evidence link — the other half of the human-in-the-loop
@@ -1034,6 +1050,7 @@ class AssessmentService:
             review_status=decision,
             practice_reference=new_practice_reference,
             note=note,
+            reviewed_by=actor,
         )
         if updated is None:  # pragma: no cover - existence already checked above
             raise EvidenceLinkNotFoundError(evidence_link_id)
@@ -1051,7 +1068,8 @@ class AssessmentService:
         practice_reference: str,
         status: PracticeFindingStatus,
         rationale: str,
-        set_by: str = "human",
+        set_by: str | None = None,
+        actor: str = UNAUTHENTICATED_ACTOR,
     ) -> PracticeFinding:
         """Records (or updates) a reviewer's explicit compliance
         judgment for one practice — ADR-0030. Distinct from
@@ -1079,7 +1097,11 @@ class AssessmentService:
             practice_reference=practice_reference,
             status=status,
             rationale=rationale,
-            set_by=set_by,
+            # The authenticated identity, not the literal "human" this
+            # defaulted to. `set_by` always meant "who decided"; it just
+            # had nobody to name (ADR-0061). An explicit set_by still
+            # wins, for a future non-human decider.
+            set_by=set_by or actor,
         )
         # rationale is deliberately never logged -- human-authored free
         # text is exactly the class of content this project's own
@@ -1104,7 +1126,12 @@ class AssessmentService:
         return self._assessments.practice_finding_history(assessment_id, practice_reference)
 
     def request_more_evidence(
-        self, assessment_id: str, practice_reference: str, note: str, requested_by: str
+        self,
+        assessment_id: str,
+        practice_reference: str,
+        note: str,
+        requested_by: str | None = None,
+        actor: str = UNAUTHENTICATED_ACTOR,
     ) -> EvidenceRequest:
         """Records a reviewer's explicit request that someone go find
         and upload more evidence for a practice (Sprint 18, ADR-0043) —
@@ -1132,7 +1159,14 @@ class AssessmentService:
                 assessment_id=assessment_id,
                 practice_reference=practice_reference,
                 note=note,
-                requested_by=requested_by,
+                # The authenticated identity wins over anything the
+                # client claimed. A caller naming whoever it likes is
+                # not attribution (ADR-0061); the request body's field
+                # survives only as a fallback for a direct, unproxied
+                # call, where there is no identity to prefer.
+                requested_by=(
+                    actor if actor != UNAUTHENTICATED_ACTOR else (requested_by or actor)
+                ),
             )
         )
         # note is deliberately never logged -- same free-text-is-
@@ -1151,7 +1185,11 @@ class AssessmentService:
         return self._assessments.evidence_requests_for_assessment(assessment_id)
 
     def resolve_evidence_request(
-        self, assessment_id: str, request_id: str, resolved_by: str
+        self,
+        assessment_id: str,
+        request_id: str,
+        resolved_by: str | None = None,
+        actor: str = UNAUTHENTICATED_ACTOR,
     ) -> EvidenceRequest:
         """Resolution is always explicit, never inferred from a new
         evidence link being added -- linking evidence doesn't guarantee
@@ -1168,18 +1206,25 @@ class AssessmentService:
         if request is None or request.assessment_id != assessment_id:
             raise EvidenceRequestNotFoundError(request_id)
 
-        resolved = self._assessments.resolve_evidence_request(request_id, resolved_by=resolved_by)
+        # Same precedence as request_more_evidence: an authenticated
+        # identity outranks whatever the client put in the body.
+        attributed_to = actor if actor != UNAUTHENTICATED_ACTOR else (resolved_by or actor)
+        resolved = self._assessments.resolve_evidence_request(
+            request_id, resolved_by=attributed_to
+        )
         if resolved is None:  # pragma: no cover - existence already checked above
             raise EvidenceRequestNotFoundError(request_id)
         _logger.info(
             "evidence request resolved assessment=%s request=%s resolved_by=%s",
             assessment_id,
             request_id,
-            resolved_by,
+            attributed_to,
         )
         return resolved
 
-    def propose_mappings(self, assessment_id: str) -> list[EvidenceLink]:
+    def propose_mappings(
+        self, assessment_id: str, actor: str = UNAUTHENTICATED_ACTOR
+    ) -> list[EvidenceLink]:
         """Runs the retrieval-based mapping engine
         (services/mapping_service.py) for this assessment and persists
         any resulting proposals as AI-proposed, pending-review
@@ -1234,6 +1279,10 @@ class AssessmentService:
                 source=EvidenceSource.AI_PROPOSED,
                 review_status=EvidenceReviewStatus.PENDING,
                 confidence=proposal.confidence,
+                # The operator who asked for proposals, not a claim that
+                # a human chose this mapping -- `source` says the engine
+                # did, and review_status says nobody has confirmed it.
+                created_by=actor,
             )
             created.append(self._assessments.add_evidence_link(link))
         _logger.info(
