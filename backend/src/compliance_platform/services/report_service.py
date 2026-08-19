@@ -31,6 +31,7 @@ from compliance_platform.models.framework import Domain, FrameworkDefinition
 from compliance_platform.models.report import (
     DashboardReport,
     DomainGapGroup,
+    DomainProgress,
     EvidenceCitation,
     GapItem,
     OverallSummary,
@@ -392,6 +393,73 @@ def _build_complication(
     return groups
 
 
+def _build_domain_progress(
+    framework: FrameworkDefinition,
+    performed_practice_ids: set[str],
+    excluded_practice_ids: frozenset[str],
+    domain_scores: dict[str, float],
+) -> list[DomainProgress]:
+    """Practice completion per populated domain, plus the MIL gate that
+    explains it (ADR-0066).
+
+    Computed here rather than in the frontend for the reason
+    DashboardTab already states about every other number it renders: the
+    dashboard re-derives nothing. A percentage assembled in the browser
+    is a second implementation of the applicable-practice denominator,
+    and the first one it would disagree with is the score printed beside
+    it.
+
+    Unpopulated domains are omitted, not charted at zero. A domain whose
+    practices have not been transcribed into framework_mapping/ yet
+    (ADR-0009) has nothing to be complete or incomplete about, and an
+    empty bar would report it as a gap rather than as an absence.
+    Situation.unpopulated_domains already names them.
+    """
+    progress: list[DomainProgress] = []
+    for domain in framework.domains:
+        if not domain.practices_populated:
+            continue
+        applicable = [p for p in domain.all_practices() if p.id not in excluded_practice_ids]
+        total = len(applicable)
+        if total == 0:
+            # Every practice in the domain was ruled NOT_APPLICABLE, so
+            # there is no ratio to draw. Skipped rather than shown as
+            # 0 of 0, which reads as "nothing done" instead of "nothing
+            # applies".
+            continue
+        met = sum(1 for p in applicable if p.id in performed_practice_ids)
+
+        blocking_mil: int | None = None
+        blocking_count: int | None = None
+        if framework.scoring_model == "cumulative_mil":
+            # The level compute_domain_mil stopped at, and what it is
+            # waiting on. This mirrors that function's rule rather than
+            # reimplementing its result: it walks the levels in order
+            # and reports the first one not fully performed.
+            for level in (1, 2, 3):
+                required = {
+                    p.id for p in applicable if p.mil == level
+                }
+                missing = required - performed_practice_ids
+                if missing:
+                    blocking_mil = level
+                    blocking_count = len(missing)
+                    break
+
+        progress.append(
+            DomainProgress(
+                short_code=domain.short_code,
+                full_name=domain.full_name,
+                met_practices=met,
+                total_practices=total,
+                score=domain_scores[domain.short_code],
+                blocking_mil=blocking_mil,
+                blocking_practice_count=blocking_count,
+            )
+        )
+    return progress
+
+
 def _build_resolution(complication: list[DomainGapGroup]) -> list[ResolutionItem]:
     """Sorted by fewest missing practices first — the concrete "quick
     win" framing: a small, closeable gap is the highest-leverage next
@@ -524,6 +592,9 @@ def build_dashboard(
             assessment, framework, evidence_links, credit, organization_name
         ),
         domain_scores=domain_scores,
+        domain_progress=_build_domain_progress(
+            framework, performed_practice_ids, excluded_practice_ids, domain_scores
+        ),
         overall=_build_overall_summary(framework, domain_scores, excluded_practice_ids),
         complication=complication,
         resolution=_build_resolution(complication),
