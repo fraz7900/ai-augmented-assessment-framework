@@ -1,7 +1,7 @@
 # AI-Augmented Compliance Assessment Platform — Project Status
 
 **As of:** Sprint 21 (2026-08-18)
-**Charter:** `PROJECT_CHARTER.md` · **Decisions:** `docs/adr/` (61 ADRs) · **Live status:** `docs/current_sprint.md`
+**Charter:** `PROJECT_CHARTER.md` · **Decisions:** `docs/adr/` (62 ADRs) · **Live status:** `docs/current_sprint.md`
 
 This is the living project snapshot, maintained current. `docs/project-status-sprint16.md` is a frozen
 historical snapshot at Sprint 16 and is deliberately not updated.
@@ -54,8 +54,8 @@ Everything else in the design follows from defending that claim.
 |---|---|
 | **Frameworks** | 7 frameworks, 8 transcribed framework-versions, 1,267 practices |
 | **Cross-framework equivalence** | 715 human-reviewed entries across 8 pairings; 121 of 141 NERC CIP practices have at least one reviewed equivalent |
-| **Tests** | 570 backend, 71 frontend; `ruff` clean; CI green on `main` |
-| **Architecture decisions** | 61 ADRs |
+| **Tests** | 584 backend, 78 frontend; `ruff` clean; CI green on `main` |
+| **Architecture decisions** | 62 ADRs |
 | **Deployment** | Docker Compose stack with TLS, hardened for single-user / small-team hosting |
 
 ### Frameworks transcribed
@@ -102,7 +102,7 @@ licensing status was checked directly against the source document, never assumed
 | 18 | **Hardening, provenance, CI** | Largest sprint by ADR count. Security hardening; document versioning + supersession flagging; XLSX/CSV parsing with row/sheet provenance; request-more-evidence workflow; failure-injection tests; TLS; GitHub Actions CI; multi-version framework registry | 0034–0053 |
 | 19 | **Real-document testing and the disclosed tail** | Live API testing on real policy PDFs found a chunker defect no unit test had: 140 of 148 PDF chunks began or ended mid-word, corrupting the verbatim quotes the product's credibility rests on — fixed, 140→2. Then header/footer normalisation, sentence-boundary chunking, **local OCR** (a charter scope reversal), **NIST CSF 1.1** as the first real second version, and upload retention | 0054–0056 |
 | 20 | **Scoring and finalization correctness** | Positive scoring credit now requires a linked evidence trail — closing a path where a free-text rationale could raise a maturity level with nothing behind it; the evidence UI now loads the framework version the assessment is pinned to; and an authoritative server-side finalization-readiness gate prevents freezing an assessment as an immutable record while review work is outstanding | 0057–0058 |
-| 21 | **Ingestion limits and a defensible record** | Ingestion moved behind a pollable job queue, so a document larger than the proxy's 300s read ceiling — a 505-page manual, a scan needing OCR throughout — can be ingested at all; part-scanned PDFs now OCR only the pages that lack a text layer. Then R-12, open since Sprint 2: the finalized-assessment write lock moved into the transaction that performs the write, and the finalized record is **sealed** with a SHA-256 printed into every export, so alteration by anything — including a text editor on the SQLite file — is detectable | 0059–0060 |
+| 21 | **Ingestion limits and a defensible record** | Ingestion moved behind a pollable job queue, so a document larger than the proxy's 300s read ceiling — a 505-page manual, a scan needing OCR throughout — can be ingested at all; part-scanned PDFs now OCR only the pages that lack a text layer. Then R-12, open since Sprint 2: the finalized-assessment write lock moved into the transaction that performs the write, and the finalized record is **sealed** with a SHA-256 printed into every export, so alteration by anything — including a text editor on the SQLite file — is detectable. Decisions are attributed to the authenticated user, the audit record gained a backup and restore path, and documents became scoped to the assessments they belong to | 0059–0062 |
 
 ---
 
@@ -154,9 +154,10 @@ These are stated deliberately; a compliance tool that hid them would undercut it
   record has not changed since today.
 - **A seal proves nothing on its own.** It is evidence only when compared against a copy that left the
   database — which is why every export prints it. That depends on someone having kept an export.
-- **Documents are not scoped to an assessment.** `Document` carries no `assessment_id` while every
-  other table does, so any assessment can link any document. Correct for one organisation, wrong the
-  moment two pilot clients share an instance — the largest structural gap still open.
+- **Scoping documents to assessments is not client separation.** An assessment now has its own
+  document set (ADR-0062) and the evidence chooser shows only that, but the attach flow still browses
+  every document on the instance — so one organisation's document can still be pulled into another's
+  assessment deliberately. Actual separation needs a tenant concept, which is "Won't (for MVP)".
 - **Ingestion job rows accumulate with no retention policy** (ADR-0059). Small, and disclosed rather
   than solved with a number nobody has evidence for yet.
 
@@ -170,7 +171,9 @@ multi-tenant authentication, cloud deployment — are all explicitly "Won't (for
 
 The current direction is pilot-readiness rather than breadth: making the platform's conclusions
 defensible enough that a real organization could rely on them, which is what Sprints 17–21 were for.
-Sprint 21 closed the last structural gaps in that argument: the record is sealed, every decision in
-it is attributed, and the data has a backup and restore path. What remains before a multi-client
-pilot is separation rather than defensibility — documents are still global, so two clients cannot
-safely share an instance.
+Sprint 21 closed the structural gaps in that argument: the record is sealed, every decision in it is
+attributed, the data has a backup and restore path, and each assessment has its own document set.
+What remains before a *multi-client* pilot is tenancy proper — one organisation's evidence can still
+be attached to another's assessment by hand, because nothing in the model yet knows what an
+organisation is. For a single-organisation pilot, which is what the charter scopes, the argument is
+now complete.

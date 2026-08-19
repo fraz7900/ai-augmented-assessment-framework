@@ -240,7 +240,7 @@
     <p class="meta">
       <span><b>As of</b> Sprint 21 · 2026-08-18</span>
       <span><b>Sector</b> Energy cybersecurity</span>
-      <span><b>Decisions</b> 61 ADRs</span>
+      <span><b>Decisions</b> 62 ADRs</span>
       <span><b>CI</b> green on main</span>
     </p>
   </header>
@@ -249,7 +249,7 @@
     <div class="metric"><span class="n">7</span><span class="l">Frameworks</span></div>
     <div class="metric"><span class="n">1,267</span><span class="l">Practices</span></div>
     <div class="metric"><span class="n">715</span><span class="l">Reviewed equivalences</span></div>
-    <div class="metric"><span class="n">641</span><span class="l">Tests passing</span></div>
+    <div class="metric"><span class="n">662</span><span class="l">Tests passing</span></div>
     <div class="metric"><span class="n">58</span><span class="l">Decision records</span></div>
     <div class="metric"><span class="n">21</span><span class="l">Sprints delivered</span></div>
   </div>
@@ -334,7 +334,7 @@
           <tr><td>18</td><td>Hardening · provenance · CI</td><td>Largest sprint by ADR count. Security hardening; document versioning and supersession flagging; XLSX/CSV row and sheet provenance; request-more-evidence workflow; failure-injection tests; TLS; GitHub Actions CI; multi-version registry</td><td>0034–0053</td></tr>
           <tr><td>19</td><td>Real documents · OCR</td><td>Live testing on real policy PDFs found a chunker defect no unit test had — 140 of 148 chunks began or ended mid-word, corrupting the verbatim quotes the product's credibility rests on. Fixed 140→2. Then header normalisation, sentence chunking, local OCR, NIST CSF 1.1, upload retention</td><td>0054–0056</td></tr>
           <tr><td>20</td><td>Scoring correctness</td><td>Positive scoring credit now requires a linked evidence trail, closing a path where a free-text rationale could raise a maturity level with nothing behind it; the evidence UI loads the pinned framework version; and a server-side finalization-readiness gate prevents freezing an assessment while review work is outstanding</td><td>0057–0058</td></tr>
-          <tr class="pivot"><td>21</td><td>Ingestion limits · a defensible record</td><td>Ingestion moved behind a pollable job queue, so a document past the proxy's 300s read ceiling — a 505-page manual, a scan needing OCR throughout — can be ingested at all; part-scanned PDFs now OCR only the pages lacking a text layer. Then R-12, open since Sprint 2: the write lock moved into the transaction that performs the write, and the finalized record is sealed with a SHA-256 printed into every export, so alteration by anything — including a text editor on the database file — is detectable</td><td>0059–0060</td></tr>
+          <tr class="pivot"><td>21</td><td>Ingestion limits · a defensible record</td><td>Ingestion moved behind a pollable job queue, so a document past the proxy's 300s read ceiling — a 505-page manual, a scan needing OCR throughout — can be ingested at all; part-scanned PDFs now OCR only the pages lacking a text layer. Then R-12, open since Sprint 2: the write lock moved into the transaction that performs the write, and the finalized record is sealed with a SHA-256 printed into every export, so alteration by anything — including a text editor on the database file — is detectable. Decisions are attributed to the authenticated user, the audit record gained a backup and restore path, and documents became scoped to the assessments they belong to</td><td>0059–0062</td></tr>
         </tbody>
       </table>
     </div>
@@ -363,7 +363,7 @@
       <li><b>Sprint 20's correctness fixes can lower previously-reported scores</b> where a finding claimed credit without evidence behind it. That is the intended effect; no historical data was rewritten.</li>
       <li><b>Attribution is only as strong as the deployment's perimeter.</b> Decisions are attributed to the username the reverse proxy authenticated, so anything able to reach the backend directly can claim any name — the same assumption the whole deployment already rests on. Requests with no identity are recorded as unauthenticated rather than guessed at.</li>
       <li><b>Backups are on demand, not scheduled.</b> The scripts exist and verify by checksum, but there is no schedule, no rotation, and no off-machine copy.</li>
-      <li><b>Documents are not scoped to an assessment.</b> Any assessment can link any document — correct for one organisation, wrong the moment two pilot clients share an instance. The largest structural gap still open.</li>
+      <li><b>Scoping documents to assessments is not client separation.</b> An assessment now has its own document set and the evidence chooser shows only that, but the attach flow still browses every document on the instance — so one organisation's document can still be pulled into another's assessment deliberately. Actual separation needs a tenant concept, which is "Won't (for MVP)".</li>
       <li><b>Assessments finalized before the seal existed carry none.</b> They report unsealed, never verified, and are deliberately not sealed retroactively — a seal written today would attest only that the record has not changed since today.</li>
       <li><b>A seal proves nothing on its own.</b> It is evidence only when compared against a copy that left the database, which is why every export prints it — and that depends on someone having kept an export.</li>
     </ul>

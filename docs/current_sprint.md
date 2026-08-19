@@ -6,9 +6,9 @@ since Sprint 2. No new frameworks, no auth/RBAC/multi-tenancy, no refactors outs
 Status: Everything below is merged to `main` and CI-verified there — async ingestion via PR #2
 (`05efacf`, merge `147e111`), the finalization work via PR #3 (`9e8dbce` + `68e1788`, merge
 `9234c39`), the audit-trail and operational pass via PR #4 (merge `ed8ed0a`), and the form fix via
-PR #5 (merge `dd5138b`), with ADR-0059, ADR-0060 and ADR-0061 recording the decisions. As of
-`dd5138b`: **570 backend tests passing**, `ruff check .` clean, **71 frontend tests passing** across
-12 files, `tsc -b` clean, `npm run lint` clean (the same 2 pre-existing fast-refresh warnings in
+PR #5 (merge `dd5138b`), and the assessment-document association as `044a54d`, with ADR-0059
+through ADR-0062 recording the decisions. As of `044a54d`: **584 backend tests passing**,
+`ruff check .` clean, **78 frontend tests passing** across 13 files, `tsc -b` clean, `npm run lint` clean (the same 2 pre-existing fast-refresh warnings in
 `EvidenceSourceBadge.tsx`, untouched all sprint). The frontend counts are CI's, not this machine's:
 the local vitest runner stopped working partway through the sprint (see Next). Nothing is left in
 the working tree.
@@ -101,23 +101,37 @@ request, rendering all four verification states rather than a boolean); decision
 to the identity nginx already authenticates (ADR-0061), with the seal payload moving to version 2
 so attribution cannot be silently rewritten; `scripts/backup.sh` and `scripts/restore.sh` give the
 audit record a way home, verified by checksum and with no `--force` on the destructive one; the
-risk register was brought current with R-33 through R-38; and the evidence-request form stopped
-asking for a name the server had started ignoring, showing `GET /identity`'s answer instead.
-Sprint 21 therefore ran wider than its stated objective — recorded here rather than tidied away,
-since the objective at the top of this file says two tranches and the history says six merges.
-Next (not started): documents are not scoped to an assessment. `Document` carries no
-`assessment_id` while eight other tables do, so any assessment can link any document and the
-picker lists all of them. Correct for one organisation, wrong the moment two pilot clients share
-an instance — the largest structural gap still open, and real design work: a migration, a decision
-about the 30 existing rows, and an ADR. Below that: ingestion job rows accumulate with no
-retention policy (ADR-0059, R-35); the local frontend test runner has become unusable on this
-filesystem — four consecutive full-suite attempts produced 11–12 worker-startup errors with zero
-assertion failures, including with the `--pool=threads` workaround that worked earlier the same
-day, so every frontend change since has been verified by CI alone and a `node_modules` reinstall
-(AGENTS.md remedy 5) is worth trying before the next frontend task; and the older register items
-remain as they were — R-8 (non-English documents untested), R-9 (no environment bootstrap),
-R-16/R-23 (the retrieval precision ceiling, mitigated by human review rather than by accuracy),
-and the copyright-limited transcriptions R-28/R-30/R-32.
+risk register was brought current with R-33 through R-38; the evidence-request form stopped asking
+for a name the server had started ignoring, showing `GET /identity`'s answer instead; and finally
+documents gained an assessment to belong to (ADR-0062). Sprint 21 therefore ran considerably wider
+than its stated objective — recorded here rather than tidied away, since the objective at the top
+of this file says two tranches and the history says six merges.
+On ADR-0062 specifically, because the shape of the decision matters more than the diff: the
+Evidence chooser called `GET /documents` and listed every document on the instance, so a reviewer
+picking evidence for one organisation's assessment saw another organisation's policies and could
+link them. `Document` deliberately did NOT gain an `assessment_id` — one policy PDF legitimately
+serves a C2M2 assessment and a NIST CSF one over the same corpus, which is the cross-framework
+workflow this product is built around, and ownership would force the same file to be parsed,
+chunked and embedded once per framework. So the relation is many-to-many, linking evidence
+attaches implicitly, detaching is refused while any evidence link still cites the document, and
+`propose_mappings` now searches attached documents rather than only cited ones — which is what
+makes it usable on a document that was just uploaded. Existing evidence links were backfilled into
+associations in raw SQL, because a migration must not depend on the current ORM mapping being able
+to read old rows and this one could not: a pre-ADR-0030 database holds `evidencelink` rows whose
+`source` today's enum refuses to load. An existing test caught that, the second time this sprint a
+test written for one purpose found a different real defect. What this is NOT is multi-tenancy: the
+attach flow still browses every document, so cross-organisation attachment remains possible by
+hand, and ADR-0062 says so rather than implying the tenancy problem is solved.
+Next (not started): nothing structural. The Evidence tab offers attach but not detach, so removing
+a document from an assessment is API-only; ingestion job rows still accumulate with no retention
+policy (ADR-0059, R-35); and the local frontend test runner remains unusable on this filesystem —
+every frontend change in the back half of this sprint was verified by CI alone, and a
+`node_modules` reinstall (AGENTS.md remedy 5) is the next thing to try. The older register items
+are unchanged: R-8 (non-English documents untested), R-9 (no environment bootstrap), R-16/R-23
+(the retrieval precision ceiling, mitigated by human review rather than by accuracy), and the
+copyright-limited transcriptions R-28/R-30/R-32. Real client separation — a tenant concept —
+remains charter "Won't (for MVP)" scope and is the one thing standing between this and a
+multi-client pilot.
 Also open and unchanged from earlier sprints: upload retention is not retroactive, so the 6 of 30
 documents whose originals were discarded before ADR-0056 stay permanently un-re-ingestible; 27 of
 30 stored documents have no `Document` registry row (predating ADR-0039) and therefore no
