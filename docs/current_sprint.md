@@ -3,13 +3,15 @@ make the finalized record defensible rather than merely locked
 Objective: two independent tranches, both merged. First, remove the hard limit that stopped a
 large or scanned document being ingested at all. Second, close R-12, open in the risk register
 since Sprint 2. No new frameworks, no auth/RBAC/multi-tenancy, no refactors outside the two.
-Status: Both tranches are complete, merged to `main`, and CI-verified there — async ingestion via
-PR #2 (`05efacf`, merge `147e111`), the finalization work via PR #3 (`9e8dbce` + `68e1788`, merge
-`9234c39`), and the decisions recorded afterwards as ADR-0059 and ADR-0060 (`09e4999`). Verified
-2026-08-18: **546 backend tests passing**, `ruff check .` clean, **57 frontend tests passing**
-across 10 files, `tsc -b` clean, `npm run lint` clean (the same 2 pre-existing fast-refresh
-warnings in `EvidenceSourceBadge.tsx`, untouched again this sprint). CI is green on `main` through
-`09e4999`. Nothing is left in the working tree.
+Status: Everything below is merged to `main` and CI-verified there — async ingestion via PR #2
+(`05efacf`, merge `147e111`), the finalization work via PR #3 (`9e8dbce` + `68e1788`, merge
+`9234c39`), the audit-trail and operational pass via PR #4 (merge `ed8ed0a`), and the form fix via
+PR #5 (merge `dd5138b`), with ADR-0059, ADR-0060 and ADR-0061 recording the decisions. As of
+`dd5138b`: **570 backend tests passing**, `ruff check .` clean, **71 frontend tests passing** across
+12 files, `tsc -b` clean, `npm run lint` clean (the same 2 pre-existing fast-refresh warnings in
+`EvidenceSourceBadge.tsx`, untouched all sprint). The frontend counts are CI's, not this machine's:
+the local vitest runner stopped working partway through the sprint (see Next). Nothing is left in
+the working tree.
 T1 — asynchronous ingestion, with selective OCR alongside it (ADR-0059). Ingestion held the HTTP
 request open for the whole parse/chunk/embed pass, and nginx closes a proxied read at 300s — about
 200 pages at the measured ~0.7s per chunk. Past that the browser was told "gateway timeout" about
@@ -93,20 +95,29 @@ add to `models/assessment.py`, `models/schemas.py`, and `assessment_repository.p
 after #2 landed. Both conflicts were independent additions at one spot, both sides were kept,
 nothing was dropped, and the combined tree was re-tested (546 passing) rather than trusted — see
 `2a2aba8`.
-Next (not started): the seal has no frontend surface at all — nothing displays it or offers a
-verify action, so the mechanism is reachable only via the API and the printed exports. Beyond
-that, the highest-value gaps found while auditing this sprint are ordered: (1) the audit trail
-records what changed and when but never *who* — `PracticeFindingChange`, `AssessmentStatusChange`
-and `EvidenceLink` carry timestamps and no actor, so a finalized record cannot name the human who
-decided anything, and nginx already authenticates every request against `.htpasswd` without that
-identity ever reaching the application; (2) there is no backup or restore story anywhere in
-`deployment/`, `docs/architecture/`, or the README, for a product whose central claim is an
-immutable audit record living in one Docker volume; (3) the risk register stops at R-32 (Sprint
-14), so Sprints 17–21's real risks live only in ADRs and this file — in a project whose
-differentiator is disclosed limitations, the disclosure artifact has drifted; (4) `Document` has
-no `assessment_id` while every other table does, so any assessment can link any document — fine
-for one organisation, wrong the moment two pilot clients share an instance.
-`docs/project-status.md` and its HTML rendering still describe Sprint 20 apart from the ADR count.
+Delivered after the two tranches above, in one pass through the pilot-readiness audit's own
+findings: the seal gained a frontend surface (Overview tab shows the digest and checks it on
+request, rendering all four verification states rather than a boolean); decisions are attributed
+to the identity nginx already authenticates (ADR-0061), with the seal payload moving to version 2
+so attribution cannot be silently rewritten; `scripts/backup.sh` and `scripts/restore.sh` give the
+audit record a way home, verified by checksum and with no `--force` on the destructive one; the
+risk register was brought current with R-33 through R-38; and the evidence-request form stopped
+asking for a name the server had started ignoring, showing `GET /identity`'s answer instead.
+Sprint 21 therefore ran wider than its stated objective — recorded here rather than tidied away,
+since the objective at the top of this file says two tranches and the history says six merges.
+Next (not started): documents are not scoped to an assessment. `Document` carries no
+`assessment_id` while eight other tables do, so any assessment can link any document and the
+picker lists all of them. Correct for one organisation, wrong the moment two pilot clients share
+an instance — the largest structural gap still open, and real design work: a migration, a decision
+about the 30 existing rows, and an ADR. Below that: ingestion job rows accumulate with no
+retention policy (ADR-0059, R-35); the local frontend test runner has become unusable on this
+filesystem — four consecutive full-suite attempts produced 11–12 worker-startup errors with zero
+assertion failures, including with the `--pool=threads` workaround that worked earlier the same
+day, so every frontend change since has been verified by CI alone and a `node_modules` reinstall
+(AGENTS.md remedy 5) is worth trying before the next frontend task; and the older register items
+remain as they were — R-8 (non-English documents untested), R-9 (no environment bootstrap),
+R-16/R-23 (the retrieval precision ceiling, mitigated by human review rather than by accuracy),
+and the copyright-limited transcriptions R-28/R-30/R-32.
 Also open and unchanged from earlier sprints: upload retention is not retroactive, so the 6 of 30
 documents whose originals were discarded before ADR-0056 stay permanently un-re-ingestible; 27 of
 30 stored documents have no `Document` registry row (predating ADR-0039) and therefore no

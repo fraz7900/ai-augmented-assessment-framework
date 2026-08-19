@@ -240,7 +240,7 @@
     <p class="meta">
       <span><b>As of</b> Sprint 21 · 2026-08-18</span>
       <span><b>Sector</b> Energy cybersecurity</span>
-      <span><b>Decisions</b> 60 ADRs</span>
+      <span><b>Decisions</b> 61 ADRs</span>
       <span><b>CI</b> green on main</span>
     </p>
   </header>
@@ -249,7 +249,7 @@
     <div class="metric"><span class="n">7</span><span class="l">Frameworks</span></div>
     <div class="metric"><span class="n">1,267</span><span class="l">Practices</span></div>
     <div class="metric"><span class="n">715</span><span class="l">Reviewed equivalences</span></div>
-    <div class="metric"><span class="n">603</span><span class="l">Tests passing</span></div>
+    <div class="metric"><span class="n">641</span><span class="l">Tests passing</span></div>
     <div class="metric"><span class="n">58</span><span class="l">Decision records</span></div>
     <div class="metric"><span class="n">21</span><span class="l">Sprints delivered</span></div>
   </div>
@@ -361,8 +361,9 @@
       <li><b>Existing chunks are not migrated when chunking improves.</b> Re-chunking would invalidate the chunk IDs that reviewed evidence links point at, so re-ingestion is an explicit operator action.</li>
       <li><b>No authentication, RBAC, or multi-tenancy.</b> The deployment stack is designed for a single trusted machine and must not be exposed to a network.</li>
       <li><b>Sprint 20's correctness fixes can lower previously-reported scores</b> where a finding claimed credit without evidence behind it. That is the intended effect; no historical data was rewritten.</li>
-      <li><b>The audit trail records what changed and when, but never who.</b> No table carries an actor, so a finalized record cannot name the human who made a decision. Distinct from the multi-tenancy item above — attribution is not RBAC — and the next thing being fixed.</li>
-      <li><b>There is no backup or restore procedure.</b> The whole audit record lives in one Docker volume.</li>
+      <li><b>Attribution is only as strong as the deployment's perimeter.</b> Decisions are attributed to the username the reverse proxy authenticated, so anything able to reach the backend directly can claim any name — the same assumption the whole deployment already rests on. Requests with no identity are recorded as unauthenticated rather than guessed at.</li>
+      <li><b>Backups are on demand, not scheduled.</b> The scripts exist and verify by checksum, but there is no schedule, no rotation, and no off-machine copy.</li>
+      <li><b>Documents are not scoped to an assessment.</b> Any assessment can link any document — correct for one organisation, wrong the moment two pilot clients share an instance. The largest structural gap still open.</li>
       <li><b>Assessments finalized before the seal existed carry none.</b> They report unsealed, never verified, and are deliberately not sealed retroactively — a seal written today would attest only that the record has not changed since today.</li>
       <li><b>A seal proves nothing on its own.</b> It is evidence only when compared against a copy that left the database, which is why every export prints it — and that depends on someone having kept an export.</li>
     </ul>

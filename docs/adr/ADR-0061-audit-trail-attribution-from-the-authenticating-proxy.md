@@ -95,9 +95,11 @@ introduced for in ADR-0060, arriving one sprint later.
 - `set_by` on new findings is a username where it used to be the constant `"human"`. Historical rows
   still read `"human"`, which is now visibly the old format rather than a claim about a person.
 - Seals written under ADR-0060 remain verifiable; new ones are version 2.
-- The frontend's evidence-request form still sends `requested_by`, which the server now ignores when
-  a proxied identity is present. The field should eventually be removed from that form — it currently
-  invites a user to type a name that will not be used.
+- The frontend's evidence-request form used to send `requested_by`, which this decision made the
+  server ignore whenever a proxied identity is present — a field inviting a user to type a name that
+  would be discarded. Both name inputs were removed in the same sprint, and `GET /identity` now shows
+  what the server will attribute the request to, so the reviewer can still see it. `requested_by` and
+  `resolved_by` remain optional on the request bodies for direct, unproxied API callers.
 - Running the backend directly (development, tests) records `unauthenticated` throughout. That is
   accurate, and it makes the difference between a proxied and unproxied deployment visible in the
   data.
