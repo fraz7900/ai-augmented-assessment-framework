@@ -6,15 +6,18 @@ the only open risk carrying High impact, and the one `docs/project-status.md` na
 between this and a multi-client pilot. Second, a retention policy for the `ingestionjob` table,
 which ADR-0059 disclosed rather than solved. No authentication, no RBAC, no cloud deployment, no
 new frameworks, no refactors outside the two.
-Status: **T1 is merged to this branch and complete; T2 is not begun.** The charter decision below
-came back yes, so T1 ran: `f25668f` (backend, ADR-0063, the charter amendment, R-39 and R-40) and
-`ce5094e` (frontend). As of `ce5094e`: **615 backend tests passing**, `ruff check` clean, **93
-frontend tests across 16 files**, `tsc -b` clean, `npm run lint` carrying the same 2 pre-existing
-fast-refresh warnings in `EvidenceSourceBadge.tsx` and no new ones. Nothing is left in the working
-tree. These counts are this machine's, not CI's: the branch has not been pushed, so nothing here
-has been confirmed on a clean runner yet. The frontend number is from a re-run — the first attempt
-lost 7 of 16 files to the forks-worker timeout with zero assertion failures, which is AGENTS.md's
-own description of this environment rather than of the code.
+Status: **T1 is complete and CI-confirmed; T2 is not begun.** The charter decision below came back
+yes, so T1 ran: `f25668f` (backend, ADR-0063, the charter amendment, R-39 and R-40) and `ce5094e`
+(frontend). The branch is pushed and PR #9 is open against `main`; run `32280521820` is green on
+both jobs. CI reproduced this machine's numbers rather than merely agreeing with them: **615 backend
+tests passing** in 5m45s, `ruff check` clean, **93 frontend tests across 16 files**, and `npm run
+build`, which is the real `tsc -b` typecheck. `npm run lint` is not a CI step, so its result stays a
+local one: the same 2 pre-existing fast-refresh warnings in `EvidenceSourceBadge.tsx` and no new
+ones. Nothing is left in the working tree. The local frontend count had come from a re-run — the
+first attempt lost 7 of 16 files to the forks-worker timeout with zero assertion failures — and the
+runner taking all 16 first time is one more measurement supporting AGENTS.md's reading of that as
+this environment rather than the code. T1's last open acceptance criterion, CI green on the branch,
+is now met.
 Decision made, and recorded rather than assumed. PROJECT_CHARTER.md Section 12 listed
 "multi-tenant authentication and role-based access control" as explicitly out of scope for the MVP.
 T1 built the data-model half of that line and none of the identity half: assessments and documents
