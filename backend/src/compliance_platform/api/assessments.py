@@ -84,11 +84,16 @@ class SetPracticeFindingRequest(BaseModel):
 
 class RequestMoreEvidenceRequest(BaseModel):
     note: str
-    requested_by: str
+    # Optional since ADR-0061: the authenticated identity is preferred
+    # and this is ignored whenever one is present. Kept for a direct,
+    # unproxied API caller that has no other way to say who it is --
+    # removing it outright would break those callers to no benefit,
+    # since the server already refuses to trust it when it matters.
+    requested_by: str | None = None
 
 
 class ResolveEvidenceRequestRequest(BaseModel):
-    resolved_by: str
+    resolved_by: str | None = None
 
 
 @router.post("", response_model=Assessment)

@@ -65,14 +65,14 @@ export default function GapGroup({
                     request={request}
                     isDisabled={isFinalized}
                     isSubmitting={resolveEvidenceRequest.isPending}
-                    onResolve={(resolvedBy) => {
+                    onResolve={() => {
                       // request.id is typed optional only because the backend
                       // schema marks it as having a server-side default
                       // (SQLModel's default_factory) -- every real response
                       // always has one; this guard is defensive, not
                       // expected to ever actually trigger.
                       if (!request.id) return
-                      resolveEvidenceRequest.mutate({ requestId: request.id, resolvedBy })
+                      resolveEvidenceRequest.mutate({ requestId: request.id })
                     }}
                   />
                 ))}
@@ -87,12 +87,8 @@ export default function GapGroup({
                 <EvidenceRequestControls
                   isDisabled={isFinalized}
                   isSubmitting={requestMoreEvidence.isPending}
-                  onSubmit={(note, requestedBy) =>
-                    requestMoreEvidence.mutate({
-                      practiceReference: gap.practice_id,
-                      note,
-                      requestedBy,
-                    })
+                  onSubmit={(note) =>
+                    requestMoreEvidence.mutate({ practiceReference: gap.practice_id, note })
                   }
                 />
               </div>

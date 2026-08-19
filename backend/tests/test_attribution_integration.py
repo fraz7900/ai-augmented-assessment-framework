@@ -195,3 +195,48 @@ def test_the_seal_covers_who_decided(client: TestClient) -> None:
 
     assert verified["status"] == "verified"
     assert verified["seal_version"] == "2"
+
+
+def test_the_server_will_say_who_it_thinks_you_are(client: TestClient) -> None:
+    # The UI asks this so it can show a reviewer what their decisions
+    # will be recorded as, now that the forms no longer ask them to
+    # type it (ADR-0061). It is also how an operator confirms the proxy
+    # is forwarding the header at all.
+    identified = client.get("/identity", headers=PRIYA).json()
+    assert identified == {"actor": "priya", "is_authenticated": True}
+
+    anonymous = client.get("/identity").json()
+    assert anonymous == {"actor": UNAUTHENTICATED_ACTOR, "is_authenticated": False}
+
+
+def test_an_evidence_request_needs_no_name_in_the_body(client: TestClient) -> None:
+    # The frontend stopped sending one. A body without it must be
+    # accepted, and the identity must still be recorded.
+    assessment_id = _assessment(client)
+
+    requested = client.post(
+        f"/assessments/{assessment_id}/practice-findings/ACCESS-1a/evidence-requests",
+        json={"note": "Please send the access review export."},
+        headers=PRIYA,
+    )
+
+    assert requested.status_code == 200
+    assert requested.json()["requested_by"] == "priya"
+
+
+def test_resolving_needs_no_name_in_the_body_either(client: TestClient) -> None:
+    assessment_id = _assessment(client)
+    request_id = client.post(
+        f"/assessments/{assessment_id}/practice-findings/ACCESS-1a/evidence-requests",
+        json={"note": "Please send the access review export."},
+        headers=PRIYA,
+    ).json()["id"]
+
+    resolved = client.post(
+        f"/assessments/{assessment_id}/evidence-requests/{request_id}/resolve",
+        json={},
+        headers={"X-Remote-User": "marcus"},
+    )
+
+    assert resolved.status_code == 200
+    assert resolved.json()["resolved_by"] == "marcus"

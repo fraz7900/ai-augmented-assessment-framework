@@ -14,10 +14,13 @@ export default function EvidenceRequestBadge({
   request: EvidenceRequest
   isDisabled?: boolean
   isSubmitting?: boolean
-  onResolve: (resolvedBy: string) => void
+  onResolve: () => void
 }) {
+  // Resolution is attributed to the authenticated identity, so this no
+  // longer asks who is doing it (ADR-0061). What remains is the
+  // confirmation step itself, which ADR-0043 requires: resolving is
+  // always explicit, never inferred from evidence appearing.
   const [resolving, setResolving] = useState(false)
-  const [resolvedBy, setResolvedBy] = useState('')
 
   return (
     <div className="mt-1 rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-xs text-amber-800">
@@ -26,21 +29,13 @@ export default function EvidenceRequestBadge({
       {!isDisabled &&
         (resolving ? (
           <div className="mt-1 flex items-center gap-2">
-            <input
-              type="text"
-              value={resolvedBy}
-              onChange={(event) => setResolvedBy(event.target.value)}
-              placeholder="Your name"
-              aria-label="Resolved by"
-              className="rounded-md border border-slate-300 px-2 py-0.5 text-xs"
-            />
+            <span>Mark this request resolved?</span>
             <button
               type="button"
-              disabled={!resolvedBy.trim() || isSubmitting}
+              disabled={isSubmitting}
               onClick={() => {
-                onResolve(resolvedBy.trim())
+                onResolve()
                 setResolving(false)
-                setResolvedBy('')
               }}
               className="rounded-md bg-amber-600 px-2 py-0.5 text-xs font-medium text-white disabled:opacity-50"
             >

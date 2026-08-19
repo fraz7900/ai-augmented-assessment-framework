@@ -12,7 +12,14 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from compliance_platform.api import assessments, documents, frameworks, health, ingestion
+from compliance_platform.api import (
+    assessments,
+    documents,
+    frameworks,
+    health,
+    identity,
+    ingestion,
+)
 from compliance_platform.api.dependencies import (
     get_cached_ingestion_executor,
     get_ingestion_job_service,
@@ -80,6 +87,7 @@ app.add_middleware(
 )
 
 app.include_router(health.router)
+app.include_router(identity.router)
 app.include_router(ingestion.router)
 app.include_router(assessments.router)
 app.include_router(frameworks.router)
