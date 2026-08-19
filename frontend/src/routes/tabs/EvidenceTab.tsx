@@ -5,6 +5,7 @@ import {
   useEvidenceLinks,
   useAssessmentDocuments,
   useAttachDocument,
+  useDetachDocument,
   useLinkEvidence,
   useProposeMappings,
   useReviewEvidence,
@@ -13,6 +14,7 @@ import { useFramework } from '../../api/frameworks'
 import { useDocuments } from '../../api/ingestion'
 import { findPractice } from '../../lib/practiceLookup'
 import AttachDocumentControl from '../../components/AttachDocumentControl'
+import DetachDocumentButton from '../../components/DetachDocumentButton'
 import DocumentPicker from '../../components/DocumentPicker'
 import EvidenceSourceBadge from '../../components/EvidenceSourceBadge'
 import EvidenceReviewControls from '../../components/EvidenceReviewControls'
@@ -40,6 +42,7 @@ export default function EvidenceTab() {
   const { data: documents, isLoading: documentsLoading } = useAssessmentDocuments(assessmentId)
   const { data: allDocuments } = useDocuments()
   const attachDocument = useAttachDocument(assessmentId)
+  const detachDocument = useDetachDocument(assessmentId)
   const linkEvidence = useLinkEvidence(assessmentId)
   const proposeMappings = useProposeMappings(assessmentId)
   const reviewEvidence = useReviewEvidence(assessmentId)
@@ -171,6 +174,19 @@ export default function EvidenceTab() {
                 isDisabled={assessment.status === 'finalized'}
                 isSubmitting={attachDocument.isPending}
                 onAttach={(id) => attachDocument.mutate(id)}
+              />
+              <DetachDocumentButton
+                document={(documents ?? []).find((doc) => doc.id === documentId)}
+                isDisabled={assessment.status === 'finalized'}
+                isSubmitting={detachDocument.isPending}
+                error={detachDocument.error}
+                onDetach={(id) =>
+                  detachDocument.mutate(id, {
+                    // The picker would otherwise still be pointing at a
+                    // document this assessment no longer has.
+                    onSuccess: () => setDocumentId(''),
+                  })
+                }
               />
             </div>
           </div>
