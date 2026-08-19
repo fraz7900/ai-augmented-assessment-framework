@@ -49,10 +49,10 @@ what you're touching before editing it:
 ## Commands
 
 ```
-cd backend && source .venv/bin/activate && pytest          # 630 tests as of Sprint 22 — run before finishing any backend change
+cd backend && source .venv/bin/activate && pytest          # 647 tests as of Sprint 23 — run before finishing any backend change
 cd backend && source .venv/bin/activate && ruff check .    # lint
 cd backend && source .venv/bin/activate && uvicorn compliance_platform.main:app --reload   # run the API, http://127.0.0.1:8000/docs
-cd frontend && npm run test    # vitest, 93 tests as of Sprint 22 — run before finishing any frontend change
+cd frontend && npm run test    # vitest, 105 tests as of Sprint 23 — run before finishing any frontend change
                                # (if it will not run, see the troubleshooting section below)
 cd frontend && npm run dev     # run the UI, http://localhost:5173
 ```

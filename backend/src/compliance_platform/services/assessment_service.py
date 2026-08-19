@@ -43,7 +43,11 @@ from compliance_platform.models.assessment import (
 )
 from compliance_platform.models.chat import ChatResponse, ChatResult
 from compliance_platform.models.framework import FrameworkDefinition
-from compliance_platform.models.report import DashboardReport
+from compliance_platform.models.report import (
+    DashboardReport,
+    EvidenceDomainCount,
+    EvidenceQueueSummary,
+)
 from compliance_platform.models.sanitization import SanitizationPreview
 from compliance_platform.models.schemas import (
     DocumentDetail,
@@ -1052,9 +1056,148 @@ class AssessmentService:
         )
         return created
 
-    def evidence_for_assessment(self, assessment_id: str) -> list[EvidenceLink]:
+    def evidence_for_assessment(
+        self,
+        assessment_id: str,
+        *,
+        review_status: EvidenceReviewStatus | None = None,
+        domain: str | None = None,
+        min_confidence: float | None = None,
+        max_confidence: float | None = None,
+    ) -> list[EvidenceLink]:
+        """The assessment's evidence links, optionally narrowed
+        (ADR-0065).
+
+        Every filter here is a VIEW concern. None of them changes a
+        record, and none of them is allowed to become an input to a
+        decision -- narrowing what a reviewer reads is safe precisely
+        because the accept/edit/reject transition still happens one link
+        at a time, on a link a person looked at.
+
+        Filtering runs in this layer rather than in SQL because the
+        domain filter cannot be expressed in SQL at all: a link stores a
+        practice_reference, and which domain that belongs to is a
+        property of the framework DEFINITION, not of the row. Pushing
+        the two SQL-able filters down while keeping this one here would
+        put the queue's filtering in two places, which is a worse
+        outcome than scanning one assessment's links in memory -- a
+        bounded set already loaded whole by every other caller.
+
+        The framework is the assessment's PINNED version (ADR-0058), not
+        the latest. A reviewer filtering by domain must get the domains
+        of the framework they are actually assessing.
+        """
         self.get_assessment(assessment_id)  # raises AssessmentNotFoundError if missing
-        return self._assessments.evidence_for_assessment(assessment_id)
+        links = self._assessments.evidence_for_assessment(assessment_id)
+
+        if review_status is not None:
+            links = [link for link in links if link.review_status == review_status]
+
+        if min_confidence is not None:
+            # A link with no confidence is a manual one (confidence is
+            # set only for AI proposals), and it is excluded rather than
+            # treated as zero -- a manual link is not a low-confidence
+            # link, and folding the two together would misreport the
+            # queue in the one filter most likely to be used to judge
+            # proposal quality.
+            links = [
+                link
+                for link in links
+                if link.confidence is not None and link.confidence >= min_confidence
+            ]
+
+        if max_confidence is not None:
+            links = [
+                link
+                for link in links
+                if link.confidence is not None and link.confidence <= max_confidence
+            ]
+
+        if domain is not None:
+            practice_ids = self._practice_ids_for_domain(assessment_id, domain)
+            links = [link for link in links if link.practice_reference in practice_ids]
+
+        return links
+
+    def _framework_for_assessment(self, assessment_id: str) -> FrameworkDefinition | None:
+        """The pinned framework definition, or None when no registry is
+        wired in (the repository-only construction some tests use)."""
+        if self._frameworks is None:
+            return None
+        assessment = self.get_assessment(assessment_id)
+        return self._frameworks.get(assessment.framework_name, assessment.framework_version)
+
+    def _practice_ids_for_domain(self, assessment_id: str, domain: str) -> set[str]:
+        """Which practice ids belong to one domain of the pinned
+        framework.
+
+        Resolved from the framework definition every time rather than
+        stored on the link. Domain membership is framework data
+        (AGENTS.md rule 1) and belongs in framework_mapping/*.yaml, so
+        there is deliberately no `if framework == "c2m2"` anywhere on
+        this path and no denormalised domain column to drift from it.
+
+        An unknown domain short code yields an empty set, so the filter
+        returns nothing rather than silently returning everything --
+        an empty list is a readable answer, and a full one would look
+        like the filter worked.
+        """
+        framework = self._framework_for_assessment(assessment_id)
+        if framework is None:
+            return set()
+        found = framework.domain(domain)
+        return found.practice_ids() if found is not None else set()
+
+    def evidence_queue_summary(self, assessment_id: str) -> EvidenceQueueSummary:
+        """Counts over the WHOLE queue, never over a filtered view
+        (ADR-0065).
+
+        This exists so the filters cannot mislead. A reviewer looking at
+        23 links needs to know whether that is 23 of 23 or 23 of 412,
+        and the count that answers it must not itself be filtered or the
+        answer is circular.
+        """
+        links = self._assessments.evidence_for_assessment(assessment_id)
+        framework = self._framework_for_assessment(assessment_id)
+
+        by_status: dict[str, int] = {status.value: 0 for status in EvidenceReviewStatus}
+        for link in links:
+            by_status[link.review_status.value] += 1
+
+        by_domain: list[EvidenceDomainCount] = []
+        mapped_practice_ids: set[str] = set()
+        if framework is not None:
+            for framework_domain in framework.domains:
+                practice_ids = framework_domain.practice_ids()
+                mapped_practice_ids |= practice_ids
+                in_domain = [link for link in links if link.practice_reference in practice_ids]
+                if not in_domain:
+                    # Domains with nothing in the queue are omitted
+                    # rather than listed at zero: a filter control
+                    # offering ten empty domains is a worse chooser than
+                    # one offering the three that have work in them.
+                    continue
+                by_domain.append(
+                    EvidenceDomainCount(
+                        short_code=framework_domain.short_code,
+                        full_name=framework_domain.full_name,
+                        total=len(in_domain),
+                        pending=sum(
+                            1
+                            for link in in_domain
+                            if link.review_status == EvidenceReviewStatus.PENDING
+                        ),
+                    )
+                )
+
+        unmapped = sum(1 for link in links if link.practice_reference not in mapped_practice_ids)
+
+        return EvidenceQueueSummary(
+            total=len(links),
+            by_status=by_status,
+            by_domain=by_domain,
+            unmapped=unmapped,
+        )
 
     def compute_scores(self, assessment_id: str) -> dict[str, float]:
         """Per-domain scores for this assessment's framework — cumulative

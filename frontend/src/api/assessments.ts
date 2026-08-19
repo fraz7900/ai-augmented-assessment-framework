@@ -7,7 +7,9 @@ import type {
   CreateAssessmentRequest,
   DashboardReport,
   EvidenceLink,
+  EvidenceQueueSummary,
   EvidenceRequest,
+  EvidenceReviewStatus,
   DocumentSummary,
   FinalizationReadiness,
   SealVerification,
@@ -30,7 +32,20 @@ const keys = {
     ['assessments', 'list', organizationId ?? ''] as const,
   assessment: (id: string) => ['assessments', id] as const,
   statusHistory: (id: string) => ['assessments', id, 'status-history'] as const,
-  evidence: (id: string) => ['assessments', id, 'evidence'] as const,
+  // The filter is part of the key. Without it, changing the filter
+  // would serve the previous filter's rows out of the cache and the
+  // control would look broken; with it, an invalidation after a
+  // review still refreshes every filtered view of the same queue,
+  // because they all share this prefix.
+  evidence: (id: string, filters?: EvidenceFilters) =>
+    ['assessments', id, 'evidence', filters ?? {}] as const,
+  evidenceSummary: (id: string) => ['assessments', id, 'evidence', 'summary'] as const,
+  // Every filtered list AND the summary sit under this prefix, so a
+  // review decision invalidates all of them with one call. Passing
+  // keys.evidence(id) here instead would only match the unfiltered
+  // list, leaving a reviewer working inside a filter looking at a row
+  // they had just decided on.
+  evidenceAll: (id: string) => ['assessments', id, 'evidence'] as const,
   dashboard: (id: string) => ['assessments', id, 'dashboard'] as const,
   practiceFindings: (id: string) => ['assessments', id, 'practice-findings'] as const,
   practiceFindingHistory: (id: string, practiceReference: string) =>
@@ -100,10 +115,53 @@ export function useTransitionStatus(assessmentId: string) {
   })
 }
 
-export function useEvidenceLinks(assessmentId: string | undefined) {
+export type EvidenceFilters = {
+  review_status?: EvidenceReviewStatus
+  domain?: string
+  min_confidence?: number
+  max_confidence?: number
+}
+
+function evidenceQueryString(filters: EvidenceFilters | undefined): string {
+  if (!filters) return ''
+  const params = new URLSearchParams()
+  for (const [key, value] of Object.entries(filters)) {
+    // An empty string is what a cleared <select> gives back, and it is
+    // not a filter — sending it would ask the server for links whose
+    // domain is "".
+    if (value === undefined || value === '') continue
+    params.set(key, String(value))
+  }
+  const query = params.toString()
+  return query ? `?${query}` : ''
+}
+
+export function useEvidenceLinks(
+  assessmentId: string | undefined,
+  filters?: EvidenceFilters,
+) {
   return useQuery({
-    queryKey: keys.evidence(assessmentId ?? ''),
-    queryFn: () => apiClient.get<EvidenceLink[]>(`/assessments/${assessmentId}/evidence`),
+    queryKey: keys.evidence(assessmentId ?? '', filters),
+    queryFn: () =>
+      apiClient.get<EvidenceLink[]>(
+        `/assessments/${assessmentId}/evidence${evidenceQueryString(filters)}`,
+      ),
+    enabled: !!assessmentId,
+  })
+}
+
+/**
+ * Counts over the whole queue, never the filtered view (ADR-0065).
+ *
+ * Kept a separate request rather than folded into the list response so
+ * that the totals a reviewer reads cannot move when they change a
+ * filter — a "23 of 412" that becomes "23 of 23" answers nothing.
+ */
+export function useEvidenceSummary(assessmentId: string | undefined) {
+  return useQuery({
+    queryKey: keys.evidenceSummary(assessmentId ?? ''),
+    queryFn: () =>
+      apiClient.get<EvidenceQueueSummary>(`/assessments/${assessmentId}/evidence/summary`),
     enabled: !!assessmentId,
   })
 }
@@ -113,7 +171,7 @@ export function useLinkEvidence(assessmentId: string) {
   return useMutation({
     mutationFn: (body: LinkEvidenceRequest) =>
       apiClient.post<EvidenceLink>(`/assessments/${assessmentId}/evidence`, body),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: keys.evidence(assessmentId) }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: keys.evidenceAll(assessmentId) }),
   })
 }
 
@@ -122,7 +180,7 @@ export function useProposeMappings(assessmentId: string) {
   return useMutation({
     mutationFn: () => apiClient.post<EvidenceLink[]>(`/assessments/${assessmentId}/propose-mappings`),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: keys.evidence(assessmentId) })
+      queryClient.invalidateQueries({ queryKey: keys.evidenceAll(assessmentId) })
       // New AI proposals are unreviewed by definition, so proposing
       // mappings BLOCKS finalization until they are reviewed.
       queryClient.invalidateQueries({ queryKey: keys.finalizationReadiness(assessmentId) })
@@ -139,7 +197,7 @@ export function useReviewEvidence(assessmentId: string) {
         body,
       ),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: keys.evidence(assessmentId) })
+      queryClient.invalidateQueries({ queryKey: keys.evidenceAll(assessmentId) })
       // review outcomes feed directly into score/dashboard
       queryClient.invalidateQueries({ queryKey: keys.dashboard(assessmentId) })
       // ...and into whether the assessment may be finalized (ADR-0058):

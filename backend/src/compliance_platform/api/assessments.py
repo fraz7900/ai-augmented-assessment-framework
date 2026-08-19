@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import re
 
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import BaseModel
 
 from compliance_platform.api.dependencies import get_assessment_service
@@ -36,7 +36,7 @@ from compliance_platform.models.assessment import (
     SanitizationApproval,
 )
 from compliance_platform.models.chat import ChatResponse
-from compliance_platform.models.report import DashboardReport
+from compliance_platform.models.report import DashboardReport, EvidenceQueueSummary
 from compliance_platform.models.sanitization import SanitizationPreview
 from compliance_platform.models.schemas import (
     DocumentSummary,
@@ -256,9 +256,55 @@ def link_evidence(
 @router.get("/{assessment_id}/evidence", response_model=list[EvidenceLink])
 def list_evidence(
     assessment_id: str,
+    review_status: EvidenceReviewStatus | None = Query(
+        default=None, description="Only links in this review state."
+    ),
+    domain: str | None = Query(
+        default=None,
+        description=(
+            "Only links whose practice belongs to this domain short code, resolved "
+            "against the assessment's pinned framework version. An unknown code "
+            "returns an empty list rather than everything."
+        ),
+    ),
+    min_confidence: float | None = Query(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description=(
+            "Only AI-proposed links at or above this retrieval similarity. NOT a "
+            "calibrated probability (ADR-0011) -- see the confidence field. Manual "
+            "links, which carry no confidence, are excluded rather than counted as 0."
+        ),
+    ),
+    max_confidence: float | None = Query(default=None, ge=0.0, le=1.0),
     service: AssessmentService = Depends(get_assessment_service),
 ) -> list[EvidenceLink]:
-    return service.evidence_for_assessment(assessment_id)
+    """This assessment's evidence links, optionally narrowed (ADR-0065).
+
+    Every parameter is a view filter. None of them changes a record, and
+    the response shape is unchanged from the unfiltered call, so an
+    existing caller that passes nothing sees exactly what it saw before.
+    """
+    return service.evidence_for_assessment(
+        assessment_id,
+        review_status=review_status,
+        domain=domain,
+        min_confidence=min_confidence,
+        max_confidence=max_confidence,
+    )
+
+
+@router.get("/{assessment_id}/evidence/summary", response_model=EvidenceQueueSummary)
+def get_evidence_summary(
+    assessment_id: str,
+    service: AssessmentService = Depends(get_assessment_service),
+) -> EvidenceQueueSummary:
+    """What the whole queue holds, so a filtered view can say what it is
+    a subset of (ADR-0065). Deliberately takes no filter parameters --
+    a total that moves with the filter answers nothing.
+    """
+    return service.evidence_queue_summary(assessment_id)
 
 
 @router.get("/{assessment_id}/score", response_model=dict[str, float])
