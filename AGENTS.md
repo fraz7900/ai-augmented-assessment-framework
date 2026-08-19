@@ -49,10 +49,10 @@ what you're touching before editing it:
 ## Commands
 
 ```
-cd backend && source .venv/bin/activate && pytest          # 514 tests as of Sprint 21 — run before finishing any backend change
+cd backend && source .venv/bin/activate && pytest          # 584 tests as of Sprint 21 — run before finishing any backend change
 cd backend && source .venv/bin/activate && ruff check .    # lint
 cd backend && source .venv/bin/activate && uvicorn compliance_platform.main:app --reload   # run the API, http://127.0.0.1:8000/docs
-cd frontend && npm run test    # vitest, 57 tests as of Sprint 21 — run before finishing any frontend change
+cd frontend && npm run test    # vitest, 78 tests as of Sprint 21 — run before finishing any frontend change
                                # (if it will not run, see the troubleshooting section below)
 cd frontend && npm run dev     # run the UI, http://localhost:5173
 ```
@@ -77,29 +77,36 @@ Caused by: Error: [vitest-pool-runner]: Timeout waiting for worker to respond
 **Diagnose before fixing.** If every error is `Failed to start forks worker` and there are
 **zero** assertion failures, the code is fine and the runner is not — a run that reaches your
 tests will pass them. Two corroborating signals: `npx tsc -b` exits 0, and the run takes far
-longer than it should (400s+ against a normal ~90s). A *different* set of files failing on each
+longer than it should (600s+ against a normal ~130s). A *different* set of files failing on each
 run is the same tell; a real breakage is deterministic.
 
-Remedies, cheapest first:
+Remedies, in the order the evidence supports:
 
-1. **Re-run it.** A single flaky run is common.
-2. **`npx vitest run --pool=threads --maxWorkers=1`.** This is the one that reliably works. The
-   failure is in starting *forked processes* — vitest's default pool — and threads sidestep it
-   rather than merely reducing the contention. Measured in Sprint 21 on this checkout: the default
-   pool with `--maxWorkers=1` still lost 6 of 9 files to worker-startup timeouts and took 640s,
-   while `--pool=threads --maxWorkers=1` ran all 10 files green in 149s, twice.
-   (`--pool=threads` *is* accepted by vitest 4.1.10; an earlier version of this note said it was
-   not, which sent Sprint 20 chasing the wrong remedies. `--poolOptions.forks.singleFork` is still
-   not accepted.)
-3. **`--maxWorkers=1` on its own** — serialising the default forks pool. Worth one try, but it did
-   *not* fix the symptom the last time it was measured; prefer 2.
-4. **Stop anything else heavy first** — the backend suite, a `docker compose build`. Running the
-   two suites concurrently on this filesystem reliably starves the vitest workers, and the pass
-   count tracks system load.
-5. **Delete `node_modules` and reinstall.** This does work, but be aware it may not fix it on the
-   first attempt — one reinstall left the symptom in place during Sprint 19 and a later one
-   (performed by `npm audit fix`) cleared it completely. Don't conclude from a single failed
-   reinstall that the advice is wrong.
+1. **Delete `node_modules` and reinstall** — `rm -rf node_modules && npm ci --legacy-peer-deps`.
+   This is the one that changes the outcome, and it is worth doing early rather than last. Measured
+   on this checkout in Sprint 21: before it, four consecutive full-suite attempts each lost **every**
+   file (11–12 worker-startup errors, ~660s, zero tests executed). Immediately after it, the same
+   command ran 13/13 files and all 78 tests in ~146s. Takes about 3.5 minutes (45s to delete 190MB on
+   `/mnt/c`, 3 minutes to install).
+2. **Re-run it.** Even after a reinstall the runner is not reliably clean — see below — and a second
+   attempt often is.
+3. **Stop anything else heavy first** — the backend suite, a `docker compose build`. Running the two
+   suites concurrently on this filesystem reliably starves the vitest workers, and the pass count
+   tracks system load.
+
+**What a healthy local run looks like here, measured.** Five consecutive post-reinstall runs with the
+default pool: 13/13, 13/13, 12/13, 11/13, 12/13 files — two fully clean, the rest losing one or two
+files to the same worker-startup timeout, a **different** file each time, in ~130s. So a run that
+loses a file or two is the normal residual state of this environment, not evidence about your code.
+A run that loses *all* of them means reinstall.
+
+**Pool choice does not fix it, despite an earlier claim in this file.** Sprint 21 first recorded
+`--pool=threads --maxWorkers=1` as "the remedy that works" on the strength of two green runs; it then
+failed exactly like the default pool for the rest of the sprint, and after the reinstall it was no
+better (2 runs, 12/13 each) than the default (5 runs, two of them 13/13). The note was measured and
+still wrong, because two runs is not a sample. `--pool=threads` is accepted by vitest 4.1.10 — the
+even earlier claim that it is not remains false — it simply does not help.
+(`--poolOptions.forks.singleFork` is genuinely not accepted.)
 
 **CI is the authority.** `frontend-checks` runs the same suite on a clean GitHub runner with none
 of these problems. If it is green there and failing here with worker-startup errors, the code is
