@@ -6,8 +6,8 @@ the only open risk carrying High impact, and the one `docs/project-status.md` na
 between this and a multi-client pilot. Second, a retention policy for the `ingestionjob` table,
 which ADR-0059 disclosed rather than solved. No authentication, no RBAC, no cloud deployment, no
 new frameworks, no refactors outside the two.
-Status: **T1 is complete and CI-confirmed; T2 is not begun.** The charter decision below came back
-yes, so T1 ran: `f25668f` (backend, ADR-0063, the charter amendment, R-39 and R-40) and `ce5094e`
+Status: **Both tranches are complete and CI-confirmed. T1 is merged; T2 is open as PR #10.** The
+charter decision below came back yes, so T1 ran: `f25668f` (backend, ADR-0063, the charter amendment, R-39 and R-40) and `ce5094e`
 (frontend). The branch is pushed and PR #9 is open against `main`; run `32280521820` is green on
 both jobs. CI reproduced this machine's numbers rather than merely agreeing with them: **615 backend
 tests passing** in 5m45s, `ruff check` clean, **93 frontend tests across 16 files**, and `npm run
@@ -17,7 +17,12 @@ ones. Nothing is left in the working tree. The local frontend count had come fro
 first attempt lost 7 of 16 files to the forks-worker timeout with zero assertion failures — and the
 runner taking all 16 first time is one more measurement supporting AGENTS.md's reading of that as
 this environment rather than the code. T1's last open acceptance criterion, CI green on the branch,
-is now met.
+was met there, and PR #9 merged as `dac8c52`. T2 follows on `feat/ingestion-job-retention`, branched
+from the merge rather than developed alongside it, for the conflict reason this file records below.
+Its own run, `32283465604` on PR #10, is green on both jobs and again reproduces this machine's
+numbers: **630 backend tests passing** (615 plus 15 new), `ruff check` clean. T2 is backend-only, so
+the frontend numbers are unchanged and were confirmed unchanged rather than assumed — 93 across 16
+files on the same run. Nothing is left in the working tree on either branch.
 Decision made, and recorded rather than assumed. PROJECT_CHARTER.md Section 12 listed
 "multi-tenant authentication and role-based access control" as explicitly out of scope for the MVP.
 T1 built the data-model half of that line and none of the identity half: assessments and documents
@@ -121,17 +126,39 @@ migrated instance's "Unassigned" survivable, and is safe precisely because the s
 rather than the name. The migration-test helper also cost more than expected: a pre-sprint schema
 cannot be simulated by dropping the column, because SQLite refuses to drop one a foreign key still
 names, so it rebuilds both tables the way SQLite's own documented table rewrite does.
-T2 (not begun) — a retention policy for ingestion jobs (proposed ADR-0064). `ingestionjob` rows
-accumulate with
-no bound (R-35). Sweep terminal jobs older than a configurable window at startup and after each job
-completes, never touch a PENDING or RUNNING row, and log the count swept. This file's own
-convention says a number nobody has evidence for is worse than a disclosure, so the ADR has to
-argue the default rather than pick one: a job row is needed while the browser polls it, and
-afterwards only to answer "what happened to that upload?", a question with a horizon of weeks
-rather than months, since the outcome is visible in the document list either way — 30 days for
-terminal jobs, configurable, is defensible on that reasoning and nothing longer is. R-35's other
-half stays open and disclosed: queued uploads are still held in memory until a worker frees up, and
-spooling them to disk changes the queue's failure model rather than extending a retention sweep.
+T2 (built) — a retention policy for ingestion jobs (ADR-0064, accepted). `ingestionjob` rows
+accumulated with no bound (R-35). Terminal jobs whose `finished_at` passes a configurable window are
+now deleted, swept at startup and after each job completes; a QUEUED or RUNNING row is never touched
+however old it is, and the count swept is logged. The default is argued rather than picked, which
+this file asked for: a job row is needed while the browser polls it, and afterwards only to answer
+"what happened to that upload?", a question with a horizon of weeks rather than months, since the
+outcome is visible in the document list either way — 30 days, configurable, is defensible on that
+reasoning and nothing longer is. R-35's other half stays open and disclosed: queued uploads are
+still held in memory until a worker frees up, and spooling them to disk changes the queue's failure
+model rather than extending a retention sweep. The register row now says half-closed rather than
+closed, for that reason.
+What T2 actually took, recorded against the plan rather than tidied to match it. Three things this
+plan did not say. First, ADR-0059 had deferred retention until "a real corpus makes the number
+concrete", so ADR-0064 had to deal with that deferral rather than quietly overrule it: the honest
+answer is that the measurement is not coming — no volume threshold on a hand-fed local instance
+makes the table's own size alarming — and the argument actually needed never depended on volume, so
+the ADR says that in those terms instead of claiming evidence it does not have. Second, a retention
+window of 0 disables the sweep entirely, which the plan did not call for; a deletion policy with no
+way to turn it off is a worse default than one with an escape hatch, and an operator reconstructing
+an upload history for an audit should not have to patch code. Third, the two sweeps at startup are
+ordered, and the order is load-bearing rather than incidental: the interrupted sweep stamps each
+stranded job with a `finished_at` of now, so running retention afterwards gives a job stranded a
+year ago its full window as a readable FAILED row instead of converting and deleting it in the same
+second. That has a test of its own, because a comment explaining an ordering is not the same thing
+as an ordering that stays.
+Delivered inside T2 and named rather than absorbed: the sweep runs in a `finally` and swallows its
+own exceptions, so a broken cleanup cannot cost a user the upload they were waiting on — the job
+outcome is already persisted by then; and the sweep is deliberately instance-wide rather than scoped
+to an organisation, on exactly the reasoning ADR-0063 used for the backpressure count, since a
+per-organisation sweep would leave every other organisation growing as before. 15 tests: 7 at the
+repository where the deletion happens, 8 at the service where the window and the timing do. The
+repository tests are the ones that earn their keep, and they are mostly about what the sweep does
+*not* delete.
 Known about this plan before it starts, rather than discovered after. The two tranches both add to
 `models/assessment.py` and will conflict there if developed in parallel — Sprint 21 claimed PR #2
 and PR #3 touched different files and merged cleanly in either order, and that was simply wrong, so
