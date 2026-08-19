@@ -964,6 +964,54 @@ class AssessmentRepository:
             session.refresh(job)
             return job
 
+    def delete_expired_ingestion_jobs(self, cutoff: datetime) -> int:
+        """Delete terminal jobs that finished before `cutoff`. Returns
+        how many, so the caller can log a real number (ADR-0064).
+
+        This is the only method in this class that deletes a row on its
+        own initiative, so the predicate is written to be read rather
+        than to be short. Two conditions carry the guarantee:
+
+        Terminal only. QUEUED and RUNNING are live work and are never
+        swept, however old the clock says they are. A job stranded on
+        RUNNING by a crash is `fail_interrupted_ingestion_jobs`' to
+        convert at the next startup -- after which it is FAILED, dated,
+        and retention applies to it honestly. Deleting it here would
+        erase an upload that silently never happened, which afterwards
+        is indistinguishable from one that was never submitted.
+
+        Dated only. `finished_at IS NOT NULL` is redundant against
+        today's code, since every terminal transition sets it, and is
+        kept because the alternative when it is null is to fall back to
+        created_at -- deleting on a timestamp that means "when the
+        upload was accepted" rather than "when it stopped mattering".
+        An undateable row is kept instead. Keeping a row too long is a
+        disk-space problem; deleting one early is not recoverable.
+
+        Deliberately not scoped to an organisation, on the same
+        reasoning ADR-0063 left the backpressure count instance-wide:
+        retention is a property of the table, and a per-organisation
+        sweep would leave every other organisation growing unbounded.
+
+        The document a swept job produced is untouched. There is no
+        cascade from job to document and there must not be one: the job
+        row records that an upload happened, the Document *is* the
+        upload.
+        """
+        with Session(self._engine) as session:
+            statement = select(IngestionJob).where(
+                col(IngestionJob.status).in_(
+                    [IngestionJobStatus.SUCCEEDED, IngestionJobStatus.FAILED]
+                ),
+                col(IngestionJob.finished_at).is_not(None),
+                col(IngestionJob.finished_at) < cutoff,
+            )
+            expired = list(session.exec(statement).all())
+            for job in expired:
+                session.delete(job)
+            session.commit()
+            return len(expired)
+
     def fail_interrupted_ingestion_jobs(self) -> int:
         """Fail every job left QUEUED or RUNNING by a previous process.
 

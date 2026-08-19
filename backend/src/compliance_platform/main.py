@@ -43,12 +43,22 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     again, and a row that reads RUNNING forever is a worse answer than
     one that says it was interrupted. Swept on the way in.
 
+    Retention (ADR-0064) runs immediately after, and in that order for a
+    reason: sweeping the interrupted jobs first gives each of them a
+    finished_at of now, so a job stranded by a crash a year ago gets its
+    full retention window as a FAILED row an operator can actually read,
+    rather than being converted and deleted in the same startup. The
+    sweep also runs after each job completes, which is what keeps a
+    long-lived process from growing between restarts.
+
     On the way out, the executor is shut down without waiting: a
     container stop should not hang for however long an OCR pass has
     left, and whatever was in flight gets swept on the next start
     anyway.
     """
-    get_ingestion_job_service().sweep_interrupted()
+    job_service = get_ingestion_job_service()
+    job_service.sweep_interrupted()
+    job_service.sweep_expired()
     try:
         yield
     finally:

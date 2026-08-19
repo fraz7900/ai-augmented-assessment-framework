@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import logging
 from concurrent.futures import Future
+from datetime import UTC, datetime, timedelta
 from typing import Any, Protocol
 
 from compliance_platform.core.config import Settings
@@ -98,6 +99,7 @@ class IngestionJobRepositoryProtocol(Protocol):
         parse_warnings: list[str] | None = None,
     ) -> IngestionJob | None: ...
     def fail_interrupted_ingestion_jobs(self) -> int: ...
+    def delete_expired_ingestion_jobs(self, cutoff: datetime) -> int: ...
 
 
 class IngestionJobService:
@@ -239,6 +241,22 @@ class IngestionJobService:
                 result.document_id,
                 result.chunk_count,
             )
+        finally:
+            # Retention runs here rather than on a timer because this
+            # process has no scheduler and adding one for a table this
+            # small would be the larger change (ADR-0064). Every branch
+            # above has already persisted its outcome, so a sweep that
+            # throws cannot cost this job its result -- and it is
+            # swallowed anyway, because failing an ingestion the user
+            # was waiting on to report a housekeeping problem would be
+            # the wrong trade.
+            self._sweep_expired_quietly()
+
+    def _sweep_expired_quietly(self) -> None:
+        try:
+            self.sweep_expired()
+        except Exception:  # noqa: BLE001 - housekeeping must not fail a job
+            _logger.exception("ingestion job retention sweep failed")
 
     def _fail(
         self,
@@ -264,6 +282,36 @@ class IngestionJobService:
         """Scoped: "Recent uploads" is a list a person reads, and one
         client's filenames are not another's to see (ADR-0063)."""
         return self._jobs.list_ingestion_jobs(limit=limit, organization_id=organization_id)
+
+    def sweep_expired(self) -> int:
+        """Delete terminal jobs past the retention window (ADR-0064).
+
+        ADR-0059 left `ingestionjob` growing without bound and said so
+        (R-35) rather than inventing a rule for it. The rule this
+        implements is argued in ADR-0064 rather than picked: a job row
+        is needed while the browser polls it, and afterwards only to
+        answer "what happened to that upload?" -- a question whose
+        horizon is weeks, because the outcome is visible in the document
+        list either way.
+
+        A retention window of 0 disables the sweep entirely. An operator
+        reconstructing a full upload history should not have to patch
+        code to stop rows being deleted, and a policy with no way to
+        turn it off is a worse default than one with an escape hatch.
+        """
+        retention_days = self._settings.ingestion_job_retention_days
+        if retention_days <= 0:
+            return 0
+        cutoff = datetime.now(UTC) - timedelta(days=retention_days)
+        swept = self._jobs.delete_expired_ingestion_jobs(cutoff)
+        if swept:
+            _logger.info(
+                "swept %d terminal ingestion job(s) finished before %s (retention %d days)",
+                swept,
+                cutoff.isoformat(),
+                retention_days,
+            )
+        return swept
 
     def sweep_interrupted(self) -> int:
         """Fail anything a previous process left mid-flight. See

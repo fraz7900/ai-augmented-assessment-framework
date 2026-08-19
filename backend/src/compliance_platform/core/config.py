@@ -50,6 +50,17 @@ class Settings(BaseSettings):
     # this bound for free by making the caller wait; accepting uploads
     # immediately removes it, so it is reintroduced deliberately.
     max_pending_ingestions: int = 10
+    # Retention for the ingestionjob table (ADR-0064). A job row is
+    # needed while the browser polls it, and afterwards only to answer
+    # "what happened to that upload?" -- a question with a horizon of
+    # weeks, since the outcome is visible in the document list either
+    # way. 30 days is defensible on that reasoning; nothing longer is,
+    # and picking a number without the reasoning would be a guess.
+    # Terminal jobs only: a QUEUED or RUNNING row is live work and is
+    # never swept, however old the clock says it is. Set to 0 to keep
+    # every job forever -- an operator reconstructing an upload history
+    # should not have to patch code to stop the sweep.
+    ingestion_job_retention_days: int = 30
     # NOTE: there is deliberately no `allowed_extensions` setting. One
     # existed, was never read by any code path, and had drifted to list
     # only PDF/DOCX/TXT/MD -- omitting the XLSX/CSV support added in
