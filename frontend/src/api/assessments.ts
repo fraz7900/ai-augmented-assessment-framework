@@ -258,18 +258,12 @@ export function useEvidenceRequests(assessmentId: string | undefined) {
 export function useRequestMoreEvidence(assessmentId: string) {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: ({
-      practiceReference,
-      note,
-      requestedBy,
-    }: {
-      practiceReference: string
-      note: string
-      requestedBy: string
-    }) =>
+    // No requested_by: the server attributes this to the authenticated
+    // identity and ignores anything the client claims (ADR-0061).
+    mutationFn: ({ practiceReference, note }: { practiceReference: string; note: string }) =>
       apiClient.post<EvidenceRequest>(
         `/assessments/${assessmentId}/practice-findings/${practiceReference}/evidence-requests`,
-        { note, requested_by: requestedBy },
+        { note },
       ),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: keys.evidenceRequests(assessmentId) })
@@ -281,10 +275,10 @@ export function useRequestMoreEvidence(assessmentId: string) {
 export function useResolveEvidenceRequest(assessmentId: string) {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: ({ requestId, resolvedBy }: { requestId: string; resolvedBy: string }) =>
+    mutationFn: ({ requestId }: { requestId: string }) =>
       apiClient.post<EvidenceRequest>(
         `/assessments/${assessmentId}/evidence-requests/${requestId}/resolve`,
-        { resolved_by: resolvedBy },
+        {},
       ),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: keys.evidenceRequests(assessmentId) })

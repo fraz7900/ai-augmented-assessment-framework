@@ -1,12 +1,20 @@
 import { useState } from 'react'
+import { useIdentity } from '../api/identity'
 
 // ADR-0043: a reviewer's explicit request that someone go find and
 // upload more evidence for this practice -- a workflow action distinct
 // from PracticeFindingControls' compliance judgment; both can coexist
-// for the same gap. note/requestedBy are both required server-side
+// for the same gap. The note is required server-side
 // (MissingEvidenceRequestNoteError), so this form can't submit without
-// them -- structural enforcement, matching PracticeFindingControls'
-// own convention.
+// it -- structural enforcement, matching PracticeFindingControls' own
+// convention.
+//
+// It used to ask for the requester's name too. Since ADR-0061 the
+// server attributes the request to the authenticated identity and
+// ignores anything the client claims, so asking would invite someone to
+// type a name that will not be used. The identity is shown instead:
+// removing the field without saying what replaced it would leave a
+// reviewer recording decisions under a name they cannot see.
 export default function EvidenceRequestControls({
   isDisabled = false,
   isSubmitting = false,
@@ -14,11 +22,11 @@ export default function EvidenceRequestControls({
 }: {
   isDisabled?: boolean
   isSubmitting?: boolean
-  onSubmit: (note: string, requestedBy: string) => void
+  onSubmit: (note: string) => void
 }) {
   const [open, setOpen] = useState(false)
   const [note, setNote] = useState('')
-  const [requestedBy, setRequestedBy] = useState('')
+  const { data: identity } = useIdentity()
 
   if (isDisabled) return null
 
@@ -44,20 +52,27 @@ export default function EvidenceRequestControls({
         rows={2}
         className="rounded-md border border-slate-300 px-2 py-1 text-xs"
       />
-      <input
-        type="text"
-        value={requestedBy}
-        onChange={(event) => setRequestedBy(event.target.value)}
-        placeholder="Your name"
-        aria-label="Requested by"
-        className="rounded-md border border-slate-300 px-2 py-1 text-xs"
-      />
+      {identity && (
+        <p className="text-xs text-amber-900">
+          {identity.is_authenticated ? (
+            <>
+              Recorded as <span className="font-medium">{identity.actor}</span>
+            </>
+          ) : (
+            // Worth saying rather than hiding: a deployment that is not
+            // behind the authenticating proxy records every request
+            // anonymously, and the person making it should know that
+            // before they make it.
+            <>This request will be recorded without an identity — you are not signed in.</>
+          )}
+        </p>
+      )}
       <div className="flex items-center gap-2">
         <button
           type="button"
-          disabled={!note.trim() || !requestedBy.trim() || isSubmitting}
+          disabled={!note.trim() || isSubmitting}
           onClick={() => {
-            onSubmit(note.trim(), requestedBy.trim())
+            onSubmit(note.trim())
             setOpen(false)
             setNote('')
           }}

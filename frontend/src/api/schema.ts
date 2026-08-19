@@ -21,6 +21,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/identity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Identity */
+        get: operations["read_identity_identity_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/ingest": {
         parameters: {
             query?: never;
@@ -1218,6 +1235,13 @@ export interface components {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
+        /** Identity */
+        Identity: {
+            /** Actor */
+            actor: string;
+            /** Is Authenticated */
+            is_authenticated: boolean;
+        };
         /**
          * IngestionJobFailure
          * @description Why an ingestion job failed, as a closed set rather than prose.
@@ -1493,7 +1517,7 @@ export interface components {
             /** Note */
             note: string;
             /** Requested By */
-            requested_by: string;
+            requested_by?: string | null;
         };
         /**
          * ResolutionItem
@@ -1516,7 +1540,7 @@ export interface components {
         /** ResolveEvidenceRequestRequest */
         ResolveEvidenceRequestRequest: {
             /** Resolved By */
-            resolved_by: string;
+            resolved_by?: string | null;
         };
         /** ReviewEvidenceRequest */
         ReviewEvidenceRequest: {
@@ -1722,6 +1746,37 @@ export interface operations {
                     "application/json": {
                         [key: string]: string;
                     };
+                };
+            };
+        };
+    };
+    read_identity_identity_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-remote-user"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Identity"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
