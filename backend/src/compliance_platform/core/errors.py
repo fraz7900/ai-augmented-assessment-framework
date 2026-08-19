@@ -88,6 +88,21 @@ class OrganizationRequiredError(Exception):
         )
 
 
+class EvidenceLinkNotFoundError(Exception):
+    """An evidence link id did not resolve on this assessment.
+
+    Moved here from services/ when bulk reject (ADR-0067) gave the
+    repository a reason to raise it: that method validates every id
+    inside the transaction that writes, so an unknown or
+    wrong-assessment id aborts the whole batch instead of letting a
+    caller believe it acted on rows it never touched.
+    """
+
+    def __init__(self, evidence_link_id: str) -> None:
+        self.evidence_link_id = evidence_link_id
+        super().__init__(f"Evidence link '{evidence_link_id}' not found on this assessment.")
+
+
 class CrossOrganizationAttachmentError(Exception):
     """A document was attached to an assessment belonging to a different
     organisation (ADR-0063).

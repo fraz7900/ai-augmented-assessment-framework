@@ -330,6 +330,36 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/assessments/{assessment_id}/evidence/bulk-reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Bulk Reject Evidence
+         * @description Reject many pending links at once (ADR-0067).
+         *
+         *     There is no bulk-accept endpoint and no decision field here. Accept
+         *     and reject are not symmetric: accepting an AI proposal creates a
+         *     compliance claim that is scored, sealed and exported, and AGENTS.md
+         *     rule 2 forbids doing that without a human deciding each one.
+         *     Rejecting withholds a claim and leaves the practice visible as a gap.
+         *
+         *     Every rejection records the authenticated actor on its own link row
+         *     (ADR-0061), so a batch leaves the same per-link audit trail as the
+         *     same decisions made one at a time.
+         */
+        post: operations["bulk_reject_evidence_assessments__assessment_id__evidence_bulk_reject_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/assessments/{assessment_id}/evidence/summary": {
         parameters: {
             query?: never;
@@ -949,6 +979,54 @@ export interface components {
             supersedes_document_id?: string | null;
             /** Organization Id */
             organization_id?: string | null;
+        };
+        /**
+         * BulkRejectRequest
+         * @description The ids a reviewer selected, and nothing that could select for
+         *     them (ADR-0067).
+         *
+         *     Deliberately has no filter, no threshold and no "all matching"
+         *     flag. The caller sends the rows it displayed and a person confirmed;
+         *     a predicate here would let the server decide which links to reject,
+         *     which is the shape ADR-0065 refused.
+         */
+        BulkRejectRequest: {
+            /** Evidence Link Ids */
+            evidence_link_ids: string[];
+            /** Note */
+            note?: string | null;
+        };
+        /**
+         * BulkReviewResult
+         * @description What a bulk reject actually did (ADR-0067).
+         *
+         *     rejected_count is what changed. skipped is what did not, and is
+         *     always the links that were already reviewed -- a decision is
+         *     one-shot (`review_evidence` refuses anything not PENDING), and a
+         *     bulk call must not become a way around that.
+         */
+        BulkReviewResult: {
+            /** Rejected Count */
+            rejected_count: number;
+            /**
+             * Skipped
+             * @default []
+             */
+            skipped: components["schemas"]["BulkReviewSkip"][];
+        };
+        /**
+         * BulkReviewSkip
+         * @description One link a bulk reject declined to touch, and what it already was
+         *     (ADR-0067).
+         *
+         *     Reported rather than silently absorbed. A reviewer who selected 40
+         *     links and rejected 38 needs to know which two did not move and why,
+         *     or the count they act on next is wrong.
+         */
+        BulkReviewSkip: {
+            /** Evidence Link Id */
+            evidence_link_id: string;
+            review_status: components["schemas"]["EvidenceReviewStatus"];
         };
         /** ChatQuestionRequest */
         ChatQuestionRequest: {
@@ -2603,6 +2681,43 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EvidenceLink"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    bulk_reject_evidence_assessments__assessment_id__evidence_bulk_reject_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-remote-user"?: string | null;
+            };
+            path: {
+                assessment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkRejectRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BulkReviewResult"];
                 };
             };
             /** @description Validation Error */

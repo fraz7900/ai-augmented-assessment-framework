@@ -1,6 +1,9 @@
 # ADR-0065: Filters for the evidence review queue, and no bulk decision on top of them
 
-**Status:** Accepted
+**Status:** Accepted; the category-level refusal of bulk actions is **superseded by ADR-0067**
+**Amended by:** ADR-0067 — this document refused bulk actions as a class, on three arguments that
+all concern *accepting*. Bulk reject is a different operation and is now built. What stands here
+unchanged: the filters, and the refusal of a threshold-selected bulk accept.
 **Sprint:** 23
 **Deciders:** Fraz Ahmed
 **Related:** ADR-0011 (retrieval-only mapping, and what `confidence` is), ADR-0058 (the pinned
@@ -154,3 +157,11 @@ worth revisiting later is a reviewer reading a filtered set and confirming acros
 per-link audit rows and a real actor (ADR-0061). That is a different feature from a threshold, and it
 should be designed once `compute_assessment_agreement` (ADR-0034) has produced real accept-rate data
 per confidence band rather than on an intuition about where a safe cutoff sits.
+
+**Bulk actions generally.** Rejected here, and that was too broad — **corrected by ADR-0067**. The
+three arguments above are all about *accepting*: rule 2 forbids auto-accepting, R-1's closure
+concerns proposals counting toward a score, and the 0.85 objection is about a number selecting rows.
+None of them says anything about *declining* a proposal, which withholds a claim rather than
+creating one and leaves the practice visible as a gap. Bulk reject is now built. This paragraph is
+left in place rather than deleted, because a decision record that quietly changes its mind is worth
+less than one that shows where it was wrong.

@@ -5,15 +5,18 @@ completion chart on the dashboard (T2) are built. Bulk actions — specifically 
 confidence > 0.85" — are declined, on this project's own measurements rather than on preference,
 and ADR-0065 records why in the terms a future reader will want. No change to the mapping engine, no
 auto-accept, no new frameworks, no refactors outside the two.
-Status: **T1 (filters) is merged; T2 (dashboard chart) is built and awaiting CI.** T1 landed as
-`9436460` (PR #12), CI-confirmed at 647 backend and 105 frontend across 17 files. T2 is on
-`feat/dashboard-domain-chart`, branched from that merge. Locally: **658 backend tests passing** (647
-plus 11), `ruff check` clean, **116 frontend tests across 18 files** (105 plus 11), `tsc -b` and
-`npm run build` clean, `npm run lint` carrying the same 2 pre-existing fast-refresh warnings in
-`EvidenceSourceBadge.tsx` and no new ones. The frontend run that produced 116 was clean — 18 of 18
-files, zero errors — which is worth recording because the run before it lost 5 files to the
-forks-worker timeout with zero assertion failures. Same environment, same code, two very different
-results; AGENTS.md's reading holds and CI remains the authority.
+Status: **T1 and T2 are merged and CI-confirmed; T3 (bulk reject) is built and awaiting CI.** T1
+landed as `9436460` (PR #12) at 647 backend and 105 frontend across 17 files; T2 as `336a952`
+(PR #13) at 658 and 116 across 18. T3 is on `feat/bulk-reject`, branched from T2's merge. Locally
+with T3: **669 backend tests passing** (658 plus 11), `ruff check` clean, **127 frontend tests across
+19 files** (116 plus 11), `tsc -b` and `npm run build` clean, `npm run lint` carrying the same 2
+pre-existing fast-refresh warnings in `EvidenceSourceBadge.tsx` and no new ones. Two frontend
+measurements worth keeping from this sprint: the run that produced 116 was clean at 18 of 18 with
+zero errors while the run minutes before it lost 5 files to the forks-worker timeout with zero
+assertion failures, and T3's run was clean at 19 of 19. Same code, same machine, different outcomes;
+AGENTS.md's reading of that as environmental holds and CI settled it every time.
+An earlier PR (#14) declared this sprint complete after T2. That is now wrong — T3 exists — so it
+should be closed as superseded rather than merged.
 Sprint 22 closed before this one began: T1 merged as `dac8c52` (PR #9), T2 as `9a1a223` (PR #10),
 the record corrected in `7816ee0` (PR #11). R-39 is mitigated with residual R-40; R-35 is half
 closed, its in-memory half still open.
@@ -119,6 +122,41 @@ was in the tests rather than the feature: the first draft asserted that a NOT_AP
 shrinks the chart's denominator, with no evidence attached to the finding. ADR-0057 only lets a
 SUPPORTED finding move anything, so the code was right and three tests were wrong. Fixing them made
 them better tests, since they now encode the evidence requirement rather than assuming it away.
+T3 — bulk reject (ADR-0067, accepted; amends ADR-0065). Written after re-reading the tester's words
+against what had actually shipped. They asked for "some bulk actions, like accept all with confidence
+> 0.85", and ADR-0065 answered the example and then closed the category. Too broad: its three
+arguments all concern *accepting*. AGENTS.md rule 2 forbids auto-ACCEPTING an AI-proposed mapping,
+R-1's Closed status rests on review preceding anything counting toward a score, and the 0.85
+objection is about a number selecting rows. None of them says anything about declining a proposal.
+T3, the asymmetry it rests on. Accepting creates a compliance claim: it becomes practice credit, it
+moves a score, it is sealed into the finalized record and printed into a report that leaves the
+building. Rejecting withholds one — the practice returns to being a visible gap in the dashboard, and
+the document stays attached so the evidence can be linked again by hand. A wrong bulk reject
+understates maturity, which for a compliance tool is the safe direction to be wrong in. It is also
+the operation the data calls for: at the audit's measured 0.012 precision the overwhelming majority
+of that queue should be rejected, so refusing it left a reviewer hand-clicking the correct answer
+several hundred times.
+T3, shaped by irreversibility rather than by prohibition. A decision is one-shot — `review_evidence`
+refuses anything not PENDING — which is an argument for care, not for refusal, and conflating those
+two is what produced the over-reach. So the endpoint takes explicit link ids and cannot express a
+predicate; there is no bulk-accept path and no decision field anywhere in the API, service or
+repository, with a test asserting that against the live OpenAPI schema rather than trusting it; every
+link is re-read inside the transaction that writes it (ADR-0060's lesson); an already-reviewed link
+is skipped and reported rather than re-decided; an unknown or wrong-assessment id aborts the whole
+batch, because partially applying a batch the caller got wrong is worse than refusing it; and every
+rejection records the authenticated actor on its own row (ADR-0061), so bulk cannot launder
+attribution. The UI confirms first, says the action cannot be undone, and says what it does not
+destroy.
+What T3 actually took. `EvidenceLinkNotFoundError` moved from `services/assessment_service.py` to
+`core/errors.py`, because the repository now raises it and a repository importing from services would
+invert the layering. Not a new pattern: `core/errors.py`'s own docstring already describes this exact
+case and the re-export convention, so the service re-exports it and no existing import changed. One
+test was wrong before it was right — it tried to finalize an assessment that still had pending links,
+which ADR-0058 blocks, so reaching a finalized assessment meant rejecting the queue first.
+Still open from the tester's report. They asked for "a few visuals" and the dashboard has one. The
+Situation panel is still five bare integers, including "pending AI review" — the number that decides
+how far the rest of the report can be trusted, and the obvious candidate for the second visual.
+Unstarted.
 Next (not started). The three steps this sprint's analysis put in front of any bulk-action work, in
 order. Expose `compute_assessment_agreement` (ADR-0034), which already computes accept/edit/reject
 rates from real human decisions and has no endpoint, bucketed by confidence band — after a few
