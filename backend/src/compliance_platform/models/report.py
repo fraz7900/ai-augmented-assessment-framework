@@ -165,6 +165,42 @@ class OverallSummary(BaseModel):
     overall_coverage_fraction: float | None = None
 
 
+class EvidenceDomainCount(BaseModel):
+    """How much of the review queue sits in one domain (ADR-0065).
+
+    full_name travels with short_code so a filter control can label
+    itself without the caller re-resolving the framework it already
+    asked the server about.
+    """
+
+    short_code: str
+    full_name: str
+    total: int
+    pending: int
+
+
+class EvidenceQueueSummary(BaseModel):
+    """What the review queue contains, before any filter is applied
+    (ADR-0065).
+
+    Exists so a filter can never be the only thing a reviewer sees. The
+    counts here are always over the WHOLE queue: a UI showing "23 of
+    412" can say what the 412 is, and a reviewer who forgets a filter is
+    active has the unfiltered total in front of them either way.
+
+    unmapped is the honest one. A link whose practice_reference is not
+    in the assessment's pinned framework belongs to no domain, so no
+    domain filter can show it -- these rows are the ones a domain-only
+    workflow would silently never reach, and they are counted here
+    rather than left to be discovered.
+    """
+
+    total: int
+    by_status: dict[str, int]
+    by_domain: list[EvidenceDomainCount]
+    unmapped: int
+
+
 class DashboardReport(BaseModel):
     situation: Situation
     domain_scores: dict[str, float]

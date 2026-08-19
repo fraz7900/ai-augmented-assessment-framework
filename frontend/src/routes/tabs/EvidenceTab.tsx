@@ -3,6 +3,7 @@ import { useOutletContext } from 'react-router-dom'
 import { Link2 as LinkIcon, Loader2, Sparkles } from 'lucide-react'
 import {
   useEvidenceLinks,
+  useEvidenceSummary,
   useAssessmentDocuments,
   useAttachDocument,
   useDetachDocument,
@@ -20,14 +21,23 @@ import DocumentPicker from '../../components/DocumentPicker'
 import EvidenceSourceBadge from '../../components/EvidenceSourceBadge'
 import EvidenceReviewControls from '../../components/EvidenceReviewControls'
 import ConfidenceMeter from '../../components/ConfidenceMeter'
+import EvidenceQueueFilters from '../../components/EvidenceQueueFilters'
 import EquivalentPractice from '../../components/EquivalentPractice'
 import SupersededDocumentBadge from '../../components/SupersededDocumentBadge'
 import type { AssessmentTabContext } from '../AssessmentDetailPage'
+import type { EvidenceFilters } from '../../api/assessments'
 import type { EvidenceLink } from '../../api/types'
 
 export default function EvidenceTab() {
   const { assessmentId, assessment } = useOutletContext<AssessmentTabContext>()
-  const { data: links, isLoading, isError, error } = useEvidenceLinks(assessmentId)
+  // The filter lives in component state rather than the URL: it is a
+  // reading aid within one sitting, not something a reviewer should be
+  // able to bookmark and later mistake for the whole queue.
+  const [filters, setFilters] = useState<EvidenceFilters>({})
+  const { data: links, isLoading, isError, error } = useEvidenceLinks(assessmentId, filters)
+  // Counts over the whole queue, so the filtered list can always say
+  // what it is a subset of (ADR-0065).
+  const { data: summary } = useEvidenceSummary(assessmentId)
   // The assessment's PINNED version, not latest (ADR-0058). Practice
   // lookup, the manual practice-reference datalist, edited AI mappings
   // and the practice text shown next to each link all read from this
@@ -262,10 +272,22 @@ export default function EvidenceTab() {
 
       <div>
         <h2 className="font-semibold text-slate-900">Evidence links</h2>
+        <div className="mt-2">
+          <EvidenceQueueFilters
+            filters={filters}
+            summary={summary}
+            shownCount={links?.length ?? 0}
+            onChange={setFilters}
+          />
+        </div>
         {isLoading && <p className="mt-2 text-sm text-slate-500">Loading…</p>}
         {isError && <p className="mt-2 text-sm text-red-700">{error.message}</p>}
         {links && links.length === 0 && (
-          <p className="mt-2 text-sm text-slate-500">No evidence linked yet.</p>
+          <p className="mt-2 text-sm text-slate-500">
+            {summary != null && summary.total > 0
+              ? 'No links match this filter. Clear it to see the rest of the queue.'
+              : 'No evidence linked yet.'}
+          </p>
         )}
         {links && links.length > 0 && <ul className="mt-2 space-y-2">{links.map(renderLink)}</ul>}
       </div>

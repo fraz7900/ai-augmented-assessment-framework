@@ -312,11 +312,40 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List Evidence */
+        /**
+         * List Evidence
+         * @description This assessment's evidence links, optionally narrowed (ADR-0065).
+         *
+         *     Every parameter is a view filter. None of them changes a record, and
+         *     the response shape is unchanged from the unfiltered call, so an
+         *     existing caller that passes nothing sees exactly what it saw before.
+         */
         get: operations["list_evidence_assessments__assessment_id__evidence_get"];
         put?: never;
         /** Link Evidence */
         post: operations["link_evidence_assessments__assessment_id__evidence_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/assessments/{assessment_id}/evidence/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Evidence Summary
+         * @description What the whole queue holds, so a filtered view can say what it is
+         *     a subset of (ADR-0065). Deliberately takes no filter parameters --
+         *     a total that moves with the filter answers nothing.
+         */
+        get: operations["get_evidence_summary_assessments__assessment_id__evidence_summary_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1137,6 +1166,24 @@ export interface components {
             is_superseded: boolean;
         };
         /**
+         * EvidenceDomainCount
+         * @description How much of the review queue sits in one domain (ADR-0065).
+         *
+         *     full_name travels with short_code so a filter control can label
+         *     itself without the caller re-resolving the framework it already
+         *     asked the server about.
+         */
+        EvidenceDomainCount: {
+            /** Short Code */
+            short_code: string;
+            /** Full Name */
+            full_name: string;
+            /** Total */
+            total: number;
+            /** Pending */
+            pending: number;
+        };
+        /**
          * EvidenceLink
          * @description Associates an ingested document (Sprint 1, identified by
          *     document_id from the vector store) with an assessment and a practice
@@ -1182,6 +1229,34 @@ export interface components {
             created_by?: string | null;
             /** Reviewed By */
             reviewed_by?: string | null;
+        };
+        /**
+         * EvidenceQueueSummary
+         * @description What the review queue contains, before any filter is applied
+         *     (ADR-0065).
+         *
+         *     Exists so a filter can never be the only thing a reviewer sees. The
+         *     counts here are always over the WHOLE queue: a UI showing "23 of
+         *     412" can say what the 412 is, and a reviewer who forgets a filter is
+         *     active has the unfiltered total in front of them either way.
+         *
+         *     unmapped is the honest one. A link whose practice_reference is not
+         *     in the assessment's pinned framework belongs to no domain, so no
+         *     domain filter can show it -- these rows are the ones a domain-only
+         *     workflow would silently never reach, and they are counted here
+         *     rather than left to be discovered.
+         */
+        EvidenceQueueSummary: {
+            /** Total */
+            total: number;
+            /** By Status */
+            by_status: {
+                [key: string]: number;
+            };
+            /** By Domain */
+            by_domain: components["schemas"]["EvidenceDomainCount"][];
+            /** Unmapped */
+            unmapped: number;
         };
         /**
          * EvidenceRequest
@@ -2414,7 +2489,15 @@ export interface operations {
     };
     list_evidence_assessments__assessment_id__evidence_get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Only links in this review state. */
+                review_status?: components["schemas"]["EvidenceReviewStatus"] | null;
+                /** @description Only links whose practice belongs to this domain short code, resolved against the assessment's pinned framework version. An unknown code returns an empty list rather than everything. */
+                domain?: string | null;
+                /** @description Only AI-proposed links at or above this retrieval similarity. NOT a calibrated probability (ADR-0011) -- see the confidence field. Manual links, which carry no confidence, are excluded rather than counted as 0. */
+                min_confidence?: number | null;
+                max_confidence?: number | null;
+            };
             header?: never;
             path: {
                 assessment_id: string;
@@ -2467,6 +2550,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EvidenceLink"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_evidence_summary_assessments__assessment_id__evidence_summary_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                assessment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EvidenceQueueSummary"];
                 };
             };
             /** @description Validation Error */
