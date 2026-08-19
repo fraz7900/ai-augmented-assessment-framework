@@ -7,6 +7,7 @@ import type {
   CreateAssessmentRequest,
   DashboardReport,
   EvidenceLink,
+  BulkReviewResult,
   EvidenceQueueSummary,
   EvidenceRequest,
   EvidenceReviewStatus,
@@ -163,6 +164,32 @@ export function useEvidenceSummary(assessmentId: string | undefined) {
     queryFn: () =>
       apiClient.get<EvidenceQueueSummary>(`/assessments/${assessmentId}/evidence/summary`),
     enabled: !!assessmentId,
+  })
+}
+
+/**
+ * Reject a set of pending links the reviewer selected (ADR-0067).
+ *
+ * Sends explicit ids, never a filter or a threshold — the server has no
+ * way to express "everything above 0.85" and this hook has nothing to
+ * offer it. There is deliberately no bulk-accept counterpart: accepting
+ * an AI proposal creates a compliance claim, and AGENTS.md rule 2
+ * requires a human on each one.
+ */
+export function useBulkRejectEvidence(assessmentId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ evidenceLinkIds, note }: { evidenceLinkIds: string[]; note?: string }) =>
+      apiClient.post<BulkReviewResult>(`/assessments/${assessmentId}/evidence/bulk-reject`, {
+        evidence_link_ids: evidenceLinkIds,
+        note,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: keys.evidenceAll(assessmentId) })
+      // Clearing pending review changes what blocks finalization
+      // (ADR-0058), the same way reviewing one link does.
+      queryClient.invalidateQueries({ queryKey: keys.finalizationReadiness(assessmentId) })
+    },
   })
 }
 

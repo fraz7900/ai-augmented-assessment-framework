@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import { Link2 as LinkIcon, Loader2, Sparkles } from 'lucide-react'
 import {
+  useBulkRejectEvidence,
   useEvidenceLinks,
   useEvidenceSummary,
   useAssessmentDocuments,
@@ -22,6 +23,7 @@ import EvidenceSourceBadge from '../../components/EvidenceSourceBadge'
 import EvidenceReviewControls from '../../components/EvidenceReviewControls'
 import ConfidenceMeter from '../../components/ConfidenceMeter'
 import EvidenceQueueFilters from '../../components/EvidenceQueueFilters'
+import BulkRejectBar from '../../components/BulkRejectBar'
 import EquivalentPractice from '../../components/EquivalentPractice'
 import SupersededDocumentBadge from '../../components/SupersededDocumentBadge'
 import type { AssessmentTabContext } from '../AssessmentDetailPage'
@@ -38,6 +40,23 @@ export default function EvidenceTab() {
   // Counts over the whole queue, so the filtered list can always say
   // what it is a subset of (ADR-0065).
   const { data: summary } = useEvidenceSummary(assessmentId)
+  const bulkReject = useBulkRejectEvidence(assessmentId)
+  // Selection is ids rather than a predicate, all the way down: what the
+  // reviewer ticked is exactly what the request carries (ADR-0067).
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
+
+  const isFinalized = assessment.status === 'finalized'
+  const pendingOnScreen = (links ?? []).filter((link) => link.review_status === 'pending')
+  // A link can leave the pending state under us — reviewed singly, or in
+  // another tab — so the selection is intersected with what is actually
+  // still selectable rather than trusted.
+  const selectableIds = new Set(pendingOnScreen.map((link) => link.id!))
+  const effectiveSelection = selectedIds.filter((id) => selectableIds.has(id))
+
+  const toggleSelected = (id: string) =>
+    setSelectedIds((current) =>
+      current.includes(id) ? current.filter((existing) => existing !== id) : [...current, id],
+    )
   // The assessment's PINNED version, not latest (ADR-0058). Practice
   // lookup, the manual practice-reference datalist, edited AI mappings
   // and the practice text shown next to each link all read from this
@@ -88,10 +107,22 @@ export default function EvidenceTab() {
 
   const renderLink = (link: EvidenceLink) => {
     const practice = findPractice(framework, link.practice_reference)
+    const isSelectable = link.review_status === 'pending' && !isFinalized
     return (
       <li key={link.id} className="rounded-lg border border-slate-200 bg-white p-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
+            {isSelectable && (
+              <label className="mr-2 inline-flex items-center gap-1.5 align-middle">
+                <input
+                  type="checkbox"
+                  checked={effectiveSelection.includes(link.id!)}
+                  onChange={() => toggleSelected(link.id!)}
+                  className="h-4 w-4 rounded border-slate-300"
+                />
+                <span className="sr-only">Select {link.practice_reference} for bulk rejection</span>
+              </label>
+            )}
             <span className="font-mono text-xs text-slate-500">{link.practice_reference}</span>{' '}
             <span className="text-sm text-slate-800">{practice?.text ?? '(practice not found in framework)'}</span>
           </div>
@@ -280,6 +311,45 @@ export default function EvidenceTab() {
             onChange={setFilters}
           />
         </div>
+        {pendingOnScreen.length > 0 && !isFinalized && (
+          <div className="mt-2 flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={() =>
+                setSelectedIds(
+                  effectiveSelection.length === pendingOnScreen.length
+                    ? []
+                    : pendingOnScreen.map((link) => link.id!),
+                )
+              }
+              className="text-sm font-medium text-indigo-600 underline underline-offset-2 hover:text-indigo-500"
+            >
+              {effectiveSelection.length === pendingOnScreen.length
+                ? 'Deselect all shown'
+                : `Select all ${pendingOnScreen.length} shown`}
+            </button>
+            <span className="text-xs text-slate-500">
+              Selects only what is on screen under the current filter — never the rest of the queue.
+            </span>
+          </div>
+        )}
+        {!isFinalized && (
+          <div className="mt-2">
+            <BulkRejectBar
+              selectedCount={effectiveSelection.length}
+              isSubmitting={bulkReject.isPending}
+              result={bulkReject.data}
+              error={bulkReject.error}
+              onClear={() => setSelectedIds([])}
+              onReject={(note) =>
+                bulkReject.mutate(
+                  { evidenceLinkIds: effectiveSelection, note },
+                  { onSuccess: () => setSelectedIds([]) },
+                )
+              }
+            />
+          </div>
+        )}
         {isLoading && <p className="mt-2 text-sm text-slate-500">Loading…</p>}
         {isError && <p className="mt-2 text-sm text-red-700">{error.message}</p>}
         {links && links.length === 0 && (

@@ -39,6 +39,7 @@ from compliance_platform.models.chat import ChatResponse
 from compliance_platform.models.report import DashboardReport, EvidenceQueueSummary
 from compliance_platform.models.sanitization import SanitizationPreview
 from compliance_platform.models.schemas import (
+    BulkReviewResult,
     DocumentSummary,
     FinalizationReadiness,
     SealVerification,
@@ -292,6 +293,47 @@ def list_evidence(
         domain=domain,
         min_confidence=min_confidence,
         max_confidence=max_confidence,
+    )
+
+
+class BulkRejectRequest(BaseModel):
+    """The ids a reviewer selected, and nothing that could select for
+    them (ADR-0067).
+
+    Deliberately has no filter, no threshold and no "all matching"
+    flag. The caller sends the rows it displayed and a person confirmed;
+    a predicate here would let the server decide which links to reject,
+    which is the shape ADR-0065 refused.
+    """
+
+    evidence_link_ids: list[str]
+    note: str | None = None
+
+
+@router.post("/{assessment_id}/evidence/bulk-reject", response_model=BulkReviewResult)
+def bulk_reject_evidence(
+    assessment_id: str,
+    request: BulkRejectRequest,
+    service: AssessmentService = Depends(get_assessment_service),
+    actor: str = Depends(get_actor),
+) -> BulkReviewResult:
+    """Reject many pending links at once (ADR-0067).
+
+    There is no bulk-accept endpoint and no decision field here. Accept
+    and reject are not symmetric: accepting an AI proposal creates a
+    compliance claim that is scored, sealed and exported, and AGENTS.md
+    rule 2 forbids doing that without a human deciding each one.
+    Rejecting withholds a claim and leaves the practice visible as a gap.
+
+    Every rejection records the authenticated actor on its own link row
+    (ADR-0061), so a batch leaves the same per-link audit trail as the
+    same decisions made one at a time.
+    """
+    return service.bulk_reject_evidence(
+        assessment_id,
+        request.evidence_link_ids,
+        note=request.note,
+        actor=actor,
     )
 
 

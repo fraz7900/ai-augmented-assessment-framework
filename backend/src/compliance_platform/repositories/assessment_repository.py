@@ -22,6 +22,7 @@ from compliance_platform.core.errors import (
     AssessmentAlreadySealedError,
     AssessmentFinalizedError,
     CrossOrganizationAttachmentError,
+    EvidenceLinkNotFoundError,
     OrganizationNotFoundError,
     OrganizationRequiredError,
 )
@@ -602,6 +603,62 @@ class AssessmentRepository:
             session.commit()
             session.refresh(link)
             return link
+
+    def bulk_reject_evidence_links(
+        self,
+        assessment_id: str,
+        evidence_link_ids: list[str],
+        reviewed_by: str | None = None,
+        note: str | None = None,
+    ) -> tuple[int, list[tuple[str, EvidenceReviewStatus]]]:
+        """Reject many pending links in one transaction (ADR-0067).
+
+        Returns (rejected_count, [(link_id, status_it_already_had)]).
+
+        Reject only. There is deliberately no decision parameter and no
+        bulk equivalent of accept or edit anywhere in this class, so
+        "never auto-accept an AI-proposed mapping" is enforced by the
+        absence of a code path rather than by a validated flag someone
+        could later widen.
+
+        Every link is re-read INSIDE the transaction that writes it,
+        which is ADR-0060's lesson applied rather than re-learned: a
+        PENDING check that reads through one session and writes through
+        another is the R-11 bug class, and this method's whole job is to
+        respect a one-shot state transition across many rows at once.
+
+        An already-reviewed link is skipped and reported, not an error.
+        A decision is one-shot (`review_evidence` refuses anything not
+        PENDING) and a bulk call must not become a way around that; the
+        skip is also the benign case, since it means someone -- another
+        tab, another person -- got there first.
+
+        A link that does not exist, or belongs to another assessment,
+        raises instead. That is a client defect or a boundary violation
+        (ADR-0063), not a race, and silently dropping it would let a
+        caller believe it had acted on rows it never touched.
+        """
+        rejected = 0
+        skipped: list[tuple[str, EvidenceReviewStatus]] = []
+        with Session(self._engine) as session:
+            self._assert_writable(session, assessment_id)
+            now = datetime.now(UTC)
+            for link_id in evidence_link_ids:
+                link = session.get(EvidenceLink, link_id)
+                if link is None or link.assessment_id != assessment_id:
+                    raise EvidenceLinkNotFoundError(link_id)
+                if link.review_status != EvidenceReviewStatus.PENDING:
+                    skipped.append((link_id, link.review_status))
+                    continue
+                link.review_status = EvidenceReviewStatus.REJECTED
+                link.reviewed_at = now
+                link.reviewed_by = reviewed_by
+                if note is not None:
+                    link.note = note
+                session.add(link)
+                rejected += 1
+            session.commit()
+        return rejected, skipped
 
     def set_practice_finding(
         self,

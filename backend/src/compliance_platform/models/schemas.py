@@ -15,6 +15,7 @@ from enum import StrEnum
 from pydantic import BaseModel, Field
 
 from compliance_platform.models.assessment import (
+    EvidenceReviewStatus,
     IngestionJob,
     IngestionJobFailure,
     IngestionJobStatus,
@@ -271,6 +272,32 @@ class FinalizationBlockerCategory(StrEnum):
     UNSUPPORTED_SATISFIED_FINDING = "unsupported_satisfied_finding"
     UNSUPPORTED_NOT_APPLICABLE_FINDING = "unsupported_not_applicable_finding"
     FRAMEWORK_VERSION_UNRESOLVED = "framework_version_unresolved"
+
+
+class BulkReviewSkip(BaseModel):
+    """One link a bulk reject declined to touch, and what it already was
+    (ADR-0067).
+
+    Reported rather than silently absorbed. A reviewer who selected 40
+    links and rejected 38 needs to know which two did not move and why,
+    or the count they act on next is wrong.
+    """
+
+    evidence_link_id: str
+    review_status: EvidenceReviewStatus
+
+
+class BulkReviewResult(BaseModel):
+    """What a bulk reject actually did (ADR-0067).
+
+    rejected_count is what changed. skipped is what did not, and is
+    always the links that were already reviewed -- a decision is
+    one-shot (`review_evidence` refuses anything not PENDING), and a
+    bulk call must not become a way around that.
+    """
+
+    rejected_count: int
+    skipped: list[BulkReviewSkip] = []
 
 
 class FinalizationBlocker(BaseModel):

@@ -22,6 +22,10 @@ from compliance_platform.ai.embeddings import Embedder
 from compliance_platform.core.errors import (
     AssessmentFinalizedError,
     CrossOrganizationAttachmentError,
+    # Re-exported: this module was its home until the repository needed
+    # to raise it too (ADR-0067), and core/errors.py's own convention is
+    # that a move must not force unrelated call sites to change.
+    EvidenceLinkNotFoundError,
     OrganizationNotFoundError,
 )
 from compliance_platform.core.identity import UNAUTHENTICATED_ACTOR
@@ -50,6 +54,8 @@ from compliance_platform.models.report import (
 )
 from compliance_platform.models.sanitization import SanitizationPreview
 from compliance_platform.models.schemas import (
+    BulkReviewResult,
+    BulkReviewSkip,
     DocumentDetail,
     DocumentSummary,
     FinalizationBlocker,
@@ -242,12 +248,6 @@ class FrameworkScoringUnavailableError(Exception):
         )
 
 
-class EvidenceLinkNotFoundError(Exception):
-    def __init__(self, evidence_link_id: str) -> None:
-        self.evidence_link_id = evidence_link_id
-        super().__init__(f"Evidence link '{evidence_link_id}' not found on this assessment.")
-
-
 class EvidenceAlreadyReviewedError(Exception):
     def __init__(self, evidence_link_id: str, current_status: EvidenceReviewStatus) -> None:
         self.evidence_link_id = evidence_link_id
@@ -383,6 +383,13 @@ class AssessmentRepositoryProtocol(Protocol):
     def add_evidence_link(self, link: EvidenceLink) -> EvidenceLink: ...
     def evidence_for_assessment(self, assessment_id: str) -> list[EvidenceLink]: ...
     def get_evidence_link(self, evidence_link_id: str) -> EvidenceLink | None: ...
+    def bulk_reject_evidence_links(
+        self,
+        assessment_id: str,
+        evidence_link_ids: list[str],
+        reviewed_by: str | None = None,
+        note: str | None = None,
+    ) -> tuple[int, list[tuple[str, EvidenceReviewStatus]]]: ...
     def update_evidence_link_review(
         self,
         evidence_link_id: str,
@@ -1382,6 +1389,65 @@ class AssessmentService:
                     chunk_text=hit.chunk_text,
                 )
                 for hit in hits
+            ],
+        )
+
+    def bulk_reject_evidence(
+        self,
+        assessment_id: str,
+        evidence_link_ids: list[str],
+        note: str | None = None,
+        actor: str = UNAUTHENTICATED_ACTOR,
+    ) -> BulkReviewResult:
+        """Reject many pending links a reviewer has selected (ADR-0067).
+
+        Reject, and only reject. There is no bulk accept and no bulk
+        edit anywhere in this service, because the two are not the same
+        operation wearing different labels: accepting fabricates a
+        compliance claim that gets scored, sealed and exported, while
+        rejecting withholds one and leaves the practice visible as a gap
+        in the report. AGENTS.md rule 2 forbids auto-ACCEPTING an
+        AI-proposed mapping; it says nothing about declining one, and
+        the difference is the whole basis of this method existing.
+
+        Takes explicit link ids, never a filter or a threshold. That is
+        the design's load-bearing property: the caller sends the rows it
+        actually displayed and a person actually confirmed, so the
+        decision is made by the reviewer over a set they saw. An
+        endpoint accepting "everything above 0.85" would be the
+        threshold deciding, which is exactly what ADR-0065 refused and
+        what this deliberately cannot express.
+
+        Rejection is still one-shot. An already-reviewed link is skipped
+        and reported rather than silently re-decided, the same rule
+        review_evidence enforces for a single link.
+        """
+        assessment = self.get_assessment(assessment_id)
+        if assessment.status == AssessmentStatus.FINALIZED:
+            raise AssessmentFinalizedError(assessment_id)
+
+        # Deduplicated, order preserved. A UI that sends the same id
+        # twice should not have it counted twice in the result a person
+        # reads back.
+        unique_ids = list(dict.fromkeys(evidence_link_ids))
+        if not unique_ids:
+            return BulkReviewResult(rejected_count=0, skipped=[])
+
+        rejected, skipped = self._assessments.bulk_reject_evidence_links(
+            assessment_id, unique_ids, reviewed_by=actor, note=note
+        )
+        _logger.info(
+            "bulk rejected %d evidence link(s) on assessment=%s by=%s (%d already reviewed)",
+            rejected,
+            assessment_id,
+            actor,
+            len(skipped),
+        )
+        return BulkReviewResult(
+            rejected_count=rejected,
+            skipped=[
+                BulkReviewSkip(evidence_link_id=link_id, review_status=status)
+                for link_id, status in skipped
             ],
         )
 
