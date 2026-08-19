@@ -13,6 +13,7 @@ import pytest
 from compliance_platform.core.errors import AssessmentAlreadySealedError
 from compliance_platform.models.assessment import (
     Assessment,
+    AssessmentDocument,
     AssessmentStatus,
     AssessmentStatusChange,
     Document,
@@ -67,6 +68,7 @@ class _FakeAssessmentRepository:
         self._sanitization_approvals: dict[str, list[SanitizationApproval]] = {}
         self._documents: dict[str, Document] = {}
         self._evidence_requests: dict[str, list[EvidenceRequest]] = {}
+        self._document_associations: list[AssessmentDocument] = []
 
     def create_assessment(
         self, name: str, framework_name: str, framework_version: str | None = None
@@ -208,6 +210,46 @@ class _FakeAssessmentRepository:
         assessment.seal_version = seal_version
         assessment.sealed_at = datetime.now(UTC)
         return assessment
+
+    def attach_document(
+        self, assessment_id: str, document_id: str, attached_by: str | None = None
+    ) -> AssessmentDocument:
+        for association in self._document_associations:
+            if (association.assessment_id, association.document_id) == (
+                assessment_id,
+                document_id,
+            ):
+                return association
+        association = AssessmentDocument(
+            assessment_id=assessment_id, document_id=document_id, attached_by=attached_by
+        )
+        self._document_associations.append(association)
+        return association
+
+    def detach_document(self, assessment_id: str, document_id: str) -> bool:
+        for association in list(self._document_associations):
+            if (association.assessment_id, association.document_id) == (
+                assessment_id,
+                document_id,
+            ):
+                self._document_associations.remove(association)
+                return True
+        return False
+
+    def documents_for_assessment(self, assessment_id: str) -> list[Document]:
+        return [
+            self._documents[association.document_id]
+            for association in self._document_associations
+            if association.assessment_id == assessment_id
+            and association.document_id in self._documents
+        ]
+
+    def attached_document_ids(self, assessment_id: str) -> list[str]:
+        return [
+            association.document_id
+            for association in self._document_associations
+            if association.assessment_id == assessment_id
+        ]
 
     def create_sanitization_approval(self, approval: SanitizationApproval) -> SanitizationApproval:
         self._sanitization_approvals.setdefault(approval.assessment_id, []).append(approval)

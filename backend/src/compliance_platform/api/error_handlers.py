@@ -30,7 +30,9 @@ from compliance_platform.services.assessment_service import (
     AssessmentNotFoundError,
     AssessmentNotReadyForFinalizationError,
     ChatEngineUnavailableError,
+    DocumentNotAttachedError,
     DocumentNotFoundError,
+    DocumentStillCitedError,
     EvidenceAlreadyReviewedError,
     EvidenceDocumentNotIngestedError,
     EvidenceLinkNotFoundError,
@@ -53,6 +55,10 @@ _STATUS_CODE_BY_EXCEPTION: dict[type[Exception], int] = {
     EvidenceLinkNotFoundError: 404,
     EvidenceRequestNotFoundError: 404,
     AssessmentFinalizedError: 409,
+    # Detaching a document that evidence still cites is a conflict
+    # with the assessment's current state, not a bad request.
+    DocumentStillCitedError: 409,
+    DocumentNotAttachedError: 404,
     AssessmentNotReadyForFinalizationError: 409,
     EvidenceAlreadyReviewedError: 409,
     InvalidStatusTransitionError: 409,

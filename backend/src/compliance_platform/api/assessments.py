@@ -38,7 +38,11 @@ from compliance_platform.models.assessment import (
 from compliance_platform.models.chat import ChatResponse
 from compliance_platform.models.report import DashboardReport
 from compliance_platform.models.sanitization import SanitizationPreview
-from compliance_platform.models.schemas import FinalizationReadiness, SealVerification
+from compliance_platform.models.schemas import (
+    DocumentSummary,
+    FinalizationReadiness,
+    SealVerification,
+)
 from compliance_platform.services.assessment_service import AssessmentService
 
 router = APIRouter(prefix="/assessments", tags=["assessments"])
@@ -172,6 +176,46 @@ def verify_seal(
     detected alteration IS.
     """
     return service.verify_finalization_seal(assessment_id)
+
+
+class AttachDocumentRequest(BaseModel):
+    document_id: str
+
+
+@router.get("/{assessment_id}/documents", response_model=list[DocumentSummary])
+def list_assessment_documents(
+    assessment_id: str,
+    service: AssessmentService = Depends(get_assessment_service),
+) -> list[DocumentSummary]:
+    """The documents attached to this assessment (ADR-0062).
+
+    What the evidence chooser should offer. `GET /documents` still lists
+    every document on the instance and is what the attach flow browses;
+    this is the scoped view.
+    """
+    return service.documents_for_assessment(assessment_id)
+
+
+@router.post("/{assessment_id}/documents", response_model=DocumentSummary)
+def attach_document(
+    assessment_id: str,
+    request: AttachDocumentRequest,
+    service: AssessmentService = Depends(get_assessment_service),
+    actor: str = Depends(get_actor),
+) -> DocumentSummary:
+    return service.attach_document(assessment_id, request.document_id, actor=actor)
+
+
+@router.delete("/{assessment_id}/documents/{document_id}", status_code=204)
+def detach_document(
+    assessment_id: str,
+    document_id: str,
+    service: AssessmentService = Depends(get_assessment_service),
+) -> Response:
+    """Remove a document from this assessment. Refused while evidence
+    links still cite it — see AssessmentService.detach_document."""
+    service.detach_document(assessment_id, document_id)
+    return Response(status_code=204)
 
 
 @router.get("/{assessment_id}/status-history", response_model=list[AssessmentStatusChange])

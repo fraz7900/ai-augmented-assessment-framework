@@ -24,6 +24,7 @@ from compliance_platform.core.errors import (
 )
 from compliance_platform.models.assessment import (
     Assessment,
+    AssessmentDocument,
     AssessmentStatus,
     AssessmentStatusChange,
     Document,
@@ -37,6 +38,7 @@ from compliance_platform.models.assessment import (
     PracticeFindingChange,
     PracticeFindingStatus,
     SanitizationApproval,
+    _new_id,
 )
 
 _logger = logging.getLogger(__name__)
@@ -77,6 +79,7 @@ class AssessmentRepository:
             {"created_by": "TEXT", "reviewed_by": "TEXT"},
         )
         _add_missing_columns(self._engine, "assessmentstatuschange", {"actor": "TEXT"})
+        self._backfill_document_associations()
         _add_missing_columns(
             self._engine,
             "assessment",
@@ -135,6 +138,146 @@ class AssessmentRepository:
                 assessment_id,
             )
             raise AssessmentFinalizedError(assessment_id)
+
+    def _backfill_document_associations(self) -> None:
+        """Materialise the associations that already existed implicitly.
+
+        Before ADR-0062, "this document belongs to this assessment" was
+        derived from the document_ids on an assessment's evidence links.
+        Every such pair is an association by definition, so inserting
+        them is lossless -- it records what the data already said rather
+        than inventing anything. Without it, every existing assessment
+        would open with an empty document list and look as though its
+        evidence had vanished.
+
+        Runs once per engine construction and is a no-op afterwards:
+        it inserts only pairs that are missing. attached_by is left NULL
+        because there is no honest name to put in it -- the link's own
+        creator predates attribution too.
+        """
+        # Raw SQL on purpose, for both tables. A migration must not
+        # depend on the CURRENT ORM mapping being able to deserialize
+        # OLD rows -- and this one would not: a pre-ADR-0030 database
+        # holds evidencelink rows whose `source` the present
+        # EvidenceSource enum refuses to load, so reading them through
+        # SQLModel would raise on exactly the databases this exists to
+        # rescue. Only two opaque id columns are needed here anyway.
+        with self._engine.connect() as connection:
+            existing = {
+                (row[0], row[1])
+                for row in connection.exec_driver_sql(
+                    "SELECT assessment_id, document_id FROM assessmentdocument"
+                )
+            }
+            implied = {
+                (row[0], row[1])
+                for row in connection.exec_driver_sql(
+                    "SELECT DISTINCT assessment_id, document_id FROM evidencelink"
+                )
+            }
+            missing = implied - existing
+            if not missing:
+                return
+            for assessment_id, document_id in sorted(missing):
+                connection.exec_driver_sql(
+                    "INSERT INTO assessmentdocument "
+                    "(id, assessment_id, document_id, attached_at, attached_by) "
+                    "VALUES (?, ?, ?, ?, NULL)",
+                    # An ISO string, not a datetime: Python 3.12 deprecated
+                    # sqlite3's implicit datetime adapter, and SQLModel stores
+                    # this column in exactly this format anyway.
+                    (_new_id(), assessment_id, document_id, datetime.now(UTC).isoformat()),
+                )
+            connection.commit()
+            _logger.info("backfilled %d assessment-document association(s)", len(missing))
+
+    def attach_document(
+        self, assessment_id: str, document_id: str, attached_by: str | None = None
+    ) -> AssessmentDocument:
+        """Associate a document with an assessment, idempotently.
+
+        Attaching twice is not an error: the caller's intent -- that this
+        document belongs to this assessment -- is satisfied either way,
+        and linking evidence attaches implicitly, so a reviewer who
+        attaches first and links second would otherwise hit a spurious
+        conflict for doing things in the sensible order.
+        """
+        with Session(self._engine) as session:
+            self._assert_writable(session, assessment_id)
+            existing = session.exec(
+                select(AssessmentDocument).where(
+                    AssessmentDocument.assessment_id == assessment_id,
+                    AssessmentDocument.document_id == document_id,
+                )
+            ).first()
+            if existing is not None:
+                return existing
+            association = AssessmentDocument(
+                assessment_id=assessment_id,
+                document_id=document_id,
+                attached_by=attached_by,
+            )
+            session.add(association)
+            session.commit()
+            session.refresh(association)
+            return association
+
+    def detach_document(self, assessment_id: str, document_id: str) -> bool:
+        """Remove an association. Returns whether one was removed.
+
+        Deletes the association only, never the document: the same file
+        may be attached to other assessments, and ingestion is expensive
+        enough that discarding it as a side effect of tidying one
+        assessment would be a poor trade.
+        """
+        with Session(self._engine) as session:
+            self._assert_writable(session, assessment_id)
+            association = session.exec(
+                select(AssessmentDocument).where(
+                    AssessmentDocument.assessment_id == assessment_id,
+                    AssessmentDocument.document_id == document_id,
+                )
+            ).first()
+            if association is None:
+                return False
+            session.delete(association)
+            session.commit()
+            return True
+
+    def documents_for_assessment(self, assessment_id: str) -> list[Document]:
+        """The attached documents, newest first, resolved to real rows.
+
+        An association whose document has no registry row is skipped
+        rather than faked: 27 of 30 documents in the original corpus
+        predate ADR-0039 and have no Document row at all, and their
+        evidence links are still valid. A placeholder here would put an
+        unrecognisable entry in a chooser whose whole job is
+        recognisability.
+        """
+        with Session(self._engine) as session:
+            associations = session.exec(
+                select(AssessmentDocument)
+                .where(AssessmentDocument.assessment_id == assessment_id)
+                .order_by(text("rowid"))
+            ).all()
+            documents = []
+            for association in associations:
+                document = session.get(Document, association.document_id)
+                if document is not None:
+                    documents.append(document)
+            return documents
+
+    def attached_document_ids(self, assessment_id: str) -> list[str]:
+        """Every attached document id, including ones with no registry
+        row -- the mapping engine searches the vector store, which knows
+        nothing about the registry."""
+        with Session(self._engine) as session:
+            associations = session.exec(
+                select(AssessmentDocument)
+                .where(AssessmentDocument.assessment_id == assessment_id)
+                .order_by(text("rowid"))
+            ).all()
+            return [association.document_id for association in associations]
 
     def create_assessment(
         self, name: str, framework_name: str, framework_version: str | None = None

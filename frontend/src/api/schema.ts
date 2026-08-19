@@ -230,6 +230,52 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/assessments/{assessment_id}/documents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Assessment Documents
+         * @description The documents attached to this assessment (ADR-0062).
+         *
+         *     What the evidence chooser should offer. `GET /documents` still lists
+         *     every document on the instance and is what the attach flow browses;
+         *     this is the scoped view.
+         */
+        get: operations["list_assessment_documents_assessments__assessment_id__documents_get"];
+        put?: never;
+        /** Attach Document */
+        post: operations["attach_document_assessments__assessment_id__documents_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/assessments/{assessment_id}/documents/{document_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Detach Document
+         * @description Remove a document from this assessment. Refused while evidence
+         *     links still cite it — see AssessmentService.detach_document.
+         */
+        delete: operations["detach_document_assessments__assessment_id__documents__document_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/assessments/{assessment_id}/status-history": {
         parameters: {
             query?: never;
@@ -781,6 +827,11 @@ export interface components {
             changed_at?: string;
             /** Actor */
             actor?: string | null;
+        };
+        /** AttachDocumentRequest */
+        AttachDocumentRequest: {
+            /** Document Id */
+            document_id: string;
         };
         /** Body_ingest_document_async_ingest_async_post */
         Body_ingest_document_async_ingest_async_post: {
@@ -2080,6 +2131,104 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["SealVerification"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_assessment_documents_assessments__assessment_id__documents_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                assessment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentSummary"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    attach_document_assessments__assessment_id__documents_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-remote-user"?: string | null;
+            };
+            path: {
+                assessment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AttachDocumentRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentSummary"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    detach_document_assessments__assessment_id__documents__document_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                assessment_id: string;
+                document_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

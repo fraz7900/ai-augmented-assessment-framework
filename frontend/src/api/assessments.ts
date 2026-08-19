@@ -8,6 +8,7 @@ import type {
   DashboardReport,
   EvidenceLink,
   EvidenceRequest,
+  DocumentSummary,
   FinalizationReadiness,
   SealVerification,
   LinkEvidenceRequest,
@@ -33,6 +34,7 @@ const keys = {
   finalizationReadiness: (id: string) =>
     ['assessments', id, 'finalization-readiness'] as const,
   sealVerification: (id: string) => ['assessments', id, 'seal-verification'] as const,
+  assessmentDocuments: (id: string) => ['assessments', id, 'documents'] as const,
 }
 
 export function useAssessments() {
@@ -169,6 +171,35 @@ export function useVerifySeal(assessmentId: string | undefined) {
     // would let the panel say "verified" about a check run before an
     // edit that has happened since.
     gcTime: 0,
+  })
+}
+
+/**
+ * The documents attached to this assessment (ADR-0062).
+ *
+ * What the evidence chooser offers. It used to call `useDocuments()`,
+ * which lists every document on the instance — so a reviewer picking
+ * evidence for one organisation's assessment was shown another
+ * organisation's policies, and could link them.
+ */
+export function useAssessmentDocuments(assessmentId: string | undefined) {
+  return useQuery({
+    queryKey: keys.assessmentDocuments(assessmentId ?? ''),
+    queryFn: () => apiClient.get<DocumentSummary[]>(`/assessments/${assessmentId}/documents`),
+    enabled: !!assessmentId,
+  })
+}
+
+export function useAttachDocument(assessmentId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (documentId: string) =>
+      apiClient.post<DocumentSummary>(`/assessments/${assessmentId}/documents`, {
+        document_id: documentId,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: keys.assessmentDocuments(assessmentId) })
+    },
   })
 }
 

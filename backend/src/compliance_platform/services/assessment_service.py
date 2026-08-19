@@ -15,6 +15,7 @@ import hmac
 import json
 import logging
 from collections.abc import Iterable
+from datetime import UTC, datetime
 from typing import Any, Protocol
 
 from compliance_platform.ai.embeddings import Embedder
@@ -22,6 +23,7 @@ from compliance_platform.core.errors import AssessmentFinalizedError
 from compliance_platform.core.identity import UNAUTHENTICATED_ACTOR
 from compliance_platform.models.assessment import (
     Assessment,
+    AssessmentDocument,
     AssessmentStatus,
     AssessmentStatusChange,
     Document,
@@ -133,6 +135,27 @@ class AssessmentNotReadyForFinalizationError(Exception):
         categories = ", ".join(sorted({b.category.value for b in blockers}))
         super().__init__(
             f"Assessment '{assessment_id}' is not ready to finalize; outstanding: {categories}."
+        )
+
+
+class DocumentStillCitedError(Exception):
+    """Detaching a document that evidence links still point at (ADR-0062)."""
+
+    def __init__(self, document_id: str, citation_count: int) -> None:
+        self.document_id = document_id
+        self.citation_count = citation_count
+        super().__init__(
+            f"Document '{document_id}' is still cited by {citation_count} evidence link(s). "
+            "Reject or remove them before detaching it."
+        )
+
+
+class DocumentNotAttachedError(Exception):
+    def __init__(self, assessment_id: str, document_id: str) -> None:
+        self.assessment_id = assessment_id
+        self.document_id = document_id
+        super().__init__(
+            f"Document '{document_id}' is not attached to assessment '{assessment_id}'."
         )
 
 
@@ -352,6 +375,12 @@ class AssessmentRepositoryProtocol(Protocol):
     def get_document(self, document_id: str) -> Document | None: ...
     def document_superseded_by(self, document_id: str) -> Document | None: ...
     def superseded_document_ids(self, document_ids: Iterable[str]) -> set[str]: ...
+    def attach_document(
+        self, assessment_id: str, document_id: str, attached_by: str | None = None
+    ) -> AssessmentDocument: ...
+    def detach_document(self, assessment_id: str, document_id: str) -> bool: ...
+    def documents_for_assessment(self, assessment_id: str) -> list[Document]: ...
+    def attached_document_ids(self, assessment_id: str) -> list[str]: ...
     def create_evidence_request(self, request: EvidenceRequest) -> EvidenceRequest: ...
     def get_evidence_request(self, request_id: str) -> EvidenceRequest | None: ...
     def evidence_requests_for_assessment(self, assessment_id: str) -> list[EvidenceRequest]: ...
@@ -442,6 +471,96 @@ class AssessmentService:
     def list_assessments(self) -> list[Assessment]:
         return self._assessments.list_assessments()
 
+    def documents_for_assessment(self, assessment_id: str) -> list[DocumentSummary]:
+        """The documents attached to one assessment (ADR-0062).
+
+        What the Evidence tab's chooser should offer. It previously
+        listed every document on the instance, so a reviewer picking
+        evidence for one organisation's assessment was shown another
+        organisation's policies -- and could link them, since nothing
+        downstream objected.
+        """
+        self.get_assessment(assessment_id)  # raises if the assessment is unknown
+        documents = self._assessments.documents_for_assessment(assessment_id)
+        return self._summarise(documents)
+
+    def attach_document(
+        self, assessment_id: str, document_id: str, actor: str = UNAUTHENTICATED_ACTOR
+    ) -> DocumentSummary:
+        """Declare that a document belongs to this assessment.
+
+        Refuses a document that was never ingested, for the same reason
+        link_evidence does: an assessment must not reference evidence
+        that does not exist. The check is against the vector store
+        rather than the document registry, because 27 of 30 documents in
+        the original corpus predate the registry (ADR-0039) and are
+        perfectly real.
+        """
+        self.get_assessment(assessment_id)
+        if not self._vectors.chunks_for_document(document_id):
+            raise EvidenceDocumentNotIngestedError(document_id)
+        self._assessments.attach_document(assessment_id, document_id, attached_by=actor)
+        _logger.info(
+            "document attached assessment=%s document=%s actor=%s",
+            assessment_id,
+            document_id,
+            actor,
+        )
+        summaries = self._summarise(self._assessments.documents_for_assessment(assessment_id))
+        attached = next((s for s in summaries if s.id == document_id), None)
+        if attached is not None:
+            return attached
+        # Ingested, attached, but no registry row -- a pre-ADR-0039
+        # document. Report what is actually known rather than refusing a
+        # legitimate attachment or inventing metadata for it.
+        return DocumentSummary(
+            id=document_id,
+            filename=document_id,
+            file_type="unknown",
+            submitter=None,
+            uploaded_at=datetime.now(UTC),
+            is_superseded=False,
+            parser_version="",
+        )
+
+    def detach_document(self, assessment_id: str, document_id: str) -> None:
+        """Remove a document from this assessment.
+
+        Refused while any evidence link still cites it: detaching would
+        leave a citation pointing at a document the assessment no longer
+        claims, which is precisely the kind of dangling reference the
+        core invariant exists to prevent. Reject or remove the links
+        first -- an explicit act, recorded, rather than a silent cascade.
+        """
+        self.get_assessment(assessment_id)
+        citing = [
+            link
+            for link in self._assessments.evidence_for_assessment(assessment_id)
+            if link.document_id == document_id
+        ]
+        if citing:
+            raise DocumentStillCitedError(document_id, len(citing))
+        if not self._assessments.detach_document(assessment_id, document_id):
+            raise DocumentNotAttachedError(assessment_id, document_id)
+        _logger.info(
+            "document detached assessment=%s document=%s", assessment_id, document_id
+        )
+
+    def _summarise(self, documents: list[Document]) -> list[DocumentSummary]:
+        superseded = self._assessments.superseded_document_ids(d.id for d in documents)
+        return [
+            DocumentSummary(
+                id=d.id,
+                filename=d.filename,
+                file_type=d.file_type,
+                submitter=d.submitter,
+                uploaded_at=d.uploaded_at,
+                is_superseded=d.id in superseded,
+                parser_version=d.parser_version,
+            )
+            for d in documents
+        ]
+
     def list_document_summaries(self) -> list[DocumentSummary]:
         """Every document, newest first, in the reduced shape a chooser
         needs.
@@ -458,20 +577,7 @@ class AssessmentService:
         (ADR-0050 added that method for exactly this shape of caller), so
         listing N documents costs two queries rather than N+1.
         """
-        documents = self._assessments.list_documents()
-        superseded = self._assessments.superseded_document_ids(d.id for d in documents)
-        return [
-            DocumentSummary(
-                id=d.id,
-                filename=d.filename,
-                file_type=d.file_type,
-                submitter=d.submitter,
-                uploaded_at=d.uploaded_at,
-                is_superseded=d.id in superseded,
-                parser_version=d.parser_version,
-            )
-            for d in documents
-        ]
+        return self._summarise(self._assessments.list_documents())
 
     def get_document_detail(self, document_id: str) -> DocumentDetail:
         """Document versioning (ADR-0039): the durable Document record
@@ -803,7 +909,12 @@ class AssessmentService:
             review_status=review_status,
             created_by=actor,
         )
+        # Citing a document from an assessment is a statement that it
+        # belongs to it, so attaching is implicit rather than a second
+        # step (ADR-0062). Idempotent, and after the link so a rejected
+        # link leaves no association behind.
         created = self._assessments.add_evidence_link(link)
+        self._assessments.attach_document(assessment_id, document_id, attached_by=actor)
         _logger.info(
             "evidence linked assessment=%s document=%s practice=%s source=%s",
             assessment_id,
@@ -1248,7 +1359,13 @@ class AssessmentService:
             raise FrameworkScoringUnavailableError(assessment.framework_name)
 
         existing_links = self._assessments.evidence_for_assessment(assessment_id)
-        document_ids = sorted({link.document_id for link in existing_links})
+        # Attached documents, not just cited ones (ADR-0062). The old
+        # derivation from evidence links could not express "attached but
+        # not yet cited" -- which is the state a reviewer is in before
+        # the engine has ever run, and made proposing over a newly
+        # uploaded document impossible until they had manually linked it
+        # first.
+        document_ids = sorted(set(self._assessments.attached_document_ids(assessment_id)))
         already_covered = {
             link.practice_reference
             for link in existing_links

@@ -374,6 +374,41 @@ class IngestionJob(SQLModel, table=True):
     failure_message: str | None = None
 
 
+class AssessmentDocument(SQLModel, table=True):
+    """Which documents belong to which assessment (ADR-0062).
+
+    `Document` deliberately does NOT gain an `assessment_id`. One policy
+    PDF legitimately serves several assessments of the same
+    organisation -- a C2M2 assessment and a NIST CSF one over the same
+    evidence corpus is the cross-framework workflow this product is
+    built around (ADR-0019). Owning a document by exactly one assessment
+    would force the same file to be uploaded, parsed, chunked and
+    embedded once per framework, and would make `content_hash`
+    (ADR-0039) report duplicates that are not mistakes. So the relation
+    is many-to-many, which is also what this repo's own backlog has
+    called it for several sprints: "assessment-document association".
+
+    The association already existed, undeclared: propose_mappings
+    derived "documents associated with this assessment" from the set of
+    document_ids on its evidence links. That derivation could not
+    express a document attached but not yet cited -- which is exactly
+    the state a reviewer is in before the mapping engine has run, and is
+    why attaching had to be its own fact rather than a side effect of
+    linking.
+    """
+
+    __table_args__ = (UniqueConstraint("assessment_id", "document_id"),)
+
+    id: str = Field(default_factory=_new_id, primary_key=True)
+    assessment_id: str = Field(foreign_key="assessment.id", index=True)
+    document_id: str = Field(index=True)
+    attached_at: datetime = Field(default_factory=_utcnow)
+    # The authenticated identity (ADR-0061). None for rows created by
+    # the backfill, which infers attachments from evidence links written
+    # before this table existed and has no honest name to put here.
+    attached_by: str | None = None
+
+
 class EvidenceRequest(SQLModel, table=True):
     """A reviewer's explicit request that someone go find and upload
     MORE evidence for a specific practice (Sprint 18, ADR-0043) —

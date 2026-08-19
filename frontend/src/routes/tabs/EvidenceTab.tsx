@@ -3,6 +3,8 @@ import { useOutletContext } from 'react-router-dom'
 import { Link2 as LinkIcon, Loader2, Sparkles } from 'lucide-react'
 import {
   useEvidenceLinks,
+  useAssessmentDocuments,
+  useAttachDocument,
   useLinkEvidence,
   useProposeMappings,
   useReviewEvidence,
@@ -10,6 +12,7 @@ import {
 import { useFramework } from '../../api/frameworks'
 import { useDocuments } from '../../api/ingestion'
 import { findPractice } from '../../lib/practiceLookup'
+import AttachDocumentControl from '../../components/AttachDocumentControl'
 import DocumentPicker from '../../components/DocumentPicker'
 import EvidenceSourceBadge from '../../components/EvidenceSourceBadge'
 import EvidenceReviewControls from '../../components/EvidenceReviewControls'
@@ -31,7 +34,12 @@ export default function EvidenceTab() {
     assessment.framework_name,
     assessment.framework_version,
   )
-  const { data: documents, isLoading: documentsLoading } = useDocuments()
+  // Scoped to this assessment (ADR-0062). useDocuments() lists every
+  // document on the instance and is now only what the attach control
+  // browses.
+  const { data: documents, isLoading: documentsLoading } = useAssessmentDocuments(assessmentId)
+  const { data: allDocuments } = useDocuments()
+  const attachDocument = useAttachDocument(assessmentId)
   const linkEvidence = useLinkEvidence(assessmentId)
   const proposeMappings = useProposeMappings(assessmentId)
   const reviewEvidence = useReviewEvidence(assessmentId)
@@ -156,6 +164,15 @@ export default function EvidenceTab() {
               value={documentId}
               onChange={setDocumentId}
             />
+            <div className="mt-1.5">
+              <AttachDocumentControl
+                allDocuments={allDocuments}
+                attachedIds={(documents ?? []).map((doc) => doc.id)}
+                isDisabled={assessment.status === 'finalized'}
+                isSubmitting={attachDocument.isPending}
+                onAttach={(id) => attachDocument.mutate(id)}
+              />
+            </div>
           </div>
           <div>
             <label className="block text-xs font-medium text-slate-700" htmlFor="practice-reference">

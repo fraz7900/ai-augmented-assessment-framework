@@ -338,3 +338,93 @@ def test_resolve_evidence_request_sets_resolved_fields(tmp_path: Path) -> None:
 def test_resolve_evidence_request_returns_none_for_unknown_id(tmp_path: Path) -> None:
     repo = _repo(tmp_path)
     assert repo.resolve_evidence_request("does-not-exist", resolved_by="sam") is None
+
+
+# --- assessment-document association backfill (ADR-0062) --------------
+
+
+def test_existing_evidence_links_become_associations_on_open(tmp_path: Path) -> None:
+    """The migration that decides whether every existing assessment
+    survives this change.
+
+    Before ADR-0062, "this document belongs to this assessment" was
+    derived from the document_ids on its evidence links. Without a
+    backfill, every assessment already in a database would open with an
+    empty document list and look as though its evidence had vanished.
+    """
+    repo = _repo(tmp_path)
+    assessment = repo.create_assessment(name="Legacy", framework_name="C2M2")
+    repo.add_evidence_link(
+        EvidenceLink(
+            assessment_id=assessment.id,
+            document_id="doc-1",
+            practice_reference="AM-1a",
+            source=EvidenceSource.MANUAL,
+            review_status=EvidenceReviewStatus.ACCEPTED,
+        )
+    )
+
+    # A second repository over the same file is what a restart looks
+    # like: construction runs the backfill.
+    reopened = AssessmentRepository(tmp_path / "assessments.db")
+
+    assert reopened.attached_document_ids(assessment.id) == ["doc-1"]
+
+
+def test_the_backfill_is_idempotent(tmp_path: Path) -> None:
+    # It runs on every engine construction, so a second open must not
+    # duplicate what the first inserted.
+    repo = _repo(tmp_path)
+    assessment = repo.create_assessment(name="Legacy", framework_name="C2M2")
+    repo.add_evidence_link(
+        EvidenceLink(
+            assessment_id=assessment.id,
+            document_id="doc-1",
+            practice_reference="AM-1a",
+            source=EvidenceSource.MANUAL,
+            review_status=EvidenceReviewStatus.ACCEPTED,
+        )
+    )
+
+    AssessmentRepository(tmp_path / "assessments.db")
+    reopened = AssessmentRepository(tmp_path / "assessments.db")
+
+    assert reopened.attached_document_ids(assessment.id) == ["doc-1"]
+
+
+def test_the_backfill_does_not_invent_associations(tmp_path: Path) -> None:
+    repo = _repo(tmp_path)
+    assessment = repo.create_assessment(name="Untouched", framework_name="C2M2")
+
+    reopened = AssessmentRepository(tmp_path / "assessments.db")
+
+    assert reopened.attached_document_ids(assessment.id) == []
+
+
+def test_an_attached_document_with_no_registry_row_is_skipped_not_faked(
+    tmp_path: Path,
+) -> None:
+    """27 of 30 documents in the original corpus predate the registry
+    (ADR-0039) and have no Document row, while their evidence links are
+    perfectly valid. A placeholder entry would put something
+    unrecognisable in a chooser whose whole job is recognisability."""
+    repo = _repo(tmp_path)
+    assessment = repo.create_assessment(name="Mixed", framework_name="C2M2")
+    repo.attach_document(assessment.id, "registered")
+    repo.attach_document(assessment.id, "predates-the-registry")
+    repo.create_document(
+        Document(
+            id="registered",
+            filename="policy.pdf",
+            file_type="pdf",
+            content_hash="abc123",
+            parser_version="pypdf",
+        )
+    )
+
+    listed = repo.documents_for_assessment(assessment.id)
+
+    assert [d.id for d in listed] == ["registered"]
+    # The association itself is still there — the id is what the vector
+    # store and every evidence link actually use.
+    assert repo.attached_document_ids(assessment.id) == ["registered", "predates-the-registry"]
