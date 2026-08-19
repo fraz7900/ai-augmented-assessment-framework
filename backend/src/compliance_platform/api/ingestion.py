@@ -32,6 +32,8 @@ async def ingest_document(
     # Document versioning (ADR-0039): explicit, human-declared only —
     # never inferred from filename/content similarity.
     supersedes_document_id: str | None = Form(default=None),
+    # The client whose evidence this is (Sprint 22, ADR-0063).
+    organization_id: str | None = Form(default=None),
     service: IngestionService = Depends(get_ingestion_service),
 ) -> IngestionResult:
     if file.filename is None:
@@ -45,6 +47,7 @@ async def ingest_document(
             content=content,
             submitter=submitter,
             supersedes_document_id=supersedes_document_id,
+            organization_id=organization_id,
         )
     except UnsupportedDocumentError as exc:
         # Expected outcome (scanned PDF, empty doc, encoding failure) —
@@ -64,6 +67,7 @@ async def ingest_document_async(
     file: UploadFile = File(...),
     submitter: str | None = Form(default=None),
     supersedes_document_id: str | None = Form(default=None),
+    organization_id: str | None = Form(default=None),
     service: IngestionJobService = Depends(get_ingestion_job_service),
 ) -> IngestionJobView:
     """Queue a document and return immediately with a job to poll.
@@ -89,6 +93,7 @@ async def ingest_document_async(
             content=content,
             submitter=submitter,
             supersedes_document_id=supersedes_document_id,
+            organization_id=organization_id,
         )
     except IngestionQueueFullError as exc:
         # 429, not 503: the server is fine, the caller is asking for more
@@ -103,9 +108,20 @@ async def ingest_document_async(
 @router.get("/jobs", response_model=list[IngestionJobView])
 async def list_ingestion_jobs(
     limit: int = 50,
+    organization_id: str | None = None,
     service: IngestionJobService = Depends(get_ingestion_job_service),
 ) -> list[IngestionJobView]:
-    return [IngestionJobView.from_job(job) for job in service.list(limit=limit)]
+    """One organisation's recent uploads (ADR-0063). The queue itself is
+    machine-wide -- its capacity is shared, and the backpressure count
+    behind it still counts every pending job -- but the list a person
+    reads is scoped, because one client's filenames are not another's to
+    see."""
+    return [
+        IngestionJobView.from_job(job)
+        for job in service.list(
+            organization_id=service.resolve_organization_id(organization_id), limit=limit
+        )
+    ]
 
 
 @router.get("/jobs/{job_id}", response_model=IngestionJobView)

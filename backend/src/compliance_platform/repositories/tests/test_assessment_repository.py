@@ -15,6 +15,7 @@ from pathlib import Path
 from sqlalchemy import create_engine
 
 from compliance_platform.models.assessment import (
+    DEFAULT_ORGANIZATION_ID,
     Document,
     EvidenceLink,
     EvidenceRequest,
@@ -194,7 +195,7 @@ def test_practice_findings_for_assessment_isolated_per_assessment(tmp_path: Path
 
 
 def _document(doc_id: str, supersedes: str | None = None) -> Document:
-    return Document(
+    return Document(organization_id=DEFAULT_ORGANIZATION_ID, 
         id=doc_id,
         filename=f"{doc_id}.txt",
         file_type="txt",
@@ -413,7 +414,7 @@ def test_an_attached_document_with_no_registry_row_is_skipped_not_faked(
     repo.attach_document(assessment.id, "registered")
     repo.attach_document(assessment.id, "predates-the-registry")
     repo.create_document(
-        Document(
+        Document(organization_id=DEFAULT_ORGANIZATION_ID, 
             id="registered",
             filename="policy.pdf",
             file_type="pdf",

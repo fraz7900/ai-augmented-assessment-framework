@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Loader2, Plus } from 'lucide-react'
 import { useAssessments, useCreateAssessment } from '../api/assessments'
+import { useOrganizationScope } from '../lib/organizationContext'
 import { useFrameworkVersions } from '../api/frameworks'
 import FrameworkVersionSelect from '../components/FrameworkVersionSelect'
 import StatusBadge from '../components/StatusBadge'
@@ -34,8 +35,9 @@ const KNOWN_FRAMEWORKS = [
 ]
 
 export default function AssessmentsListPage() {
-  const { data: assessments, isLoading, isError, error } = useAssessments()
-  const createAssessment = useCreateAssessment()
+  const { organizationId, organization } = useOrganizationScope()
+  const { data: assessments, isLoading, isError, error } = useAssessments(organizationId)
+  const createAssessment = useCreateAssessment(organizationId)
   const [name, setName] = useState('')
   const [frameworkName, setFrameworkName] = useState(KNOWN_FRAMEWORKS[0])
   // '' means "whatever the registry considers latest" — sent as an
@@ -64,6 +66,12 @@ export default function AssessmentsListPage() {
   return (
     <div>
       <h1 className="text-xl font-semibold text-slate-900">Assessments</h1>
+      {/* The list is scoped to one client (ADR-0063), so it says which
+          one -- an empty list means something different depending on
+          the answer. */}
+      <p className="text-sm text-slate-500">
+        {organization?.name ?? '…'}
+      </p>
 
       <form onSubmit={handleSubmit} className="mt-4 flex flex-wrap items-end gap-3">
         <div>

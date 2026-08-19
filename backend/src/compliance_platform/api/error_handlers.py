@@ -25,11 +25,13 @@ import logging
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
+from compliance_platform.core.errors import OrganizationRequiredError
 from compliance_platform.services.assessment_service import (
     AssessmentFinalizedError,
     AssessmentNotFoundError,
     AssessmentNotReadyForFinalizationError,
     ChatEngineUnavailableError,
+    CrossOrganizationAttachmentError,
     DocumentNotAttachedError,
     DocumentNotFoundError,
     DocumentStillCitedError,
@@ -44,6 +46,9 @@ from compliance_platform.services.assessment_service import (
     MappingEngineUnavailableError,
     MissingEvidenceRequestNoteError,
     MissingFindingRationaleError,
+    OrganizationNameRequiredError,
+    OrganizationNameTakenError,
+    OrganizationNotFoundError,
     SanitizationApprovalStaleError,
     SanitizationNotApprovedError,
     UnknownFrameworkVersionError,
@@ -52,12 +57,19 @@ from compliance_platform.services.assessment_service import (
 _STATUS_CODE_BY_EXCEPTION: dict[type[Exception], int] = {
     AssessmentNotFoundError: 404,
     DocumentNotFoundError: 404,
+    OrganizationNotFoundError: 404,
     EvidenceLinkNotFoundError: 404,
     EvidenceRequestNotFoundError: 404,
     AssessmentFinalizedError: 409,
     # Detaching a document that evidence still cites is a conflict
     # with the assessment's current state, not a bad request.
     DocumentStillCitedError: 409,
+    # Attaching across an organisation boundary is a conflict with whose
+    # record this is, not a malformed request (ADR-0063). A 409 also
+    # reads correctly to the reviewer who caused it: the document is
+    # real, the assessment is real, and they do not belong together.
+    CrossOrganizationAttachmentError: 409,
+    OrganizationNameTakenError: 409,
     DocumentNotAttachedError: 404,
     AssessmentNotReadyForFinalizationError: 409,
     EvidenceAlreadyReviewedError: 409,
@@ -68,6 +80,10 @@ _STATUS_CODE_BY_EXCEPTION: dict[type[Exception], int] = {
     InvalidPracticeReferenceError: 422,
     UnknownFrameworkVersionError: 422,
     InvalidReviewDecisionError: 400,
+    # Not naming an organisation when more than one exists is a request
+    # the server cannot answer, not a permission problem.
+    OrganizationRequiredError: 400,
+    OrganizationNameRequiredError: 400,
     MissingFindingRationaleError: 400,
     MissingEvidenceRequestNoteError: 400,
     MappingEngineUnavailableError: 503,

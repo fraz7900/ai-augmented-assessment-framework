@@ -178,7 +178,10 @@ def test_an_unproxied_request_is_recorded_as_unauthenticated(client: TestClient)
 def test_the_seal_covers_who_decided(client: TestClient) -> None:
     # Sealing attribution is the point of bumping the payload to v2: a
     # reviewer who can be silently swapped after finalization is no
-    # better recorded than one who was never named.
+    # better recorded than one who was never named. The version pinned
+    # below is 3 rather than 2 because ADR-0063 added the owning
+    # organisation on the same reasoning -- attribution is still sealed,
+    # a later version being what seals it.
     document_id = _document(client)
     assessment_id = _assessment(client)
     client.post(
@@ -194,7 +197,7 @@ def test_the_seal_covers_who_decided(client: TestClient) -> None:
     verified = client.get(f"/assessments/{assessment_id}/verify").json()
 
     assert verified["status"] == "verified"
-    assert verified["seal_version"] == "2"
+    assert verified["seal_version"] == "3"
 
 
 def test_the_server_will_say_who_it_thinks_you_are(client: TestClient) -> None:

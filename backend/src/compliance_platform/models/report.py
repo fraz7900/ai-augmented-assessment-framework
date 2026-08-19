@@ -94,6 +94,13 @@ class ResolutionItem(BaseModel):
 class Situation(BaseModel):
     assessment_id: str
     assessment_name: str
+    # Whose assessment this is (ADR-0063), printed into every export so
+    # a report that has left the database still says which client it
+    # describes. The NAME, unlike the seal payload's id: a person
+    # reading a PDF cannot resolve a UUID, and the name is not what the
+    # seal attests, so a rename changes the paper without invalidating
+    # the record.
+    organization_name: str = ""
     framework_name: str
     scoring_model: str
     status: str

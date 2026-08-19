@@ -74,7 +74,9 @@ class JobExecutor(Protocol):
 class IngestionJobRepositoryProtocol(Protocol):
     def create_ingestion_job(self, job: IngestionJob) -> IngestionJob: ...
     def get_ingestion_job(self, job_id: str) -> IngestionJob | None: ...
-    def list_ingestion_jobs(self, limit: int = 50) -> list[IngestionJob]: ...
+    def list_ingestion_jobs(
+        self, limit: int = 50, organization_id: str | None = None
+    ) -> list[IngestionJob]: ...
     def mark_ingestion_job_running(self, job_id: str) -> IngestionJob | None: ...
     def complete_ingestion_job(
         self,
@@ -119,6 +121,7 @@ class IngestionJobService:
         content: bytes,
         submitter: str | None = None,
         supersedes_document_id: str | None = None,
+        organization_id: str | None = None,
     ) -> IngestionJob:
         """Record a QUEUED job and hand the work to the executor.
 
@@ -127,7 +130,14 @@ class IngestionJobService:
         it was before this endpoint existed. A job row for it would be a
         worse answer than an immediate error: there is nothing to poll
         for and nothing to retry.
+
+        The organisation is resolved here for exactly the same reason
+        (ADR-0063): an unknown or ambiguous organisation is a bad
+        request, and finding that out from a job row that failed two
+        minutes later would be a worse answer than a 400 the client is
+        still waiting for.
         """
+        resolved_organization_id = self._ingestion.resolve_organization_id(organization_id)
         if len(content) > self._settings.max_upload_bytes:
             raise ValueError(
                 f"File exceeds maximum upload size of {self._settings.max_upload_bytes} bytes."
@@ -144,6 +154,7 @@ class IngestionJobService:
         job = self._jobs.create_ingestion_job(
             IngestionJob(
                 filename=filename,
+                organization_id=resolved_organization_id,
                 submitter=submitter,
                 supersedes_document_id=supersedes_document_id,
             )
@@ -156,6 +167,7 @@ class IngestionJobService:
             content,
             submitter,
             supersedes_document_id,
+            resolved_organization_id,
         )
         return job
 
@@ -166,6 +178,7 @@ class IngestionJobService:
         content: bytes,
         submitter: str | None,
         supersedes_document_id: str | None,
+        organization_id: str,
     ) -> None:
         """Execute one job. Never raises.
 
@@ -182,6 +195,7 @@ class IngestionJobService:
                 content=content,
                 submitter=submitter,
                 supersedes_document_id=supersedes_document_id,
+                organization_id=organization_id,
             )
         except UnsupportedDocumentError as exc:
             # Expected outcome (scanned-and-unreadable, empty, encoding
@@ -240,11 +254,16 @@ class IngestionJobService:
 
     # ---- Query side ----------------------------------------------------
 
+    def resolve_organization_id(self, organization_id: str | None = None) -> str:
+        return self._ingestion.resolve_organization_id(organization_id)
+
     def get(self, job_id: str) -> IngestionJob | None:
         return self._jobs.get_ingestion_job(job_id)
 
-    def list(self, limit: int = 50) -> list[IngestionJob]:
-        return self._jobs.list_ingestion_jobs(limit=limit)
+    def list(self, organization_id: str, limit: int = 50) -> list[IngestionJob]:
+        """Scoped: "Recent uploads" is a list a person reads, and one
+        client's filenames are not another's to see (ADR-0063)."""
+        return self._jobs.list_ingestion_jobs(limit=limit, organization_id=organization_id)
 
     def sweep_interrupted(self) -> int:
         """Fail anything a previous process left mid-flight. See

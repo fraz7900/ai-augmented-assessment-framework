@@ -21,6 +21,7 @@ import pytest
 
 from compliance_platform.core.config import Settings
 from compliance_platform.models.assessment import (
+    DEFAULT_ORGANIZATION_ID,
     IngestionJob,
     IngestionJobFailure,
     IngestionJobStatus,
@@ -71,12 +72,16 @@ class _StubIngestion:
         self._raises = raises
         self.calls: list[dict] = []
 
+    def resolve_organization_id(self, organization_id: str | None = None) -> str:
+        return organization_id or DEFAULT_ORGANIZATION_ID
+
     def ingest(
         self,
         filename: str,
         content: bytes,
         submitter: str | None = None,
         supersedes_document_id: str | None = None,
+        organization_id: str | None = None,
     ) -> IngestionResult:
         self.calls.append(
             {
@@ -84,6 +89,7 @@ class _StubIngestion:
                 "content": content,
                 "submitter": submitter,
                 "supersedes_document_id": supersedes_document_id,
+                "organization_id": organization_id,
             }
         )
         if self._raises is not None:
@@ -250,7 +256,7 @@ def test_oversized_upload_is_refused_immediately_and_creates_no_job(tmp_path: Pa
     with pytest.raises(ValueError, match="maximum upload size"):
         service.submit(filename="big.pdf", content=b"x" * 11)
 
-    assert service.list() == []
+    assert service.list(DEFAULT_ORGANIZATION_ID) == []
 
 
 def test_queue_depth_is_bounded(tmp_path: Path) -> None:
@@ -268,7 +274,7 @@ def test_queue_depth_is_bounded(tmp_path: Path) -> None:
         service.submit(filename="c.pdf", content=b"c")
 
     assert excinfo.value.limit == 2
-    assert len(service.list()) == 2
+    assert len(service.list(DEFAULT_ORGANIZATION_ID)) == 2
 
 
 def test_finished_jobs_do_not_count_against_the_queue_limit(tmp_path: Path) -> None:
@@ -285,7 +291,9 @@ def test_sweep_fails_jobs_a_restart_stranded(tmp_path: Path) -> None:
     executor = _NeverRunExecutor()
     service, repo = _make(tmp_path, executor=executor)
     queued = service.submit(filename="a.pdf", content=b"a")
-    running = repo.create_ingestion_job(IngestionJob(filename="b.pdf"))
+    running = repo.create_ingestion_job(
+        IngestionJob(organization_id=DEFAULT_ORGANIZATION_ID, filename="b.pdf")
+    )
     repo.mark_ingestion_job_running(running.id)
 
     swept = service.sweep_interrupted()
@@ -332,5 +340,10 @@ def test_submitted_arguments_reach_ingestion_unchanged(tmp_path: Path) -> None:
             "content": b"bytes",
             "submitter": "assessor",
             "supersedes_document_id": "doc-old",
+            # Resolved on the request thread, before queueing, so an
+            # unknown or ambiguous organisation is a 400 the client is
+            # still waiting for rather than a job that fails two minutes
+            # later (ADR-0063).
+            "organization_id": DEFAULT_ORGANIZATION_ID,
         }
     ]

@@ -10,7 +10,7 @@ from __future__ import annotations
 import pytest
 
 from compliance_platform.core.config import Settings
-from compliance_platform.models.assessment import Document
+from compliance_platform.models.assessment import DEFAULT_ORGANIZATION_ID, Document
 from compliance_platform.models.schemas import EvidenceChunk, ParseStatus
 from compliance_platform.services.ingestion_service import (
     IngestionService,
@@ -91,6 +91,11 @@ class _FakeDocumentRepository:
 
     def get_document(self, document_id: str) -> Document | None:
         return self.documents.get(document_id)
+
+    def resolve_organization_id(self, organization_id: str | None = None) -> str:
+        # Mirrors the real repository on a single-organisation instance
+        # (ADR-0063): omitting it resolves to the only one there is.
+        return organization_id or DEFAULT_ORGANIZATION_ID
 
 
 def _make_service(

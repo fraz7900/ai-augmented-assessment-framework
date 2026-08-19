@@ -6,22 +6,30 @@ the only open risk carrying High impact, and the one `docs/project-status.md` na
 between this and a multi-client pilot. Second, a retention policy for the `ingestionjob` table,
 which ADR-0059 disclosed rather than solved. No authentication, no RBAC, no cloud deployment, no
 new frameworks, no refactors outside the two.
-Status: **Planned, not begun. Nothing in this file exists as code.** The tree is unchanged from
-Sprint 21's last merge, `a265bca` (PR #7): 584 backend tests passing, 84 frontend across 14 files,
-`ruff` clean, `tsc -b` clean, CI green on `main`. This is the paragraph this file has got wrong
-twice — Sprint 19 and Sprint 20 each carried a status sentence that stopped being true within hours
-of being written — so it is anchored to a SHA rather than describing a state, and it must be
-rewritten the moment the first tranche lands rather than at the end of the sprint.
-Decision required before T1 starts, and deliberately not assumed here. PROJECT_CHARTER.md Section 12
-lists "multi-tenant authentication and role-based access control" as explicitly out of scope for the
-MVP. T1 builds the data-model half of that line and none of the identity half: assessments and
-documents gain an owner enforced server-side, while who the requester is stays exactly where
-ADR-0061 left it, a username asserted by the reverse proxy. Whether that reads as reopening the
-charter line is the project owner's call, not this file's; the precedent for reopening one is
-Sprint 19's OCR reversal, which was made by direct owner instruction and recorded as such in
-Section 12 rather than quietly delivered. If the answer is no, T2 stands on its own and the ops
-items in Next are the honest alternative first tranche.
-T1 — an organisation that owns assessments and documents (proposed ADR-0063). `Organization(id,
+Status: **T1 is complete and CI-confirmed; T2 is not begun.** The charter decision below came back
+yes, so T1 ran: `f25668f` (backend, ADR-0063, the charter amendment, R-39 and R-40) and `ce5094e`
+(frontend). The branch is pushed and PR #9 is open against `main`; run `32280521820` is green on
+both jobs. CI reproduced this machine's numbers rather than merely agreeing with them: **615 backend
+tests passing** in 5m45s, `ruff check` clean, **93 frontend tests across 16 files**, and `npm run
+build`, which is the real `tsc -b` typecheck. `npm run lint` is not a CI step, so its result stays a
+local one: the same 2 pre-existing fast-refresh warnings in `EvidenceSourceBadge.tsx` and no new
+ones. Nothing is left in the working tree. The local frontend count had come from a re-run — the
+first attempt lost 7 of 16 files to the forks-worker timeout with zero assertion failures — and the
+runner taking all 16 first time is one more measurement supporting AGENTS.md's reading of that as
+this environment rather than the code. T1's last open acceptance criterion, CI green on the branch,
+is now met.
+Decision made, and recorded rather than assumed. PROJECT_CHARTER.md Section 12 listed
+"multi-tenant authentication and role-based access control" as explicitly out of scope for the MVP.
+T1 built the data-model half of that line and none of the identity half: assessments and documents
+gained an owner enforced server-side, while who the requester is stays exactly where ADR-0061 left
+it, a username asserted by the reverse proxy. Whether that counted as reopening the charter line
+was the project owner's call rather than this file's, the precedent being Sprint 19's OCR
+reversal — made by direct owner instruction and recorded in Section 12 rather than quietly
+delivered. The answer was yes, given directly, and Section 12 now
+carries the reversal in that same shape: what was built, what was not, and where the residual is
+recorded. The alternative first tranche this paragraph named if the answer had been no — the ops
+items under Next, R-9 first — is untouched and still available.
+T1 — an organisation that owns assessments and documents (ADR-0063, accepted). `Organization(id,
 name, created_at)` with a unique name, then `Assessment.organization_id` and
 `Document.organization_id`, both foreign keys, both indexed, both non-null. The document field is
 the part that needs justifying rather than merely implementing, because ADR-0062 refused
@@ -94,7 +102,27 @@ and on the frontend `api/assessments.ts`, `api/types.ts`, a new `OrganizationSel
 `AssessmentsListPage`, `AssessmentDetailPage`, `UploadPage`, `AttachDocumentControl`,
 `DocumentPicker`. Roughly 25-35 new backend tests and 6-10 frontend; this tranche is the larger of
 the two by a wide margin.
-T2 — a retention policy for ingestion jobs (proposed ADR-0064). `ingestionjob` rows accumulate with
+What T1 actually took, recorded against the plan rather than tidied to match it. Two things were
+decided differently once the code was in front of them. First, this file said `organization_id`
+would be non-null and required; it is non-null, but omitting it is allowed while exactly one
+organisation exists, because requiring it everywhere would have churned roughly 140 call sites to
+make the single-organisation deployment the charter scopes worse, while the conditional rule
+refuses the one case that is actually dangerous. Second, `link_evidence` needed the boundary check
+too, which this plan did not anticipate: linking attaches implicitly (ADR-0062) and the attach runs
+after the evidence link is persisted, so leaving the attach to refuse would have written a
+cross-organisation citation and then returned a 409 too late to matter. It was found while writing
+the integration test for it rather than by inspection — the third time in two sprints that a test
+written for one purpose has found a different real defect.
+Delivered inside T1 and not listed in this plan, named rather than absorbed: `IngestionJob` gained
+an organisation so "Recent uploads" is scoped, while the queue's backpressure count deliberately
+stays instance-wide, since scoping that count would hand each organisation the full queue depth and
+the bound would stop meaning anything; and organisations can be renamed, which is what makes a
+migrated instance's "Unassigned" survivable, and is safe precisely because the seal covers the id
+rather than the name. The migration-test helper also cost more than expected: a pre-sprint schema
+cannot be simulated by dropping the column, because SQLite refuses to drop one a foreign key still
+names, so it rebuilds both tables the way SQLite's own documented table rewrite does.
+T2 (not begun) — a retention policy for ingestion jobs (proposed ADR-0064). `ingestionjob` rows
+accumulate with
 no bound (R-35). Sweep terminal jobs older than a configurable window at startup and after each job
 completes, never touch a PENDING or RUNNING row, and log the count swept. This file's own
 convention says a number nobody has evidence for is worse than a disclosure, so the ADR has to

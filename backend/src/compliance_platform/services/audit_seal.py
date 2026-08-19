@@ -55,7 +55,7 @@ from compliance_platform.models.assessment import (
 # adding one field to the record would invalidate every seal ever
 # written, and "the record was altered" is the one thing this must never
 # say wrongly.
-CURRENT_SEAL_VERSION = "2"
+CURRENT_SEAL_VERSION = "3"
 
 
 class UnknownSealVersionError(Exception):
@@ -209,7 +209,31 @@ def _payload_v2(**record: Any) -> dict[str, Any]:
     return payload
 
 
-_PAYLOAD_BUILDERS = {"1": _payload_v1, "2": _payload_v2}
+def _payload_v3(**record: Any) -> dict[str, Any]:
+    """Version 3 adds the owning organisation (ADR-0063) to version 2's
+    payload.
+
+    Whose record this is has to be sealed for the same reason
+    attribution did: a finalized assessment that could be quietly moved
+    to another organisation would misattribute an entire audit record,
+    and it would misattribute it silently. Attachments still do not ride
+    along even though a version bump is being spent here anyway --
+    ADR-0062's reason for excluding them was that an attachment is a
+    working-set fact rather than a claim the assessment makes, and that
+    reason was never the cost of a version.
+
+    The organisation's id, not its name. Renaming an organisation is a
+    label change that moves no record, and an instance that starts as
+    "Unassigned" and is later given its client's real name must not
+    thereby invalidate every seal it holds.
+    """
+    payload = _payload_v2(**record)
+    payload["seal_version"] = "3"
+    payload["assessment"]["organization_id"] = record["assessment"].organization_id
+    return payload
+
+
+_PAYLOAD_BUILDERS = {"1": _payload_v1, "2": _payload_v2, "3": _payload_v3}
 
 
 def compute_seal(

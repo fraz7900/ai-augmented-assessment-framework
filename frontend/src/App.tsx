@@ -7,6 +7,7 @@ import OverviewTab from './routes/tabs/OverviewTab'
 import EvidenceTab from './routes/tabs/EvidenceTab'
 import DashboardTab from './routes/tabs/DashboardTab'
 import ChatTab from './routes/tabs/ChatTab'
+import OrganizationSelect from './components/OrganizationSelect'
 
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
   `px-3 py-2 rounded-md text-sm font-medium ${
@@ -36,6 +37,7 @@ function App() {
               </span>
             </NavLink>
           </nav>
+          <OrganizationSelect />
         </div>
       </header>
 

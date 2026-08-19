@@ -55,6 +55,7 @@ class UnknownSupersededDocumentError(Exception):
 
 class DocumentRepositoryProtocol(Protocol):
     def create_document(self, document: Document) -> Document: ...
+    def resolve_organization_id(self, organization_id: str | None = None) -> str: ...
     def get_document(self, document_id: str) -> Document | None: ...
 
 
@@ -83,13 +84,24 @@ class IngestionService:
         self._embedder = embedder
         self._documents = document_repository
 
+    def resolve_organization_id(self, organization_id: str | None = None) -> str:
+        """Exposed so IngestionJobService can resolve on the request
+        thread, before queueing (ADR-0063)."""
+        return self._documents.resolve_organization_id(organization_id)
+
     def ingest(
         self,
         filename: str,
         content: bytes,
         submitter: str | None = None,
         supersedes_document_id: str | None = None,
+        organization_id: str | None = None,
     ) -> IngestionResult:
+        """organization_id (Sprint 22, ADR-0063): the client whose
+        evidence this is. Resolved here rather than defaulted, so it may
+        be omitted only while exactly one organisation exists.
+        """
+        resolved_organization_id = self._documents.resolve_organization_id(organization_id)
         if len(content) > self._settings.max_upload_bytes:
             raise ValueError(
                 f"File exceeds maximum upload size of {self._settings.max_upload_bytes} bytes."
@@ -169,6 +181,7 @@ class IngestionService:
             self._documents.create_document(
                 Document(
                     id=parsed.metadata.document_id,
+                    organization_id=resolved_organization_id,
                     filename=parsed.metadata.filename,
                     file_type=parsed.metadata.file_type.value,
                     content_hash=parsed.metadata.content_hash,

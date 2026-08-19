@@ -10,8 +10,14 @@ from datetime import UTC, datetime
 
 import pytest
 
-from compliance_platform.core.errors import AssessmentAlreadySealedError
+from compliance_platform.core.errors import (
+    AssessmentAlreadySealedError,
+    OrganizationNotFoundError,
+    OrganizationRequiredError,
+)
 from compliance_platform.models.assessment import (
+    DEFAULT_ORGANIZATION_ID,
+    DEFAULT_ORGANIZATION_NAME,
     Assessment,
     AssessmentDocument,
     AssessmentStatus,
@@ -21,6 +27,7 @@ from compliance_platform.models.assessment import (
     EvidenceRequest,
     EvidenceReviewStatus,
     EvidenceSource,
+    Organization,
     PracticeFinding,
     PracticeFindingChange,
     PracticeFindingStatus,
@@ -69,12 +76,57 @@ class _FakeAssessmentRepository:
         self._documents: dict[str, Document] = {}
         self._evidence_requests: dict[str, list[EvidenceRequest]] = {}
         self._document_associations: list[AssessmentDocument] = []
+        # Mirrors the real repository, which bootstraps one organisation
+        # on construction (ADR-0063) so a single-organisation deployment
+        # has something to resolve to.
+        self._organizations: dict[str, Organization] = {
+            DEFAULT_ORGANIZATION_ID: Organization(
+                id=DEFAULT_ORGANIZATION_ID, name=DEFAULT_ORGANIZATION_NAME
+            )
+        }
+
+    def resolve_organization_id(self, organization_id: str | None = None) -> str:
+        if organization_id is not None:
+            if organization_id not in self._organizations:
+                raise OrganizationNotFoundError(organization_id)
+            return organization_id
+        if len(self._organizations) == 1:
+            return next(iter(self._organizations))
+        raise OrganizationRequiredError(len(self._organizations))
+
+    def create_organization(self, name: str) -> Organization:
+        organization = Organization(name=name)
+        self._organizations[organization.id] = organization
+        return organization
+
+    def get_organization(self, organization_id: str) -> Organization | None:
+        return self._organizations.get(organization_id)
+
+    def organization_by_name(self, name: str) -> Organization | None:
+        return next((o for o in self._organizations.values() if o.name == name), None)
+
+    def list_organizations(self) -> list[Organization]:
+        return list(self._organizations.values())
+
+    def rename_organization(self, organization_id: str, name: str) -> Organization | None:
+        organization = self._organizations.get(organization_id)
+        if organization is None:
+            return None
+        organization.name = name
+        return organization
 
     def create_assessment(
-        self, name: str, framework_name: str, framework_version: str | None = None
+        self,
+        name: str,
+        framework_name: str,
+        framework_version: str | None = None,
+        organization_id: str | None = None,
     ) -> Assessment:
         assessment = Assessment(
-            name=name, framework_name=framework_name, framework_version=framework_version
+            name=name,
+            framework_name=framework_name,
+            framework_version=framework_version,
+            organization_id=self.resolve_organization_id(organization_id),
         )
         self._assessments[assessment.id] = assessment
         self._history[assessment.id] = [
@@ -88,8 +140,12 @@ class _FakeAssessmentRepository:
     def get_assessment(self, assessment_id: str) -> Assessment | None:
         return self._assessments.get(assessment_id)
 
-    def list_assessments(self) -> list[Assessment]:
-        return list(self._assessments.values())
+    def list_assessments(self, organization_id: str) -> list[Assessment]:
+        return [
+            assessment
+            for assessment in self._assessments.values()
+            if assessment.organization_id == organization_id
+        ]
 
     def update_status(
         self,
@@ -268,11 +324,15 @@ class _FakeAssessmentRepository:
     def get_document(self, document_id: str) -> Document | None:
         return self._documents.get(document_id)
 
-    def list_documents(self) -> list[Document]:
+    def list_documents(self, organization_id: str) -> list[Document]:
         # Newest first, mirroring the real repository's ORDER BY, so a
         # test asserting ordering is testing the service against the
         # contract rather than against insertion order.
-        return sorted(self._documents.values(), key=lambda d: d.uploaded_at, reverse=True)
+        return sorted(
+            (d for d in self._documents.values() if d.organization_id == organization_id),
+            key=lambda d: d.uploaded_at,
+            reverse=True,
+        )
 
     def document_superseded_by(self, document_id: str) -> Document | None:
         for document in self._documents.values():
@@ -1500,7 +1560,7 @@ def test_list_document_summaries_returns_newest_first() -> None:
 
     service, assessment_repo, _ = _make_service()
     assessment_repo.add_document(
-        Document(
+        Document(organization_id=DEFAULT_ORGANIZATION_ID, 
             id="old",
             filename="old.txt",
             file_type="txt",
@@ -1509,7 +1569,7 @@ def test_list_document_summaries_returns_newest_first() -> None:
         )
     )
     assessment_repo.add_document(
-        Document(
+        Document(organization_id=DEFAULT_ORGANIZATION_ID, 
             id="new",
             filename="new.txt",
             file_type="txt",
@@ -1526,10 +1586,16 @@ def test_list_document_summaries_flags_superseded_documents() -> None:
     reviewer will happily cite an out-of-date policy (ADR-0050)."""
     service, assessment_repo, _ = _make_service()
     assessment_repo.add_document(
-        Document(id="v1", filename="policy.txt", file_type="txt", content_hash="h1")
+        Document(
+            organization_id=DEFAULT_ORGANIZATION_ID,
+            id="v1",
+            filename="policy.txt",
+            file_type="txt",
+            content_hash="h1",
+        )
     )
     assessment_repo.add_document(
-        Document(
+        Document(organization_id=DEFAULT_ORGANIZATION_ID, 
             id="v2",
             filename="policy.txt",
             file_type="txt",
@@ -1552,7 +1618,13 @@ def test_get_document_detail_raises_for_unknown_document() -> None:
 def test_get_document_detail_with_no_supersession_relationship() -> None:
     service, assessment_repo, _ = _make_service()
     assessment_repo.add_document(
-        Document(id="doc-1", filename="a.txt", file_type="txt", content_hash="h")
+        Document(
+            organization_id=DEFAULT_ORGANIZATION_ID,
+            id="doc-1",
+            filename="a.txt",
+            file_type="txt",
+            content_hash="h",
+        )
     )
 
     detail = service.get_document_detail("doc-1")
@@ -1564,10 +1636,16 @@ def test_get_document_detail_with_no_supersession_relationship() -> None:
 def test_get_document_detail_surfaces_forward_and_reverse_supersession() -> None:
     service, assessment_repo, _ = _make_service()
     assessment_repo.add_document(
-        Document(id="doc-v1", filename="a.txt", file_type="txt", content_hash="h1")
+        Document(
+            organization_id=DEFAULT_ORGANIZATION_ID,
+            id="doc-v1",
+            filename="a.txt",
+            file_type="txt",
+            content_hash="h1",
+        )
     )
     assessment_repo.add_document(
-        Document(
+        Document(organization_id=DEFAULT_ORGANIZATION_ID, 
             id="doc-v2",
             filename="a.txt",
             file_type="txt",
@@ -1601,10 +1679,16 @@ def test_build_dashboard_flags_cited_evidence_from_a_superseded_document() -> No
         framework_registry=_FakeFrameworkRegistry({"C2M2": framework}),
     )
     assessment_repo.add_document(
-        Document(id="doc-old", filename="policy_v1.txt", file_type="txt", content_hash="h1")
+        Document(
+            organization_id=DEFAULT_ORGANIZATION_ID,
+            id="doc-old",
+            filename="policy_v1.txt",
+            file_type="txt",
+            content_hash="h1",
+        )
     )
     assessment_repo.add_document(
-        Document(
+        Document(organization_id=DEFAULT_ORGANIZATION_ID, 
             id="doc-new",
             filename="policy_v2.txt",
             file_type="txt",

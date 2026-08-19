@@ -8,10 +8,14 @@ import type { DocumentDetail, DocumentSummary, IngestionJob } from './types'
 // required copying a UUID off the Upload screen and pasting it into a
 // different tab by hand, because nothing could enumerate what had been
 // ingested.
-export function useDocuments() {
+export function useDocuments(organizationId: string | undefined) {
   return useQuery({
-    queryKey: ['documents', 'list'],
-    queryFn: () => apiClient.get<DocumentSummary[]>('/documents'),
+    queryKey: ['documents', 'list', organizationId ?? ''],
+    queryFn: () =>
+      apiClient.get<DocumentSummary[]>(
+        `/documents?organization_id=${encodeURIComponent(organizationId ?? '')}`,
+      ),
+    enabled: !!organizationId,
   })
 }
 
@@ -51,10 +55,23 @@ const JOB_POLL_INTERVAL_MS = 2000
 export function useIngestDocumentAsync() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async ({ file, submitter }: { file: File; submitter?: string }) => {
+    mutationFn: async ({
+      file,
+      submitter,
+      organizationId,
+    }: {
+      file: File
+      submitter?: string
+      organizationId?: string
+    }) => {
       const form = new FormData()
       form.append('file', file)
       if (submitter) form.append('submitter', submitter)
+      // Named explicitly rather than left to the server's
+      // single-organisation fallback: the browser always knows which
+      // client it is showing, so letting the server infer it would only
+      // matter on the instance where inferring is wrong (ADR-0063).
+      if (organizationId) form.append('organization_id', organizationId)
       return apiClient.postForm<IngestionJob>('/ingest/async', form)
     },
     onSuccess: () => {
@@ -115,10 +132,14 @@ export function useIngestionJob(jobId: string | undefined) {
 // has no other way to find out whether their document landed — and the
 // answer "check whether it appears in the document list" cannot
 // distinguish "still running" from "failed".
-export function useIngestionJobs(limit = 10) {
+export function useIngestionJobs(organizationId: string | undefined, limit = 10) {
   return useQuery({
-    queryKey: ['ingestion-jobs', 'list', limit],
-    queryFn: () => apiClient.get<IngestionJob[]>(`/ingest/jobs?limit=${limit}`),
+    queryKey: ['ingestion-jobs', 'list', organizationId ?? '', limit],
+    queryFn: () =>
+      apiClient.get<IngestionJob[]>(
+        `/ingest/jobs?limit=${limit}&organization_id=${encodeURIComponent(organizationId ?? '')}`,
+      ),
+    enabled: !!organizationId,
     // Keep the list moving while anything on it is still unfinished, so
     // a queued upload visibly becomes a running one without the
     // reviewer reloading the page.

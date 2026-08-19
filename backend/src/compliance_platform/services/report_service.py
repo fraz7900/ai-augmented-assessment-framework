@@ -148,6 +148,7 @@ def _build_situation(
     framework: FrameworkDefinition,
     evidence_links: list[EvidenceLink],
     credit: PracticeScoringCredit,
+    organization_name: str = "",
 ) -> Situation:
     counts = {status: 0 for status in EvidenceReviewStatus}
     for link in evidence_links:
@@ -161,6 +162,7 @@ def _build_situation(
     return Situation(
         assessment_id=assessment.id,
         assessment_name=assessment.name,
+        organization_name=organization_name,
         framework_name=framework.name,
         scoring_model=framework.scoring_model,
         status=assessment.status.value,
@@ -488,6 +490,7 @@ def build_dashboard(
     evidence_links: list[EvidenceLink],
     findings: list[PracticeFinding] | None = None,
     superseded_document_ids: frozenset[str] | set[str] | None = None,
+    organization_name: str = "",
 ) -> DashboardReport:
     findings = findings if findings is not None else []
     superseded_document_ids = frozenset(superseded_document_ids or ())
@@ -517,7 +520,9 @@ def build_dashboard(
         superseded_document_ids,
     )
     return DashboardReport(
-        situation=_build_situation(assessment, framework, evidence_links, credit),
+        situation=_build_situation(
+            assessment, framework, evidence_links, credit, organization_name
+        ),
         domain_scores=domain_scores,
         overall=_build_overall_summary(framework, domain_scores, excluded_practice_ids),
         complication=complication,

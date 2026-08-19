@@ -56,6 +56,10 @@ class CreateAssessmentRequest(BaseModel):
     # None (the default) resolves to whatever's currently latest -- the
     # same behavior this endpoint always had before this field existed.
     framework_version: str | None = None
+    # Which client this assessment belongs to (Sprint 22, ADR-0063). May
+    # be omitted only while exactly one organisation exists; with two or
+    # more, omitting it is a 400 rather than a guess.
+    organization_id: str | None = None
 
 
 class StatusTransitionRequest(BaseModel):
@@ -109,14 +113,19 @@ def create_assessment(
         name=request.name,
         framework_name=request.framework_name,
         framework_version=request.framework_version,
+        organization_id=request.organization_id,
     )
 
 
 @router.get("", response_model=list[Assessment])
 def list_assessments(
+    organization_id: str | None = None,
     service: AssessmentService = Depends(get_assessment_service),
 ) -> list[Assessment]:
-    return service.list_assessments()
+    """Scoped to one organisation (ADR-0063). Omitting it is allowed only
+    while exactly one exists, so a single-organisation deployment does
+    not have to name it and a multi-client one cannot forget to."""
+    return service.list_assessments(organization_id)
 
 
 @router.get("/{assessment_id}", response_model=Assessment)

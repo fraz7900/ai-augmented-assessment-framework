@@ -14,6 +14,7 @@ from datetime import UTC, datetime, timedelta, timezone
 import pytest
 
 from compliance_platform.models.assessment import (
+    DEFAULT_ORGANIZATION_ID,
     Assessment,
     AssessmentStatus,
     AssessmentStatusChange,
@@ -30,9 +31,10 @@ from compliance_platform.services import audit_seal
 _WHEN = datetime(2026, 8, 18, 12, 0, 0, tzinfo=UTC)
 
 
-def _assessment() -> Assessment:
+def _assessment(organization_id: str = DEFAULT_ORGANIZATION_ID) -> Assessment:
     return Assessment(
         id="a-1",
+        organization_id=organization_id,
         name="Q3 C2M2 Self Assessment",
         framework_name="C2M2",
         framework_version="2.1",
@@ -259,9 +261,28 @@ def test_version_1_ignores_the_actor_fields_it_predates() -> None:
     assert with_actor == without
 
 
-def test_version_2_is_the_one_written_today() -> None:
-    assert audit_seal.CURRENT_SEAL_VERSION == "2"
-    assert _seal() == _seal(version="2")
+def test_version_2_ignores_the_organization_it_predates() -> None:
+    # Same guarantee as version 1 above, one version later: a seal
+    # written before ADR-0063 must keep verifying, so its payload cannot
+    # depend on the organisation column that did not exist when it was
+    # computed.
+    one = _seal(assessment=_assessment(organization_id="org_default"), version="2")
+    other = _seal(assessment=_assessment(organization_id="org-elsewhere"), version="2")
+    assert one == other
+
+
+def test_version_3_seals_the_owning_organization() -> None:
+    # Whose record this is has to be sealed, or a finalized assessment
+    # could be moved to another organisation without the seal noticing --
+    # which would misattribute an entire audit record silently.
+    one = _seal(assessment=_assessment(organization_id="org_default"), version="3")
+    other = _seal(assessment=_assessment(organization_id="org-elsewhere"), version="3")
+    assert one != other
+
+
+def test_version_3_is_the_one_written_today() -> None:
+    assert audit_seal.CURRENT_SEAL_VERSION == "3"
+    assert _seal() == _seal(version="3")
 
 
 # --- version handling -------------------------------------------------

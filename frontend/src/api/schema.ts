@@ -92,7 +92,14 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List Ingestion Jobs */
+        /**
+         * List Ingestion Jobs
+         * @description One organisation's recent uploads (ADR-0063). The queue itself is
+         *     machine-wide -- its capacity is shared, and the backpressure count
+         *     behind it still counts every pending job -- but the list a person
+         *     reads is scoped, because one client's filenames are not another's to
+         *     see.
+         */
         get: operations["list_ingestion_jobs_ingest_jobs_get"];
         put?: never;
         post?: never;
@@ -126,7 +133,12 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List Assessments */
+        /**
+         * List Assessments
+         * @description Scoped to one organisation (ADR-0063). Omitting it is allowed only
+         *     while exactly one exists, so a single-organisation deployment does
+         *     not have to name it and a multi-client one cannot forget to.
+         */
         get: operations["list_assessments_assessments_get"];
         put?: never;
         /** Create Assessment */
@@ -714,7 +726,11 @@ export interface paths {
         };
         /**
          * List Documents
-         * @description Every ingested document, newest first.
+         * @description One organisation's ingested documents, newest first.
+         *
+         *     Scoped since ADR-0063: this is the endpoint the evidence chooser
+         *     calls, and listing every document on the instance is exactly what
+         *     R-39 described.
          *
          *     Declared BEFORE /{document_id} because FastAPI matches routes in
          *     declaration order; an empty path is unambiguous here, but keeping
@@ -748,6 +764,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/organizations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Organizations
+         * @description Every organisation on this instance, oldest first.
+         *
+         *     Unscoped on purpose, and the only endpoint that is: a chooser has to
+         *     be able to name what it is choosing between. It exposes names and
+         *     ids, never any client's evidence.
+         */
+        get: operations["list_organizations_organizations_get"];
+        put?: never;
+        /** Create Organization */
+        post: operations["create_organization_organizations_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{organization_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Rename Organization
+         * @description A label change only. It moves no record and invalidates no seal,
+         *     because the seal payload covers the organisation's id rather than
+         *     its name — which is why a fresh install can start as "Unassigned"
+         *     and be given its real name later without consequence.
+         */
+        patch: operations["rename_organization_organizations__organization_id__patch"];
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -774,6 +838,8 @@ export interface components {
         Assessment: {
             /** Id */
             id?: string;
+            /** Organization Id */
+            organization_id: string;
             /** Name */
             name: string;
             /** Framework Name */
@@ -841,6 +907,8 @@ export interface components {
             submitter?: string | null;
             /** Supersedes Document Id */
             supersedes_document_id?: string | null;
+            /** Organization Id */
+            organization_id?: string | null;
         };
         /** Body_ingest_document_ingest_post */
         Body_ingest_document_ingest_post: {
@@ -850,6 +918,8 @@ export interface components {
             submitter?: string | null;
             /** Supersedes Document Id */
             supersedes_document_id?: string | null;
+            /** Organization Id */
+            organization_id?: string | null;
         };
         /** ChatQuestionRequest */
         ChatQuestionRequest: {
@@ -884,6 +954,13 @@ export interface components {
             framework_name: string;
             /** Framework Version */
             framework_version?: string | null;
+            /** Organization Id */
+            organization_id?: string | null;
+        };
+        /** CreateOrganizationRequest */
+        CreateOrganizationRequest: {
+            /** Name */
+            name: string;
         };
         /** DashboardReport */
         DashboardReport: {
@@ -1411,6 +1488,47 @@ export interface components {
             purpose: string;
         };
         /**
+         * Organization
+         * @description The client an assessment and its documents belong to (ADR-0063).
+         *
+         *     Exists to close R-39. ADR-0062 scoped documents to the assessments
+         *     they belong to, which narrowed the evidence chooser but separated
+         *     nothing: the attach flow still browsed every document on the
+         *     instance, so one organisation's policy could be attached to another
+         *     organisation's assessment deliberately.
+         *
+         *     This is NOT multi-tenancy and does not pretend to be. There is still
+         *     no authentication (PROJECT_CHARTER.md Section 12 reopened only for
+         *     the data-model half, by direct project-owner instruction, the way
+         *     Sprint 19 reopened OCR): anything able to reach the API directly can
+         *     pass any organization_id and read any organisation's data. What this
+         *     removes is the ability to cross the boundary THROUGH the product,
+         *     which is the scenario R-39 actually describes. See ADR-0063 for the
+         *     residual, recorded as R-40 rather than left implicit.
+         *
+         *     Why Document gains an organization_id when ADR-0062 refused it an
+         *     assessment_id, which is the obvious-looking contradiction: one policy
+         *     PDF legitimately serves a C2M2 assessment and a NIST CSF one over the
+         *     same corpus, so owning it by one ASSESSMENT would force the same file
+         *     to be parsed, chunked and embedded once per framework. That argument
+         *     is about frameworks, and ADR-0062's own docstring already says
+         *     "several assessments of the same organisation". A document serves many
+         *     assessments; it belongs to exactly one client. Single-owner here and
+         *     many-to-many there are the same decision seen from two angles, not
+         *     two decisions.
+         */
+        Organization: {
+            /** Id */
+            id?: string;
+            /** Name */
+            name: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at?: string;
+        };
+        /**
          * OverallSummary
          * @description Deliberately does NOT average domain scores across a
          *     cumulative_mil framework — MIL is an ordinal scale (see
@@ -1562,6 +1680,11 @@ export interface components {
             original_text: string;
             /** Replacement */
             replacement: string;
+        };
+        /** RenameOrganizationRequest */
+        RenameOrganizationRequest: {
+            /** Name */
+            name: string;
         };
         /** RequestMoreEvidenceRequest */
         RequestMoreEvidenceRequest: {
@@ -1715,6 +1838,11 @@ export interface components {
             assessment_id: string;
             /** Assessment Name */
             assessment_name: string;
+            /**
+             * Organization Name
+             * @default
+             */
+            organization_name: string;
             /** Framework Name */
             framework_name: string;
             /** Scoring Model */
@@ -1902,6 +2030,7 @@ export interface operations {
         parameters: {
             query?: {
                 limit?: number;
+                organization_id?: string | null;
             };
             header?: never;
             path?: never;
@@ -1962,7 +2091,9 @@ export interface operations {
     };
     list_assessments_assessments_get: {
         parameters: {
-            query?: never;
+            query?: {
+                organization_id?: string | null;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -1976,6 +2107,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Assessment"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -2920,7 +3060,9 @@ export interface operations {
     };
     list_documents_documents_get: {
         parameters: {
-            query?: never;
+            query?: {
+                organization_id?: string | null;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -2934,6 +3076,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DocumentSummary"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -2956,6 +3107,94 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DocumentDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_organizations_organizations_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Organization"][];
+                };
+            };
+        };
+    };
+    create_organization_organizations_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateOrganizationRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Organization"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    rename_organization_organizations__organization_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organization_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RenameOrganizationRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Organization"];
                 };
             };
             /** @description Validation Error */

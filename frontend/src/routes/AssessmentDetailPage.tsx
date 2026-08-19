@@ -1,6 +1,7 @@
 import { NavLink, Outlet, useParams } from 'react-router-dom'
 import { useAssessment } from '../api/assessments'
 import StatusBadge from '../components/StatusBadge'
+import { useOrganizationScope } from '../lib/organizationContext'
 import type { Assessment } from '../api/types'
 
 export type AssessmentTabContext = {
@@ -16,6 +17,7 @@ const tabLinkClass = ({ isActive }: { isActive: boolean }) =>
 export default function AssessmentDetailPage() {
   const { assessmentId } = useParams<{ assessmentId: string }>()
   const { data: assessment, isLoading, isError, error } = useAssessment(assessmentId)
+  const { organizations } = useOrganizationScope()
 
   if (isLoading) return <p className="text-sm text-slate-500">Loading…</p>
   if (isError) return <p className="text-sm text-red-700">{error.message}</p>
@@ -28,6 +30,14 @@ export default function AssessmentDetailPage() {
         <StatusBadge status={assessment.status} />
       </div>
       <p className="text-sm text-slate-500">
+        {/* Whose record this is, on the record itself (ADR-0063). The
+            organisation is sealed into a finalized assessment, so it is
+            part of what the page is asserting, not chrome. */}
+        <span className="font-medium text-slate-700">
+          {organizations.find((organization) => organization.id === assessment.organization_id)
+            ?.name ?? assessment.organization_id}
+        </span>
+        <span className="text-slate-400"> · </span>
         {assessment.framework_name}
         {assessment.framework_version && (
           <span className="text-slate-400"> · v{assessment.framework_version}</span>

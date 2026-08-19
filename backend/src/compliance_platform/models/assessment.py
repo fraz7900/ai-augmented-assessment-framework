@@ -24,6 +24,47 @@ def _utcnow() -> datetime:
     return datetime.now(UTC)
 
 
+DEFAULT_ORGANIZATION_ID = "org_default"
+DEFAULT_ORGANIZATION_NAME = "Unassigned"
+
+
+class Organization(SQLModel, table=True):
+    """The client an assessment and its documents belong to (ADR-0063).
+
+    Exists to close R-39. ADR-0062 scoped documents to the assessments
+    they belong to, which narrowed the evidence chooser but separated
+    nothing: the attach flow still browsed every document on the
+    instance, so one organisation's policy could be attached to another
+    organisation's assessment deliberately.
+
+    This is NOT multi-tenancy and does not pretend to be. There is still
+    no authentication (PROJECT_CHARTER.md Section 12 reopened only for
+    the data-model half, by direct project-owner instruction, the way
+    Sprint 19 reopened OCR): anything able to reach the API directly can
+    pass any organization_id and read any organisation's data. What this
+    removes is the ability to cross the boundary THROUGH the product,
+    which is the scenario R-39 actually describes. See ADR-0063 for the
+    residual, recorded as R-40 rather than left implicit.
+
+    Why Document gains an organization_id when ADR-0062 refused it an
+    assessment_id, which is the obvious-looking contradiction: one policy
+    PDF legitimately serves a C2M2 assessment and a NIST CSF one over the
+    same corpus, so owning it by one ASSESSMENT would force the same file
+    to be parsed, chunked and embedded once per framework. That argument
+    is about frameworks, and ADR-0062's own docstring already says
+    "several assessments of the same organisation". A document serves many
+    assessments; it belongs to exactly one client. Single-owner here and
+    many-to-many there are the same decision seen from two angles, not
+    two decisions.
+    """
+
+    id: str = Field(default_factory=_new_id, primary_key=True)
+    # Unique so that two organisations cannot be told apart only by an
+    # opaque id in a chooser whose whole job is telling them apart.
+    name: str = Field(unique=True, index=True)
+    created_at: datetime = Field(default_factory=_utcnow)
+
+
 class AssessmentStatus(StrEnum):
     DRAFT = "draft"
     IN_REVIEW = "in_review"
@@ -70,6 +111,12 @@ class Assessment(SQLModel, table=True):
     """
 
     id: str = Field(default_factory=_new_id, primary_key=True)
+    # The client this assessment belongs to (ADR-0063). Set at creation
+    # and never reassignable: moving a finalized assessment between
+    # organisations would rewrite whose record it is, and this sprint
+    # deliberately builds no path that can do that. It is part of the
+    # seal payload at version 3 for the same reason.
+    organization_id: str = Field(foreign_key="organization.id", index=True)
     name: str
     framework_name: str
     # The loaded FrameworkDefinition.version at the moment this
@@ -281,6 +328,10 @@ class Document(SQLModel, table=True):
     """
 
     id: str = Field(primary_key=True)
+    # The client whose evidence this is (ADR-0063). Single-owner, unlike
+    # the many-to-many AssessmentDocument relation -- see Organization's
+    # docstring for why those two are consistent rather than opposed.
+    organization_id: str = Field(foreign_key="organization.id", index=True)
     filename: str
     file_type: str
     content_hash: str
@@ -346,6 +397,12 @@ class IngestionJob(SQLModel, table=True):
 
     id: str = Field(default_factory=_new_id, primary_key=True)
     status: IngestionJobStatus = Field(default=IngestionJobStatus.QUEUED, index=True)
+    # The organisation the resulting document will belong to (ADR-0063),
+    # resolved while the client is still on the call rather than in the
+    # worker. Carried on the job so "Recent uploads" can be scoped: a
+    # queue listing every client's filenames would leak across exactly
+    # the boundary this sprint exists to draw.
+    organization_id: str = Field(foreign_key="organization.id", index=True)
     filename: str
     submitter: str | None = None
     supersedes_document_id: str | None = None
