@@ -6,8 +6,8 @@ the only open risk carrying High impact, and the one `docs/project-status.md` na
 between this and a multi-client pilot. Second, a retention policy for the `ingestionjob` table,
 which ADR-0059 disclosed rather than solved. No authentication, no RBAC, no cloud deployment, no
 new frameworks, no refactors outside the two.
-Status: **T1 is complete, CI-confirmed and merged; T2 is built and awaiting CI.** The charter
-decision below came back yes, so T1 ran: `f25668f` (backend, ADR-0063, the charter amendment, R-39 and R-40) and `ce5094e`
+Status: **Both tranches are complete and CI-confirmed. T1 is merged; T2 is open as PR #10.** The
+charter decision below came back yes, so T1 ran: `f25668f` (backend, ADR-0063, the charter amendment, R-39 and R-40) and `ce5094e`
 (frontend). The branch is pushed and PR #9 is open against `main`; run `32280521820` is green on
 both jobs. CI reproduced this machine's numbers rather than merely agreeing with them: **615 backend
 tests passing** in 5m45s, `ruff check` clean, **93 frontend tests across 16 files**, and `npm run
@@ -18,10 +18,11 @@ first attempt lost 7 of 16 files to the forks-worker timeout with zero assertion
 runner taking all 16 first time is one more measurement supporting AGENTS.md's reading of that as
 this environment rather than the code. T1's last open acceptance criterion, CI green on the branch,
 was met there, and PR #9 merged as `dac8c52`. T2 follows on `feat/ingestion-job-retention`, branched
-from the merge rather than developed alongside it, for the conflict reason this file records below:
-**630 backend tests passing** locally (615 plus 15 new), `ruff check` clean. T2 is backend-only, so
-the frontend numbers are unchanged and untouched. Not yet pushed, so the same caveat that applied to
-T1 applies here — these are this machine's counts until a runner says otherwise.
+from the merge rather than developed alongside it, for the conflict reason this file records below.
+Its own run, `32283465604` on PR #10, is green on both jobs and again reproduces this machine's
+numbers: **630 backend tests passing** (615 plus 15 new), `ruff check` clean. T2 is backend-only, so
+the frontend numbers are unchanged and were confirmed unchanged rather than assumed — 93 across 16
+files on the same run. Nothing is left in the working tree on either branch.
 Decision made, and recorded rather than assumed. PROJECT_CHARTER.md Section 12 listed
 "multi-tenant authentication and role-based access control" as explicitly out of scope for the MVP.
 T1 built the data-model half of that line and none of the identity half: assessments and documents
