@@ -19,7 +19,11 @@ from datetime import UTC, datetime
 from typing import Any, Protocol
 
 from compliance_platform.ai.embeddings import Embedder
-from compliance_platform.core.errors import AssessmentFinalizedError
+from compliance_platform.core.errors import (
+    AssessmentFinalizedError,
+    CrossOrganizationAttachmentError,
+    OrganizationNotFoundError,
+)
 from compliance_platform.core.identity import UNAUTHENTICATED_ACTOR
 from compliance_platform.models.assessment import (
     Assessment,
@@ -31,6 +35,7 @@ from compliance_platform.models.assessment import (
     EvidenceRequest,
     EvidenceReviewStatus,
     EvidenceSource,
+    Organization,
     PracticeFinding,
     PracticeFindingChange,
     PracticeFindingStatus,
@@ -136,6 +141,28 @@ class AssessmentNotReadyForFinalizationError(Exception):
         super().__init__(
             f"Assessment '{assessment_id}' is not ready to finalize; outstanding: {categories}."
         )
+
+
+class OrganizationNameRequiredError(Exception):
+    """An organisation was created or renamed with a blank name (ADR-0063).
+
+    A rule about what an organisation may be called, so it lives here
+    rather than in core/errors.py -- unlike the boundary itself, no lower
+    layer needs to raise it.
+    """
+
+    def __init__(self) -> None:
+        super().__init__("An organization needs a name.")
+
+
+class OrganizationNameTakenError(Exception):
+    """Two organisations cannot share a name (ADR-0063), because a
+    chooser whose whole job is telling clients apart cannot do it with
+    two identical labels and two opaque ids."""
+
+    def __init__(self, name: str) -> None:
+        self.name = name
+        super().__init__(f"An organization named '{name}' already exists.")
 
 
 class DocumentStillCitedError(Exception):
@@ -327,10 +354,20 @@ class UnknownFrameworkVersionError(Exception):
 
 class AssessmentRepositoryProtocol(Protocol):
     def create_assessment(
-        self, name: str, framework_name: str, framework_version: str | None = None
+        self,
+        name: str,
+        framework_name: str,
+        framework_version: str | None = None,
+        organization_id: str | None = None,
     ) -> Assessment: ...
     def get_assessment(self, assessment_id: str) -> Assessment | None: ...
-    def list_assessments(self) -> list[Assessment]: ...
+    def list_assessments(self, organization_id: str) -> list[Assessment]: ...
+    def resolve_organization_id(self, organization_id: str | None = None) -> str: ...
+    def create_organization(self, name: str) -> Organization: ...
+    def get_organization(self, organization_id: str) -> Organization | None: ...
+    def organization_by_name(self, name: str) -> Organization | None: ...
+    def list_organizations(self) -> list[Organization]: ...
+    def rename_organization(self, organization_id: str, name: str) -> Organization | None: ...
     def update_status(
         self,
         assessment_id: str,
@@ -381,6 +418,7 @@ class AssessmentRepositoryProtocol(Protocol):
     def detach_document(self, assessment_id: str, document_id: str) -> bool: ...
     def documents_for_assessment(self, assessment_id: str) -> list[Document]: ...
     def attached_document_ids(self, assessment_id: str) -> list[str]: ...
+    def list_documents(self, organization_id: str) -> list[Document]: ...
     def create_evidence_request(self, request: EvidenceRequest) -> EvidenceRequest: ...
     def get_evidence_request(self, request_id: str) -> EvidenceRequest | None: ...
     def evidence_requests_for_assessment(self, assessment_id: str) -> list[EvidenceRequest]: ...
@@ -418,7 +456,11 @@ class AssessmentService:
         self._chat_result_limit = chat_result_limit
 
     def create_assessment(
-        self, name: str, framework_name: str, framework_version: str | None = None
+        self,
+        name: str,
+        framework_name: str,
+        framework_version: str | None = None,
+        organization_id: str | None = None,
     ) -> Assessment:
         """Pins FrameworkDefinition.version at creation time (ADR-0031),
         so this assessment's own record of what it was scored against
@@ -437,6 +479,12 @@ class AssessmentService:
         but the requested version isn't among its known ones; an
         unrecognized framework_name keeps its existing silent-None
         tolerance regardless of what framework_version was passed.
+
+        organization_id (Sprint 22, ADR-0063): which client this
+        assessment belongs to, set once here and never reassignable. May
+        be omitted only while exactly one organisation exists -- see
+        AssessmentRepository.resolve_organization_id for why that is a
+        condition rather than a default.
         """
         if self._frameworks is not None and framework_version is not None:
             known_versions = self._frameworks.available_versions(framework_name)
@@ -453,12 +501,14 @@ class AssessmentService:
             name=name,
             framework_name=framework_name,
             framework_version=framework.version if framework is not None else None,
+            organization_id=organization_id,
         )
         _logger.info(
-            "assessment created id=%s framework=%s framework_version=%s",
+            "assessment created id=%s framework=%s framework_version=%s organization=%s",
             created.id,
             framework_name,
             created.framework_version,
+            created.organization_id,
         )
         return created
 
@@ -468,8 +518,13 @@ class AssessmentService:
             raise AssessmentNotFoundError(assessment_id)
         return assessment
 
-    def list_assessments(self) -> list[Assessment]:
-        return self._assessments.list_assessments()
+    def list_assessments(self, organization_id: str | None = None) -> list[Assessment]:
+        """Scoped to one organisation (ADR-0063). Omitting it resolves
+        the same way creation does, so a single-organisation deployment
+        keeps working without naming one."""
+        return self._assessments.list_assessments(
+            self._assessments.resolve_organization_id(organization_id)
+        )
 
     def documents_for_assessment(self, assessment_id: str) -> list[DocumentSummary]:
         """The documents attached to one assessment (ADR-0062).
@@ -484,6 +539,59 @@ class AssessmentService:
         documents = self._assessments.documents_for_assessment(assessment_id)
         return self._summarise(documents)
 
+    def _assert_same_organization(self, assessment: Assessment, document_id: str) -> None:
+        """Refuse a cross-organisation attach before any work is done.
+
+        The repository checks this again inside the write's own
+        transaction. This one is not redundant: it is what turns the
+        refusal into a 409 rather than a 500, and it happens before the
+        attach touches anything. See
+        AssessmentRepository._assert_same_organization for why the second
+        check has to exist as well.
+
+        A document with no registry row carries no organisation, and is
+        allowed through for the reason ADR-0039's 27-of-30 legacy tail
+        forces -- disclosed in ADR-0063, not silently ignored.
+        """
+        document = self._assessments.get_document(document_id)
+        if document is None:
+            return
+        if document.organization_id != assessment.organization_id:
+            raise CrossOrganizationAttachmentError(assessment.id, document_id)
+
+    def resolve_organization_id(self, organization_id: str | None = None) -> str:
+        return self._assessments.resolve_organization_id(organization_id)
+
+    def list_organizations(self) -> list[Organization]:
+        return self._assessments.list_organizations()
+
+    def create_organization(self, name: str) -> Organization:
+        """Names are unique, so that two clients cannot be told apart
+        only by an opaque id in a chooser whose whole job is telling
+        them apart."""
+        cleaned = name.strip()
+        if not cleaned:
+            raise OrganizationNameRequiredError()
+        if self._assessments.organization_by_name(cleaned) is not None:
+            raise OrganizationNameTakenError(cleaned)
+        created = self._assessments.create_organization(cleaned)
+        _logger.info("organization created id=%s", created.id)
+        return created
+
+    def rename_organization(self, organization_id: str, name: str) -> Organization:
+        """A label change that moves no record and invalidates no seal --
+        the seal payload covers the organisation's id, not its name."""
+        cleaned = name.strip()
+        if not cleaned:
+            raise OrganizationNameRequiredError()
+        existing = self._assessments.organization_by_name(cleaned)
+        if existing is not None and existing.id != organization_id:
+            raise OrganizationNameTakenError(cleaned)
+        renamed = self._assessments.rename_organization(organization_id, cleaned)
+        if renamed is None:
+            raise OrganizationNotFoundError(organization_id)
+        return renamed
+
     def attach_document(
         self, assessment_id: str, document_id: str, actor: str = UNAUTHENTICATED_ACTOR
     ) -> DocumentSummary:
@@ -496,9 +604,10 @@ class AssessmentService:
         the original corpus predate the registry (ADR-0039) and are
         perfectly real.
         """
-        self.get_assessment(assessment_id)
+        assessment = self.get_assessment(assessment_id)
         if not self._vectors.chunks_for_document(document_id):
             raise EvidenceDocumentNotIngestedError(document_id)
+        self._assert_same_organization(assessment, document_id)
         self._assessments.attach_document(assessment_id, document_id, attached_by=actor)
         _logger.info(
             "document attached assessment=%s document=%s actor=%s",
@@ -561,7 +670,9 @@ class AssessmentService:
             for d in documents
         ]
 
-    def list_document_summaries(self) -> list[DocumentSummary]:
+    def list_document_summaries(
+        self, organization_id: str | None = None
+    ) -> list[DocumentSummary]:
         """Every document, newest first, in the reduced shape a chooser
         needs.
 
@@ -576,8 +687,15 @@ class AssessmentService:
         Supersession is resolved in bulk via superseded_document_ids
         (ADR-0050 added that method for exactly this shape of caller), so
         listing N documents costs two queries rather than N+1.
+
+        Scoped to one organisation since ADR-0063: this is the chooser
+        R-39 was about.
         """
-        return self._summarise(self._assessments.list_documents())
+        return self._summarise(
+            self._assessments.list_documents(
+                self._assessments.resolve_organization_id(organization_id)
+            )
+        )
 
     def get_document_detail(self, document_id: str) -> DocumentDetail:
         """Document versioning (ADR-0039): the durable Document record
@@ -887,6 +1005,16 @@ class AssessmentService:
             if chunk_id not in known_chunk_ids:
                 raise EvidenceDocumentNotIngestedError(document_id)
 
+        # Before the link is written, not after. Linking attaches
+        # implicitly (ADR-0062) and the attach happens below, so relying
+        # on the attach to refuse would leave the evidence link already
+        # persisted when it did -- a cross-organisation citation in the
+        # database, refused with a 409 that arrived too late to mean
+        # anything. The boundary has to hold on this path as much as on
+        # the explicit attach, or the refusal there is a locked front
+        # door beside an open window (ADR-0063).
+        self._assert_same_organization(assessment, document_id)
+
         if self._frameworks is not None:
             framework = self._frameworks.get(
                 assessment.framework_name, assessment.framework_version
@@ -991,8 +1119,14 @@ class AssessmentService:
         # assessment's evidence, not one query per citation.
         cited_document_ids = {link.document_id for link in evidence_links}
         superseded_document_ids = self._assessments.superseded_document_ids(cited_document_ids)
+        organization = self._assessments.get_organization(assessment.organization_id)
         return build_dashboard(
-            assessment, framework, evidence_links, findings, superseded_document_ids
+            assessment,
+            framework,
+            evidence_links,
+            findings,
+            superseded_document_ids,
+            organization.name if organization is not None else "",
         )
 
     def generate_dashboard_pdf(self, assessment_id: str, sanitized: bool = False) -> bytes:

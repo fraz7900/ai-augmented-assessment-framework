@@ -21,8 +21,13 @@ from sqlmodel import Session, SQLModel, col, create_engine, select
 from compliance_platform.core.errors import (
     AssessmentAlreadySealedError,
     AssessmentFinalizedError,
+    CrossOrganizationAttachmentError,
+    OrganizationNotFoundError,
+    OrganizationRequiredError,
 )
 from compliance_platform.models.assessment import (
+    DEFAULT_ORGANIZATION_ID,
+    DEFAULT_ORGANIZATION_NAME,
     Assessment,
     AssessmentDocument,
     AssessmentStatus,
@@ -34,6 +39,7 @@ from compliance_platform.models.assessment import (
     IngestionJob,
     IngestionJobFailure,
     IngestionJobStatus,
+    Organization,
     PracticeFinding,
     PracticeFindingChange,
     PracticeFindingStatus,
@@ -90,6 +96,163 @@ class AssessmentRepository:
                 "seal_version": "TEXT",
             },
         )
+        # Order matters: the organisation must exist before any row can
+        # be migrated onto it (ADR-0063).
+        self._ensure_default_organization()
+        for table in ("assessment", "document", "ingestionjob"):
+            _add_missing_columns(
+                self._engine,
+                table,
+                # NOT NULL with a default is legal on SQLite's ADD
+                # COLUMN, and is what carries every pre-existing row onto
+                # the default organisation in the same statement that
+                # creates the column -- so there is no window in which
+                # the column exists holding NULLs that the model refuses
+                # to load.
+                {"organization_id": f"TEXT NOT NULL DEFAULT '{DEFAULT_ORGANIZATION_ID}'"},
+            )
+
+    def _ensure_default_organization(self) -> None:
+        """Guarantee this instance has at least one organisation.
+
+        Two situations, one answer. On a fresh database it gives the
+        single-organisation deployment the charter scopes something to
+        belong to, so nothing has to be created before the product works.
+        On an existing database it is the row every pre-existing
+        assessment and document is migrated onto.
+
+        What it deliberately does NOT do is separate anything
+        retroactively. An instance that already held two clients' work
+        stays mixed, filed under one organisation, because nothing in the
+        data distinguishes them and guessing would be worse than not
+        trying -- the same reasoning ADR-0056 applied to documents whose
+        originals were never retained. An operator in that position has
+        to create the real organisations and re-create the assessments;
+        this migration will not pretend to have done it for them.
+
+        Raw SQL, and a COUNT rather than a SELECT through the ORM, for
+        the reason _backfill_document_associations already documents: a
+        migration must not depend on the current ORM mapping being able
+        to read old rows.
+        """
+        with self._engine.connect() as connection:
+            existing = connection.exec_driver_sql("SELECT COUNT(*) FROM organization").scalar()
+            if existing:
+                return
+            connection.exec_driver_sql(
+                "INSERT INTO organization (id, name, created_at) VALUES (?, ?, ?)",
+                # An ISO string, not a datetime: Python 3.12 deprecated
+                # sqlite3's implicit datetime adapter, and SQLModel stores
+                # this column in exactly this format anyway.
+                (
+                    DEFAULT_ORGANIZATION_ID,
+                    DEFAULT_ORGANIZATION_NAME,
+                    datetime.now(UTC).isoformat(),
+                ),
+            )
+            connection.commit()
+
+    def resolve_organization_id(self, organization_id: str | None = None) -> str:
+        """Validate an organisation id, or supply the only one there is.
+
+        Omitting it is allowed only while exactly one organisation
+        exists, because only then is there exactly one honest answer. The
+        moment a second is created the convenience becomes the failure
+        R-39 describes -- one client's work silently filed under another
+        -- so it stops being a default and becomes OrganizationRequired.
+
+        Lives in the repository rather than a service because two routers
+        need it (assessments and ingestion) and a repository cannot
+        import from services without a cycle; the same reasoning that put
+        AssessmentFinalizedError in core/errors.py.
+        """
+        with Session(self._engine) as session:
+            if organization_id is not None:
+                if session.get(Organization, organization_id) is None:
+                    raise OrganizationNotFoundError(organization_id)
+                return organization_id
+            organizations = list(session.exec(select(Organization)).all())
+            if len(organizations) == 1:
+                return organizations[0].id
+            raise OrganizationRequiredError(len(organizations))
+
+    def create_organization(self, name: str) -> Organization:
+        organization = Organization(name=name)
+        with Session(self._engine) as session:
+            session.add(organization)
+            session.commit()
+            session.refresh(organization)
+            return organization
+
+    def get_organization(self, organization_id: str) -> Organization | None:
+        with Session(self._engine) as session:
+            return session.get(Organization, organization_id)
+
+    def organization_by_name(self, name: str) -> Organization | None:
+        with Session(self._engine) as session:
+            return session.exec(select(Organization).where(Organization.name == name)).first()
+
+    def list_organizations(self) -> list[Organization]:
+        with Session(self._engine) as session:
+            return list(session.exec(select(Organization).order_by(text("rowid"))).all())
+
+    def rename_organization(self, organization_id: str, name: str) -> Organization | None:
+        """Rename only. An organisation's id is what the seal payload
+        covers (ADR-0063 seal version 3) and what every assessment and
+        document points at, so renaming is a label change that moves no
+        record and invalidates no seal -- which is precisely why the seal
+        covers the id and not the name.
+        """
+        with Session(self._engine) as session:
+            organization = session.get(Organization, organization_id)
+            if organization is None:
+                return None
+            organization.name = name
+            session.add(organization)
+            session.commit()
+            session.refresh(organization)
+            return organization
+
+    def _assert_same_organization(
+        self, session: Session, assessment_id: str, document_id: str
+    ) -> None:
+        """Refuse to attach a document across an organisation boundary,
+        inside the caller's own transaction.
+
+        AssessmentService checks this first and that check stays -- it is
+        what turns the refusal into a 409 before any work happens. This
+        one exists for the two things that check cannot do, which are the
+        two ADR-0060 already named for the finalization lock: it closes
+        the check-then-act window between the service's read and this
+        write, and it applies to callers that never went through the
+        service at all. R-39 is a confidentiality risk, so it gets the
+        same treatment the audit-immutability guarantee got, not a
+        weaker one.
+
+        A document with no registry row is NOT an error. 27 of the 30
+        documents in the original corpus predate ADR-0039 and have no
+        Document row to carry an organisation, while their evidence links
+        are perfectly valid; refusing them would break real assessments
+        to enforce a boundary the data cannot express. That gap is
+        disclosed in ADR-0063 and R-40 rather than closed here, because
+        the honest fix is a registry backfill, not a guess.
+        """
+        assessment = session.get(Assessment, assessment_id)
+        document = session.get(Document, document_id)
+        if assessment is None or document is None:
+            return
+        if assessment.organization_id == document.organization_id:
+            return
+        _logger.error(
+            "blocked a cross-organization attach of document %s (organization %s) to "
+            "assessment %s (organization %s) at the repository layer; the caller bypassed "
+            "AssessmentService's check",
+            document_id,
+            document.organization_id,
+            assessment_id,
+            assessment.organization_id,
+        )
+        raise CrossOrganizationAttachmentError(assessment_id, document_id)
 
     def _assert_writable(self, session: Session, assessment_id: str) -> None:
         """Refuse a write to a finalized assessment, inside the caller's
@@ -204,6 +367,7 @@ class AssessmentRepository:
         """
         with Session(self._engine) as session:
             self._assert_writable(session, assessment_id)
+            self._assert_same_organization(session, assessment_id, document_id)
             existing = session.exec(
                 select(AssessmentDocument).where(
                     AssessmentDocument.assessment_id == assessment_id,
@@ -280,10 +444,21 @@ class AssessmentRepository:
             return [association.document_id for association in associations]
 
     def create_assessment(
-        self, name: str, framework_name: str, framework_version: str | None = None
+        self,
+        name: str,
+        framework_name: str,
+        framework_version: str | None = None,
+        organization_id: str | None = None,
     ) -> Assessment:
+        """organization_id resolves through resolve_organization_id, so
+        omitting it is allowed only while exactly one organisation exists
+        (ADR-0063). It is set once here and never reassignable.
+        """
         assessment = Assessment(
-            name=name, framework_name=framework_name, framework_version=framework_version
+            name=name,
+            framework_name=framework_name,
+            framework_version=framework_version,
+            organization_id=self.resolve_organization_id(organization_id),
         )
         with Session(self._engine) as session:
             session.add(assessment)
@@ -303,9 +478,16 @@ class AssessmentRepository:
         with Session(self._engine) as session:
             return session.get(Assessment, assessment_id)
 
-    def list_assessments(self) -> list[Assessment]:
+    def list_assessments(self, organization_id: str) -> list[Assessment]:
+        """Scoped, with no unscoped form on purpose (ADR-0063): a list
+        endpoint that can accidentally be called without a scope is one
+        that will eventually be called without a scope."""
         with Session(self._engine) as session:
-            return list(session.exec(select(Assessment)).all())
+            return list(
+                session.exec(
+                    select(Assessment).where(Assessment.organization_id == organization_id)
+                ).all()
+            )
 
     def update_status(
         self,
@@ -580,7 +762,7 @@ class AssessmentRepository:
         with Session(self._engine) as session:
             return session.get(Document, document_id)
 
-    def list_documents(self) -> list[Document]:
+    def list_documents(self, organization_id: str) -> list[Document]:
         """Every registered document, newest upload first.
 
         Exists so the UI can offer a chooser. Before this, linking
@@ -588,15 +770,24 @@ class AssessmentRepository:
         screen and paste it into the Evidence tab by hand, because
         nothing could enumerate what had been ingested.
 
-        Unpaginated, deliberately: this is a local-first,
-        single-organisation deployment whose Document table holds one row
-        per uploaded file. If that ever reaches a size where this is the
-        wrong shape, the fix is a paged endpoint with a real cursor, not
+        Scoped to one organisation since ADR-0063, and with no
+        unscoped form: this chooser is the exact surface R-39 described,
+        where a reviewer picking evidence for one client was shown every
+        document on the instance.
+
+        Unpaginated, deliberately: this is a local-first deployment whose
+        Document table holds one row per uploaded file. If that ever
+        reaches a size where this is the wrong shape, the fix is a paged
+        endpoint with a real cursor, not
         a silent limit here that would hide documents from a chooser
         claiming to list them all.
         """
         with Session(self._engine) as session:
-            statement = select(Document).order_by(Document.uploaded_at.desc())  # type: ignore[attr-defined]
+            statement = (
+                select(Document)
+                .where(Document.organization_id == organization_id)
+                .order_by(Document.uploaded_at.desc())  # type: ignore[attr-defined]
+            )
             return list(session.exec(statement).all())
 
     def document_superseded_by(self, document_id: str) -> Document | None:
@@ -688,13 +879,26 @@ class AssessmentRepository:
         with Session(self._engine) as session:
             return session.get(IngestionJob, job_id)
 
-    def list_ingestion_jobs(self, limit: int = 50) -> list[IngestionJob]:
+    def list_ingestion_jobs(
+        self, limit: int = 50, organization_id: str | None = None
+    ) -> list[IngestionJob]:
         """Most recently created first, so an operator sees the run they
-        just started without paging."""
+        just started without paging.
+
+        organization_id is optional here, unlike on list_documents and
+        list_assessments, and the asymmetry is deliberate (ADR-0063). The
+        queue is a machine-wide resource: the backpressure count in
+        IngestionJobService.submit has to see every pending job on the
+        instance, or two organisations would each get the full queue
+        depth and the bound would mean nothing. Scoping belongs on the
+        listing a person reads, not on the count a limit is computed
+        from.
+        """
         with Session(self._engine) as session:
-            statement = (
-                select(IngestionJob).order_by(col(IngestionJob.created_at).desc()).limit(limit)
-            )
+            statement = select(IngestionJob)
+            if organization_id is not None:
+                statement = statement.where(IngestionJob.organization_id == organization_id)
+            statement = statement.order_by(col(IngestionJob.created_at).desc()).limit(limit)
             return list(session.exec(statement).all())
 
     def mark_ingestion_job_running(self, job_id: str) -> IngestionJob | None:

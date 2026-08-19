@@ -95,6 +95,12 @@ def build_pdf_report(dashboard: DashboardReport) -> bytes:
 
     pdf.set_font("Helvetica", "B", 16)
     _line(pdf, 10, s.assessment_name)
+    # Whose assessment this is, on the page itself (ADR-0063): an export
+    # is the copy that leaves the database, and a compliance report that
+    # does not name its subject organisation is one that can be filed
+    # against the wrong client.
+    if s.organization_name:
+        _line(pdf, 6, s.organization_name)
     pdf.set_font("Helvetica", "", 10)
     _line(
         pdf,
@@ -241,6 +247,7 @@ def build_xlsx_report(dashboard: DashboardReport) -> bytes:
             else []
         ),
         ("Assessment Name", s.assessment_name),
+        *([("Organization", s.organization_name)] if s.organization_name else []),
         ("Framework", s.framework_name),
         ("Scoring Model", s.scoring_model),
         ("Status", s.status),

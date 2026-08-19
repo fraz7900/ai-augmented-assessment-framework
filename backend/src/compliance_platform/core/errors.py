@@ -50,3 +50,60 @@ class AssessmentAlreadySealedError(Exception):
             f"Assessment '{assessment_id}' already carries a finalization seal; a seal is "
             "written once and never replaced."
         )
+
+
+class OrganizationNotFoundError(Exception):
+    """An organisation id was named that does not exist (ADR-0063).
+
+    Lives here rather than in services/ for the same reason
+    AssessmentFinalizedError does: the repository resolves and validates
+    organisation ids for both the assessment router and the ingestion
+    router, and a repository cannot import from services without
+    creating a cycle.
+    """
+
+    def __init__(self, organization_id: str) -> None:
+        self.organization_id = organization_id
+        super().__init__(f"Organization '{organization_id}' does not exist.")
+
+
+class OrganizationRequiredError(Exception):
+    """No organisation was named and more than one exists (ADR-0063).
+
+    Omitting the organisation is allowed only while exactly one exists,
+    because only then is there exactly one honest answer. The moment a
+    second organisation is created, the convenience becomes the failure
+    R-39 describes -- one client's work silently filed under another --
+    so it stops being a default and starts being an error. This is the
+    same reasoning ADR-0059 applied to upload size: the boundary case is
+    where being wrong costs most, so it must not sit on the far side of
+    a number (or a default) nobody can see.
+    """
+
+    def __init__(self, count: int) -> None:
+        self.count = count
+        super().__init__(
+            f"This instance has {count} organizations, so organization_id must be given "
+            "explicitly; it may only be omitted while exactly one exists."
+        )
+
+
+class CrossOrganizationAttachmentError(Exception):
+    """A document was attached to an assessment belonging to a different
+    organisation (ADR-0063).
+
+    Raised by AssessmentService before any work is done, and again by
+    AssessmentRepository inside the transaction that performs the
+    attach. The second is a backstop, not a duplicate, for exactly the
+    reasons `AssessmentRepository._assert_writable` already documents --
+    and this guarantee is the one R-39 is about, so it gets the same
+    treatment as the finalization lock rather than a weaker one.
+    """
+
+    def __init__(self, assessment_id: str, document_id: str) -> None:
+        self.assessment_id = assessment_id
+        self.document_id = document_id
+        super().__init__(
+            f"Document '{document_id}' belongs to a different organization than assessment "
+            f"'{assessment_id}'; evidence cannot cross an organization boundary."
+        )

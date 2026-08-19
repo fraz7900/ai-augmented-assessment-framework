@@ -104,8 +104,9 @@ def test_finalizing_writes_a_seal(client: TestClient) -> None:
     # unnoticed bump is exactly what this should catch, since every seal
     # already written was computed under the old payload. Was "1" when
     # ADR-0060 shipped; ADR-0061 added the actor fields, which have to be
-    # sealed or attribution could be silently rewritten.
-    assert body["seal_version"] == "2"
+    # sealed or attribution could be silently rewritten; ADR-0063 added
+    # the owning organisation, for the same reason one version later.
+    assert body["seal_version"] == "3"
 
 
 def test_verification_is_stable_when_nothing_changes(client: TestClient) -> None:

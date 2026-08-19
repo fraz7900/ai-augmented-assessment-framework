@@ -19,6 +19,7 @@ from compliance_platform.api import (
     health,
     identity,
     ingestion,
+    organizations,
 )
 from compliance_platform.api.dependencies import (
     get_cached_ingestion_executor,
@@ -92,3 +93,4 @@ app.include_router(ingestion.router)
 app.include_router(assessments.router)
 app.include_router(frameworks.router)
 app.include_router(documents.router)
+app.include_router(organizations.router)

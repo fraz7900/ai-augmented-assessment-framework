@@ -15,9 +15,14 @@ router = APIRouter(prefix="/documents", tags=["documents"])
 
 @router.get("", response_model=list[DocumentSummary])
 def list_documents(
+    organization_id: str | None = None,
     service: AssessmentService = Depends(get_assessment_service),
 ) -> list[DocumentSummary]:
-    """Every ingested document, newest first.
+    """One organisation's ingested documents, newest first.
+
+    Scoped since ADR-0063: this is the endpoint the evidence chooser
+    calls, and listing every document on the instance is exactly what
+    R-39 described.
 
     Declared BEFORE /{document_id} because FastAPI matches routes in
     declaration order; an empty path is unambiguous here, but keeping
@@ -25,7 +30,7 @@ def list_documents(
     stops a future literal route (e.g. /recent) being swallowed as a
     document id.
     """
-    return service.list_document_summaries()
+    return service.list_document_summaries(organization_id)
 
 
 @router.get("/{document_id}", response_model=DocumentDetail)
