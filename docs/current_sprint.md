@@ -5,15 +5,19 @@ completion chart on the dashboard (T2) are built. Bulk actions — specifically 
 confidence > 0.85" — are declined, on this project's own measurements rather than on preference,
 and ADR-0065 records why in the terms a future reader will want. No change to the mapping engine, no
 auto-accept, no new frameworks, no refactors outside the two.
-Status: **T1 (filters) is merged; T2 (dashboard chart) is built and awaiting CI.** T1 landed as
-`9436460` (PR #12), CI-confirmed at 647 backend and 105 frontend across 17 files. T2 is on
-`feat/dashboard-domain-chart`, branched from that merge. Locally: **658 backend tests passing** (647
-plus 11), `ruff check` clean, **116 frontend tests across 18 files** (105 plus 11), `tsc -b` and
-`npm run build` clean, `npm run lint` carrying the same 2 pre-existing fast-refresh warnings in
-`EvidenceSourceBadge.tsx` and no new ones. The frontend run that produced 116 was clean — 18 of 18
-files, zero errors — which is worth recording because the run before it lost 5 files to the
-forks-worker timeout with zero assertion failures. Same environment, same code, two very different
-results; AGENTS.md's reading holds and CI remains the authority.
+Status: **Sprint 23 is complete. Both tranches are CI-confirmed and merged to `main`** — T1 as
+`9436460` (PR #12), T2 as `336a952` (PR #13). CI reproduced this machine's numbers on both: **658
+backend tests passing**, `ruff check` clean, **116 frontend tests across 18 files**, and `npm run
+build`, the real `tsc -b`. `npm run lint` is not a CI step, so its result stays local: the same 2
+pre-existing fast-refresh warnings in `EvidenceSourceBadge.tsx` and no new ones. Nothing is left in
+the working tree. One measurement worth keeping from T2's local runs: the run that produced 116 was
+clean at 18 of 18 files with zero errors, and the run immediately before it lost 5 files to the
+forks-worker timeout with zero assertion failures — same code, same machine, minutes apart.
+AGENTS.md's reading of that as the environment rather than the code holds, and CI settled it both
+times.
+All three of the tester's items are now closed: filters shipped (T1), the completion chart shipped
+(T2), and the threshold bulk-accept is declined in writing (ADR-0065) rather than left as an
+unrecorded no.
 Sprint 22 closed before this one began: T1 merged as `dac8c52` (PR #9), T2 as `9a1a223` (PR #10),
 the record corrected in `7816ee0` (PR #11). R-39 is mitigated with residual R-40; R-35 is half
 closed, its in-memory half still open.
