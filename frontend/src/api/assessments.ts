@@ -22,7 +22,12 @@ import type {
 } from './types'
 
 const keys = {
-  assessments: ['assessments'] as const,
+  // The organisation is part of the key, not just the URL (ADR-0063).
+  // Without it, switching client would serve the previous one's
+  // assessments out of the cache -- a stale list is a nuisance
+  // everywhere else in this app and a confidentiality failure here.
+  assessments: (organizationId: string | undefined) =>
+    ['assessments', 'list', organizationId ?? ''] as const,
   assessment: (id: string) => ['assessments', id] as const,
   statusHistory: (id: string) => ['assessments', id, 'status-history'] as const,
   evidence: (id: string) => ['assessments', id, 'evidence'] as const,
@@ -37,10 +42,18 @@ const keys = {
   assessmentDocuments: (id: string) => ['assessments', id, 'documents'] as const,
 }
 
-export function useAssessments() {
+export function useAssessments(organizationId: string | undefined) {
   return useQuery({
-    queryKey: keys.assessments,
-    queryFn: () => apiClient.get<Assessment[]>('/assessments'),
+    queryKey: keys.assessments(organizationId),
+    queryFn: () =>
+      apiClient.get<Assessment[]>(
+        `/assessments?organization_id=${encodeURIComponent(organizationId ?? '')}`,
+      ),
+    // Nothing is fetched before the organisation is known: an unscoped
+    // request would either 400 (two or more organisations) or quietly
+    // answer for the only one, and the second is the habit worth not
+    // forming.
+    enabled: !!organizationId,
   })
 }
 
@@ -52,11 +65,13 @@ export function useAssessment(id: string | undefined) {
   })
 }
 
-export function useCreateAssessment() {
+export function useCreateAssessment(organizationId: string | undefined) {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (body: CreateAssessmentRequest) => apiClient.post<Assessment>('/assessments', body),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: keys.assessments }),
+    mutationFn: (body: CreateAssessmentRequest) =>
+      apiClient.post<Assessment>('/assessments', { ...body, organization_id: organizationId }),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: keys.assessments(organizationId) }),
   })
 }
 
@@ -77,7 +92,10 @@ export function useTransitionStatus(assessmentId: string) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: keys.assessment(assessmentId) })
       queryClient.invalidateQueries({ queryKey: keys.statusHistory(assessmentId) })
-      queryClient.invalidateQueries({ queryKey: keys.assessments })
+      // By prefix, without an organisation: a status change should
+      // refresh whichever list is on screen, and this hook does not know
+      // which organisation that is.
+      queryClient.invalidateQueries({ queryKey: ['assessments', 'list'] })
     },
   })
 }

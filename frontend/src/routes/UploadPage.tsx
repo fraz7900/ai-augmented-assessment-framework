@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { AlertCircle, CheckCircle2, Clock, FileUp, Loader2, Upload } from 'lucide-react'
 import { useIngestDocumentAsync, useIngestionJob, useIngestionJobs } from '../api/ingestion'
+import { useOrganizationScope } from '../lib/organizationContext'
 import UploadProgress, { type UploadPhase } from '../components/UploadProgress'
 import type { IngestionJob, IngestionJobFailure, ParseStatus } from '../api/types'
 
@@ -91,12 +92,13 @@ function formatTime(iso: string): string {
 }
 
 export default function UploadPage() {
+  const { organizationId, organization } = useOrganizationScope()
   const [file, setFile] = useState<File | null>(null)
   const [submitter, setSubmitter] = useState('')
   const [jobId, setJobId] = useState<string | null>(null)
   const ingest = useIngestDocumentAsync()
   const polled = useIngestionJob(jobId ?? undefined)
-  const recent = useIngestionJobs()
+  const recent = useIngestionJobs(organizationId)
 
   // The 202 response is itself a job row, so it fills the gap between
   // "queued" and the first poll coming back — without it the panel
@@ -115,7 +117,7 @@ export default function UploadPage() {
     event.preventDefault()
     if (!file || busy) return
     ingest.mutate(
-      { file, submitter: submitter || undefined },
+      { file, submitter: submitter || undefined, organizationId },
       { onSuccess: (created) => setJobId(created.id) },
     )
   }
@@ -125,6 +127,12 @@ export default function UploadPage() {
   return (
     <div className="max-w-xl">
       <h1 className="text-xl font-semibold text-slate-900">Upload evidence document</h1>
+      {/* Whose evidence this becomes, said before the file is chosen
+          rather than after it is ingested (ADR-0063): a document filed
+          under the wrong client cannot be moved to the right one. */}
+      <p className="text-sm text-slate-500">
+        Uploading to <span className="font-medium text-slate-700">{organization?.name ?? '…'}</span>
+      </p>
       <p className="mt-1 text-sm text-slate-600">
         PDF, DOCX, TXT, Markdown, XLSX, or CSV. After ingestion, copy the document ID below into
         an assessment&apos;s Evidence tab to link it to a practice.

@@ -12,6 +12,7 @@ import {
 } from '../../api/assessments'
 import { useFramework } from '../../api/frameworks'
 import { useDocuments } from '../../api/ingestion'
+import { useOrganizationScope } from '../../lib/organizationContext'
 import { findPractice } from '../../lib/practiceLookup'
 import AttachDocumentControl from '../../components/AttachDocumentControl'
 import DetachDocumentButton from '../../components/DetachDocumentButton'
@@ -36,11 +37,12 @@ export default function EvidenceTab() {
     assessment.framework_name,
     assessment.framework_version,
   )
-  // Scoped to this assessment (ADR-0062). useDocuments() lists every
-  // document on the instance and is now only what the attach control
-  // browses.
+  // Scoped to this assessment (ADR-0062). useDocuments() lists this
+  // organisation's documents (ADR-0063) and is what the attach control
+  // browses -- it no longer reaches every document on the instance.
   const { data: documents, isLoading: documentsLoading } = useAssessmentDocuments(assessmentId)
-  const { data: allDocuments } = useDocuments()
+  const { organizationId } = useOrganizationScope()
+  const { data: allDocuments } = useDocuments(organizationId)
   const attachDocument = useAttachDocument(assessmentId)
   const detachDocument = useDetachDocument(assessmentId)
   const linkEvidence = useLinkEvidence(assessmentId)

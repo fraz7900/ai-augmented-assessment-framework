@@ -4,8 +4,9 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import UploadPage from './UploadPage'
+import { OrganizationProvider } from '../lib/organization'
 import { ApiError, apiClient } from '../api/client'
-import type { IngestionJob } from '../api/types'
+import type { IngestionJob, Organization } from '../api/types'
 
 // The upload no longer carries its own outcome: POST /ingest/async
 // returns a job and this page polls it. That moves three things onto
@@ -46,10 +47,20 @@ const succeeded = job({
   finished_at: '2026-08-17T12:02:00Z',
 })
 
+// The page is scoped to one organisation (ADR-0063), so it renders
+// inside the provider the app shell supplies.
+const ORGANIZATION: Organization = {
+  id: 'org_default',
+  name: 'Unassigned',
+  created_at: '2026-08-19T12:00:00Z',
+}
+
 function renderPage() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   const wrapper = ({ children }: { children: ReactNode }) => (
-    <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    <QueryClientProvider client={client}>
+      <OrganizationProvider>{children}</OrganizationProvider>
+    </QueryClientProvider>
   )
   return render(<UploadPage />, { wrapper })
 }
@@ -58,9 +69,10 @@ function renderPage() {
 function stubGets(polled: IngestionJob, recent: IngestionJob[] = []) {
   return vi
     .spyOn(apiClient, 'get')
-    .mockImplementation(async (path: string) =>
-      path.startsWith('/ingest/jobs?') ? recent : polled,
-    )
+    .mockImplementation(async (path: string) => {
+      if (path.startsWith('/organizations')) return [ORGANIZATION]
+      return path.startsWith('/ingest/jobs?') ? recent : polled
+    })
 }
 
 async function uploadAFile() {
