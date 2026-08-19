@@ -122,16 +122,15 @@ to read old rows and this one could not: a pre-ADR-0030 database holds `evidence
 test written for one purpose found a different real defect. What this is NOT is multi-tenancy: the
 attach flow still browses every document, so cross-organisation attachment remains possible by
 hand, and ADR-0062 says so rather than implying the tenancy problem is solved.
-Next (not started): nothing structural. The Evidence tab offers attach but not detach, so removing
-a document from an assessment is API-only; ingestion job rows still accumulate with no retention
-policy (ADR-0059, R-35); and the local frontend test runner remains unusable on this filesystem —
-every frontend change in the back half of this sprint was verified by CI alone, and a
-`node_modules` reinstall (AGENTS.md remedy 5) is the next thing to try. The older register items
-are unchanged: R-8 (non-English documents untested), R-9 (no environment bootstrap), R-16/R-23
-(the retrieval precision ceiling, mitigated by human review rather than by accuracy), and the
-copyright-limited transcriptions R-28/R-30/R-32. Real client separation — a tenant concept —
-remains charter "Won't (for MVP)" scope and is the one thing standing between this and a
-multi-client pilot.
+Next (not started): nothing structural, and nothing in the UI. Ingestion job rows still accumulate
+with no retention policy (ADR-0059, R-35). The local frontend test runner was repaired by deleting
+`node_modules` and reinstalling — it had been losing every file to worker-startup timeouts, and
+now runs 14 files and 84 tests in about two minutes, though it still drops a file on roughly two
+runs in five; AGENTS.md carries the measurements. The older register items are unchanged: R-8
+(non-English documents untested), R-9 (no environment bootstrap), R-16/R-23 (the retrieval
+precision ceiling, mitigated by human review rather than by accuracy), and the copyright-limited
+transcriptions R-28/R-30/R-32. Real client separation — a tenant concept, R-39 — remains charter
+"Won't (for MVP)" scope and is the one thing standing between this and a multi-client pilot.
 Also open and unchanged from earlier sprints: upload retention is not retroactive, so the 6 of 30
 documents whose originals were discarded before ADR-0056 stay permanently un-re-ingestible; 27 of
 30 stored documents have no `Document` registry row (predating ADR-0039) and therefore no

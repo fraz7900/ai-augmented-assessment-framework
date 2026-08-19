@@ -203,6 +203,17 @@ export function useAttachDocument(assessmentId: string) {
   })
 }
 
+export function useDetachDocument(assessmentId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (documentId: string) =>
+      apiClient.del<void>(`/assessments/${assessmentId}/documents/${documentId}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: keys.assessmentDocuments(assessmentId) })
+    },
+  })
+}
+
 export function useDashboard(assessmentId: string | undefined) {
   return useQuery({
     queryKey: keys.dashboard(assessmentId ?? ''),

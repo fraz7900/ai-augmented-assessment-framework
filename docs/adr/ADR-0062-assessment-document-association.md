@@ -101,8 +101,11 @@ assessment regardless.
 - One new table and a backfill that runs once per engine construction and is a no-op afterwards.
 - The attach control browses all documents, so cross-organisation attachment remains possible by
   hand. Disclosed in the risk register rather than implied to be solved.
-- Detaching a cited document is a 409 a UI must handle; the Evidence tab does not yet offer detach at
-  all, so today it is reachable only through the API.
+- Detaching a cited document is a 409 the UI has to handle. The Evidence tab offers detach beside the
+  document picker, acting on the current selection, and shows the server's refusal verbatim — it
+  names the citation count and what to do about it, which is more use than anything the client could
+  say instead. No confirmation dialog: detaching is fully reversible via the attach control, and the
+  genuinely destructive case is the one the server already refuses.
 
 ## Alternatives considered
 
