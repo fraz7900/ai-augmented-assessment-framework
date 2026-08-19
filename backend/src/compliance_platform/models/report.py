@@ -165,6 +165,47 @@ class OverallSummary(BaseModel):
     overall_coverage_fraction: float | None = None
 
 
+class DomainProgress(BaseModel):
+    """One populated domain's practice completion, for the dashboard
+    chart (ADR-0066).
+
+    Deliberately NOT DashboardReport.domain_scores, which a chart must
+    not bind to: that value is an ordinal MIL (0-3) under a
+    cumulative_mil framework and a 0.0-1.0 fraction under a coverage
+    one, so rendering it as bar length would put a maturity level and a
+    percentage on the same axis -- the blend R-15 exists to forbid, and
+    the reason OverallSummary refuses to average domain scores at all.
+
+    met_practices over total_practices means the same thing under both
+    models, which is what makes it chartable. The denominator is
+    APPLICABLE practices: NOT_APPLICABLE findings (ADR-0030) are removed
+    from it, the same denominator compute_domain_coverage uses, so the
+    bar and the score cannot disagree about what was counted.
+
+    score travels alongside rather than instead, so the chart can show
+    the domain's real score next to its completion instead of implying
+    they are the same measure.
+
+    blocking_mil is the part that stops the chart from lying on a
+    cumulative_mil framework. MIL is gated, not proportional: MIL2
+    requires EVERY MIL1 practice, so a domain at 92% completion still
+    scores MIL0 if one MIL1 practice is missing. Without this field a
+    reader sees a nearly-full bar next to a 0 and concludes the product
+    is broken. With it, the chart can say which level is blocked and by
+    how many practices. None on a coverage framework, and None on a
+    cumulative_mil domain that has reached the top level -- in both
+    cases there is no gate left to name.
+    """
+
+    short_code: str
+    full_name: str
+    met_practices: int
+    total_practices: int
+    score: float
+    blocking_mil: int | None = None
+    blocking_practice_count: int | None = None
+
+
 class EvidenceDomainCount(BaseModel):
     """How much of the review queue sits in one domain (ADR-0065).
 
@@ -204,6 +245,12 @@ class EvidenceQueueSummary(BaseModel):
 class DashboardReport(BaseModel):
     situation: Situation
     domain_scores: dict[str, float]
+    # Every populated domain, including the fully-met ones. complication
+    # below deliberately omits a domain with no gaps, which is right for
+    # a "where gaps remain" section and wrong for a chart -- a completion
+    # chart that silently drops the finished domains overstates how much
+    # is outstanding.
+    domain_progress: list[DomainProgress] = []
     overall: OverallSummary
     complication: list[DomainGapGroup]
     resolution: list[ResolutionItem]

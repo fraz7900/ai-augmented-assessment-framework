@@ -2,6 +2,7 @@ import { useOutletContext } from 'react-router-dom'
 import { Download, Info } from 'lucide-react'
 import { reportUrl, useDashboard } from '../../api/assessments'
 import ScoreHeadline from '../../components/ScoreHeadline'
+import DomainCompletionChart from '../../components/DomainCompletionChart'
 import GapGroup from '../../components/GapGroup'
 import ResolutionList from '../../components/ResolutionList'
 import SanitizationPanel from '../../components/SanitizationPanel'
@@ -20,7 +21,8 @@ export default function DashboardTab() {
   if (isError) return <p className="text-sm text-red-700">{error.message}</p>
   if (!dashboard) return null
 
-  const { situation, overall, complication, resolution } = dashboard
+  const { situation, overall, complication, resolution, domain_progress: domainProgress } =
+    dashboard
 
   return (
     <div className="space-y-6">
@@ -107,6 +109,19 @@ export default function DashboardTab() {
         <h2 className="font-semibold text-slate-900">Overall</h2>
         <div className="mt-2">
           <ScoreHeadline overall={overall} />
+        </div>
+      </div>
+
+      <div>
+        <h2 className="font-semibold text-slate-900">Domain completion</h2>
+        {/*
+          Kept below the headline deliberately. ScoreHeadline renders the
+          server's scoring-model-aware sentence verbatim, and that sentence
+          is what the assessment actually claims; the chart is the shape of
+          it. Putting bars first would make the picture the claim.
+        */}
+        <div className="mt-2">
+          <DomainCompletionChart progress={domainProgress} overall={overall} />
         </div>
       </div>
 

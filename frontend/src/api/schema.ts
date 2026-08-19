@@ -998,6 +998,11 @@ export interface components {
             domain_scores: {
                 [key: string]: number;
             };
+            /**
+             * Domain Progress
+             * @default []
+             */
+            domain_progress: components["schemas"]["DomainProgress"][];
             overall: components["schemas"]["OverallSummary"];
             /** Complication */
             complication: components["schemas"]["DomainGapGroup"][];
@@ -1115,6 +1120,54 @@ export interface components {
             gaps: components["schemas"]["GapItem"][];
             /** So What */
             so_what: string;
+        };
+        /**
+         * DomainProgress
+         * @description One populated domain's practice completion, for the dashboard
+         *     chart (ADR-0066).
+         *
+         *     Deliberately NOT DashboardReport.domain_scores, which a chart must
+         *     not bind to: that value is an ordinal MIL (0-3) under a
+         *     cumulative_mil framework and a 0.0-1.0 fraction under a coverage
+         *     one, so rendering it as bar length would put a maturity level and a
+         *     percentage on the same axis -- the blend R-15 exists to forbid, and
+         *     the reason OverallSummary refuses to average domain scores at all.
+         *
+         *     met_practices over total_practices means the same thing under both
+         *     models, which is what makes it chartable. The denominator is
+         *     APPLICABLE practices: NOT_APPLICABLE findings (ADR-0030) are removed
+         *     from it, the same denominator compute_domain_coverage uses, so the
+         *     bar and the score cannot disagree about what was counted.
+         *
+         *     score travels alongside rather than instead, so the chart can show
+         *     the domain's real score next to its completion instead of implying
+         *     they are the same measure.
+         *
+         *     blocking_mil is the part that stops the chart from lying on a
+         *     cumulative_mil framework. MIL is gated, not proportional: MIL2
+         *     requires EVERY MIL1 practice, so a domain at 92% completion still
+         *     scores MIL0 if one MIL1 practice is missing. Without this field a
+         *     reader sees a nearly-full bar next to a 0 and concludes the product
+         *     is broken. With it, the chart can say which level is blocked and by
+         *     how many practices. None on a coverage framework, and None on a
+         *     cumulative_mil domain that has reached the top level -- in both
+         *     cases there is no gate left to name.
+         */
+        DomainProgress: {
+            /** Short Code */
+            short_code: string;
+            /** Full Name */
+            full_name: string;
+            /** Met Practices */
+            met_practices: number;
+            /** Total Practices */
+            total_practices: number;
+            /** Score */
+            score: number;
+            /** Blocking Mil */
+            blocking_mil?: number | null;
+            /** Blocking Practice Count */
+            blocking_practice_count?: number | null;
         };
         /**
          * Equivalent

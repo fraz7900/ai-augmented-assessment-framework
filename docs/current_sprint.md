@@ -1,20 +1,19 @@
-Current sprint: Sprint 23 — make the evidence review queue navigable, without making it
-auto-decidable
-Objective: act on a tester's report that reviewing evidence one link at a time is unusable at real
-volume. Two halves were asked for and they got different answers. Filters by domain and status are
-built. Bulk actions — specifically "accept all with confidence > 0.85" — are declined, on this
-project's own measurements rather than on preference, and ADR-0065 records why in the terms a future
-reader will want. No change to the mapping engine, no auto-accept, no new frameworks, no refactors
-outside the queue.
-Status: **T1 (filters) is built and awaiting CI; nothing else in this sprint is begun.** Branch
-`feat/evidence-queue-filters`, branched from `7816ee0`. Locally: **647 backend tests passing** (630
-plus 17), `ruff check` clean, **105 frontend tests across 17 files** (93 plus 12), `tsc -b` clean,
-`npm run lint` carrying the same 2 pre-existing fast-refresh warnings in `EvidenceSourceBadge.tsx`
-and no new ones. The frontend number needs its caveat: three single-file runs in a row lost their
-only worker to the forks-worker timeout, and the count above comes from a full-suite run that lost
-`EvidenceSourceBadge.test.tsx` instead — 16 of 17 files, 100 tests, which is 93 − 5 + 12 and
-therefore accounts for every new test as passing. That is AGENTS.md's documented residual state for
-this environment, not a result about this code, and CI is the authority.
+Current sprint: Sprint 23 — act on a tester's report: make the review queue navigable, give the
+dashboard a visual, and refuse the one request that would undo the platform's safety argument
+Objective: one tester raised three things. Filters on the evidence queue (T1) and a domain
+completion chart on the dashboard (T2) are built. Bulk actions — specifically "accept all with
+confidence > 0.85" — are declined, on this project's own measurements rather than on preference,
+and ADR-0065 records why in the terms a future reader will want. No change to the mapping engine, no
+auto-accept, no new frameworks, no refactors outside the two.
+Status: **T1 (filters) is merged; T2 (dashboard chart) is built and awaiting CI.** T1 landed as
+`9436460` (PR #12), CI-confirmed at 647 backend and 105 frontend across 17 files. T2 is on
+`feat/dashboard-domain-chart`, branched from that merge. Locally: **658 backend tests passing** (647
+plus 11), `ruff check` clean, **116 frontend tests across 18 files** (105 plus 11), `tsc -b` and
+`npm run build` clean, `npm run lint` carrying the same 2 pre-existing fast-refresh warnings in
+`EvidenceSourceBadge.tsx` and no new ones. The frontend run that produced 116 was clean — 18 of 18
+files, zero errors — which is worth recording because the run before it lost 5 files to the
+forks-worker timeout with zero assertion failures. Same environment, same code, two very different
+results; AGENTS.md's reading holds and CI remains the authority.
 Sprint 22 closed before this one began: T1 merged as `dac8c52` (PR #9), T2 as `9a1a223` (PR #10),
 the record corrected in `7816ee0` (PR #11). R-39 is mitigated with residual R-40; R-35 is half
 closed, its in-memory half still open.
@@ -40,7 +39,7 @@ reason, not for want of buttons, and bulk-accepting from a pool that is ~99% noi
 industrialise a wrong answer into a sealed, exported record. The audit labels its own run
 scaffolding-scale (5 documents), which is an argument for re-running it at 100–1,000, not for
 automating on top of it.
-T1 — filters (ADR-0065, accepted). `GET /assessments/{id}/evidence` gains `review_status`, `domain`,
+T1 (merged, `9436460`) — filters (ADR-0065, accepted). `GET /assessments/{id}/evidence` gains `review_status`, `domain`,
 `min_confidence` and `max_confidence`, all optional, response shape unchanged so an existing caller
 sees exactly what it saw. Domain is resolved through the framework definition
 (`domain_for_practice_id`) against the assessment's **pinned** version (ADR-0058), never stored on
@@ -82,6 +81,44 @@ part of the query key, the existing `keys.evidence(id)` invalidation would only 
 unfiltered list, leaving a reviewer working inside a filter looking at a row they had just decided
 on. Neither was caught by inspection — the first by a test failing on a 422, the second by reasoning
 about the key while writing it, which is the cheaper of the two ways to find it.
+T2 — a domain completion chart (ADR-0066, accepted). The tester's other request: the dashboard was
+text and numbers with no visuals. The whole decision was which number the bars draw from, because the
+obvious candidate is wrong in a way nobody would notice later. `domain_scores` is already on the wire
+and one line from being charted — and it is an ordinal MIL 0-3 under one scoring model and a 0.0-1.0
+fraction under the other, so bars drawn from it put a maturity level and a percentage on one axis.
+That is R-15 verbatim, and it would have looked entirely plausible: MIL2 of 3 renders as a
+two-thirds bar and nothing in the output would announce that an ordinal scale had been stretched
+into a proportion.
+T2, what the bars actually are. `met_practices` over `total_practices`, applicable practices only —
+the same denominator `compute_domain_coverage` uses, so the bar and the score beside it cannot
+disagree about what was counted. Computed server-side as `DashboardReport.domain_progress`, because
+`DashboardTab`'s own contract is that it re-derives nothing and a percentage assembled in the browser
+would be a second implementation of that denominator. Not derived from `complication`, which lists
+only domains with at least one gap: right for "where gaps remain", wrong for a chart, since dropping
+the finished domains overstates what is outstanding and hides the best news in the assessment. The
+domain's real score travels beside each bar in its own units — `MIL2`, `50% coverage` — so the two
+read as two facts rather than one.
+T2, the field that is the point. Under a cumulative framework completion and score are different
+shapes: MIL2 requires EVERY MIL1 practice, so 9 of 10 met is a 90% bar sitting next to MIL0 when one
+MIL1 practice is missing. Correct behaviour that reads as a bug. `blocking_mil` and
+`blocking_practice_count` name which level is blocked and by how many, and the chart says it under
+the bar — "1 practice(s) at MIL1 still unmet, so this domain cannot score above MIL0 however
+complete the bar looks." A reader who would have filed a defect learns what to do next instead. The
+fields mirror `compute_domain_mil`'s rule rather than reimplementing its result, and are None on a
+coverage framework and at the top level, where there is no gate to name.
+T2, what it is not. **The exports do not get the chart.** PDF and XLSX carry the same numbers through
+`complication` and `so_what` but neither the visual nor the MIL-gate sentence, so a reviewer who
+reads the gate explanation on screen and then sends the PDF has sent something without it. That is a
+real screen/document inconsistency, disclosed in ADR-0066 rather than left to be found, and closing
+it is work in the report renderers. Unpopulated domains are omitted rather than charted at zero, and
+so is a domain whose every practice is NOT_APPLICABLE — `0 of 0` reads as "nothing done" rather than
+"nothing applies". No charting library: ten bars do not justify a dependency (ADR-0016), and each bar
+carries an `aria-label` with the same numbers in words.
+What T2 actually took, recorded against the plan. One thing was wrong in front of the code, and it
+was in the tests rather than the feature: the first draft asserted that a NOT_APPLICABLE finding
+shrinks the chart's denominator, with no evidence attached to the finding. ADR-0057 only lets a
+SUPPORTED finding move anything, so the code was right and three tests were wrong. Fixing them made
+them better tests, since they now encode the evidence requirement rather than assuming it away.
 Next (not started). The three steps this sprint's analysis put in front of any bulk-action work, in
 order. Expose `compute_assessment_agreement` (ADR-0034), which already computes accept/edit/reject
 rates from real human decisions and has no endpoint, bucketed by confidence band — after a few
@@ -89,11 +126,8 @@ hundred reviews that is this project's first real answer to what fraction of pro
 band a human actually accepts. Re-run `scripts/measure_aqs.py` against 100–1,000 documents with
 negative labels, which is the audit's own recommended next step and has been open since Sprint 17.
 Only then design bulk review, most likely as filter-read-confirm with per-link audit rows and a real
-actor (ADR-0061), never as a threshold. The tester's other request, dashboard charts, is also
-unstarted and has a constraint of its own: `domain_scores` means an ordinal MIL under one scoring
-model and a fraction under the other, so charting it as one bar series is the blend R-15 forbids —
-the honest number is `met_practices` over `total_practices`, and the MIL gate has to be on the chart
-or a 92%-complete domain scoring MIL0 will read as a bug.
+actor (ADR-0061), never as a threshold. Separately, and smaller: carry the MIL-gate sentence into the
+PDF and XLSX renderers, which T2 deliberately left on screen only.
 Still open and not claimed here, unchanged. R-9, no reproducible environment bootstrap, rated High
 likelihood and already occurred once. R-33, OCR-recovered text is approximate and nothing downstream
 flags a citation drawn from an OCR'd page. R-34, ADR-0057's scoring correction can lower a number
@@ -107,7 +141,8 @@ originals were discarded before ADR-0056 stay permanently un-re-ingestible; 27 o
 documents predate the registry (ADR-0039) and carry no `content_hash`; and assessments finalized
 before ADR-0060 carry no seal, report `unsealed` rather than `verified`, and are deliberately not
 sealed retroactively.
-Explicitly out of scope this sprint and not begun: bulk review decisions of any shape; changes to
+Explicitly out of scope this sprint and not begun: bulk review decisions of any shape; charts in the
+PDF and XLSX exports; changes to
 `mapping_candidates_per_practice` or `mapping_similarity_threshold`; authentication, RBAC and
 per-user permissions; cloud deployment; organisation deletion, merge, or reassignment; new
 frameworks; continuous monitoring; score-change notification; and legacy registry backfill.
