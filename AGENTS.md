@@ -46,10 +46,25 @@ what you're touching before editing it:
 | `prompts/` | `.cursor/rules/prompt-engineering.mdc` |
 | `docs/consulting/`, `docs/product/`, README/charter narrative | `.cursor/rules/energy-cybersecurity.mdc` |
 
+## Setup
+
+```
+./scripts/bootstrap.sh    # build both environments from pinned versions; fails loudly if it can't
+./scripts/doctor.sh       # "is my environment wrong, or is my code wrong?" — exit 0 means the code
+```
+
+Backend dependencies are pinned in `backend/requirements.lock` (ADR-0075) and CI installs from it, so
+"it passed in CI" names a specific set of versions. Regenerate deliberately with
+`./scripts/lock-backend.sh`, never as a side effect of setup.
+
+**Run `./scripts/doctor.sh` before debugging a red suite.** The troubleshooting section below exists
+because a broken environment here presents as test failures; the doctor answers that question in a
+few seconds instead of by inference.
+
 ## Commands
 
 ```
-cd backend && source .venv/bin/activate && pytest          # 730 tests as of Sprint 25 — run before finishing any backend change
+cd backend && source .venv/bin/activate && pytest          # 740 tests as of Sprint 25 — run before finishing any backend change
 cd backend && source .venv/bin/activate && ruff check .    # lint
 cd backend && source .venv/bin/activate && uvicorn compliance_platform.main:app --reload   # run the API, http://127.0.0.1:8000/docs
 cd frontend && npm run test    # vitest, 143 tests as of Sprint 25 — run before finishing any frontend change
@@ -74,8 +89,10 @@ Error: [vitest-pool]: Failed to start forks worker for test files ...
 Caused by: Error: [vitest-pool-runner]: Timeout waiting for worker to respond
 ```
 
-**Diagnose before fixing.** If every error is `Failed to start forks worker` and there are
-**zero** assertion failures, the code is fine and the runner is not — a run that reaches your
+**Diagnose before fixing.** `./scripts/doctor.sh` first: it checks whether `node_modules` is
+actually complete (`npm ls`) rather than merely present, which is the failure described here and the
+one that cannot be seen by looking. If it reports clean, then: if every error is `Failed to start
+forks worker` and there are **zero** assertion failures, the code is fine and the runner is not — a run that reaches your
 tests will pass them. Two corroborating signals: `npx tsc -b` exits 0, and the run takes far
 longer than it should (600s+ against a normal ~130s). A *different* set of files failing on each
 run is the same tell; a real breakage is deterministic.
