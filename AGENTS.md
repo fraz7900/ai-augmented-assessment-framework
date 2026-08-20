@@ -49,7 +49,7 @@ what you're touching before editing it:
 ## Commands
 
 ```
-cd backend && source .venv/bin/activate && pytest          # 681 tests as of Sprint 23 — run before finishing any backend change
+cd backend && source .venv/bin/activate && pytest          # 694 tests as of Sprint 24 — run before finishing any backend change
 cd backend && source .venv/bin/activate && ruff check .    # lint
 cd backend && source .venv/bin/activate && uvicorn compliance_platform.main:app --reload   # run the API, http://127.0.0.1:8000/docs
 cd frontend && npm run test    # vitest, 136 tests as of Sprint 23 — run before finishing any frontend change
