@@ -5,19 +5,20 @@ completion chart on the dashboard (T2) are built. Bulk actions — specifically 
 confidence > 0.85" — are declined, on this project's own measurements rather than on preference,
 and ADR-0065 records why in the terms a future reader will want. No change to the mapping engine, no
 auto-accept, no new frameworks, no refactors outside the two.
-Status: **T1, T2 and T3 are merged and CI-confirmed; T4 (review-progress bar) is built and awaiting
-CI.** T1 landed as `9436460` (PR #12) at 647 backend and 105 frontend across 17 files; T2 as
-`336a952` (PR #13) at 658 and 116 across 18; T3 as `07a41a5` (PR #15) at 669 and 127 across 19. T4
-is on `feat/review-progress-visual`, branched from T3's merge. Locally with T4: **671 backend tests
-passing** (669 plus 2), `ruff check` clean, **136 frontend tests across 20 files** (127 plus 9),
-`tsc -b` and `npm run build` clean, `npm run lint` carrying the same 2 pre-existing fast-refresh
-warnings in `EvidenceSourceBadge.tsx` and no new ones. A frontend measurement worth keeping from
-this sprint: the run that produced 116 was clean at 18 of 18 while the run minutes before it lost 5
-files to the forks-worker timeout with zero assertion failures, and every run since has been clean.
-Same code, same machine, different outcomes; AGENTS.md's reading of that as environmental holds and
-CI settled it every time.
-PR #14 declared this sprint complete after T2 and was closed as superseded rather than merged, since
-T3 and T4 followed it.
+Status: **All four tranches are merged to `main` and CI-confirmed.** T1 as `9436460` (PR #12) at 647
+backend and 105 frontend across 17 files; T2 as `336a952` (PR #13) at 658 and 116 across 18; T3 as
+`07a41a5` (PR #15) at 669 and 127 across 19; T4 as `d67968f` (PR #16) at **671 backend and 136
+frontend across 20 files**, `ruff check` clean and `npm run build` clean on the runner. `npm run
+lint` is not a CI step, so it stays a local result: the same 2 pre-existing fast-refresh warnings in
+`EvidenceSourceBadge.tsx` and no new ones. Nothing is left in the working tree.
+This file does not declare the sprint closed, deliberately. PR #14 did that after T2 and had to be
+closed as superseded when T3 and T4 followed — both of which came from re-reading the tester's
+report rather than from new work being requested. What is true is recorded above; whether more
+follows is the project owner's call, and the open items are listed below.
+A frontend measurement worth keeping from this sprint: the run that produced 116 was clean at 18 of
+18 while the run minutes before it lost 5 files to the forks-worker timeout with zero assertion
+failures, and every run since has been clean. Same code, same machine, different outcomes;
+AGENTS.md's reading of that as environmental holds and CI settled it every time.
 Sprint 22 closed before this one began: T1 merged as `dac8c52` (PR #9), T2 as `9a1a223` (PR #10),
 the record corrected in `7816ee0` (PR #11). R-39 is mitigated with residual R-40; R-35 is half
 closed, its in-memory half still open.
@@ -177,8 +178,12 @@ look better. Amber is kept for the one state that wants attention: evidence nobo
 No API change and no new field; the dashboard payload already carried everything, which is why this
 tranche is small.
 All of the tester's report is now answered: filters (T1), a domain completion chart (T2), bulk reject
-(T3, correcting an over-broad refusal), and the second visual (T4). What remains from it is the
-exports, which carry neither chart — disclosed in ADR-0066 and true twice over after T4.
+(T3, correcting an over-broad refusal), and the second visual (T4). Two of those existed only because
+the report was re-read against what had shipped rather than against the summary of it — the words
+were "a few visuals" and "some bulk actions", and both had been treated as answered by their first
+example. What remains from the report is the exports, which carry neither visual and not the MIL-gate
+sentence either: a reviewer who reads that explanation on screen and then sends the PDF has sent
+something without it. Disclosed in ADR-0066, true twice over after T4, and still not fixed.
 Next (not started). The three steps this sprint's analysis put in front of any bulk-action work, in
 order. Expose `compute_assessment_agreement` (ADR-0034), which already computes accept/edit/reject
 rates from real human decisions and has no endpoint, bucketed by confidence band — after a few
