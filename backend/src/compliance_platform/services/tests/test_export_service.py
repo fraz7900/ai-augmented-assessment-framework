@@ -25,6 +25,7 @@ from compliance_platform.models.report import (
     ResolutionItem,
     Situation,
 )
+from compliance_platform.models.schemas import TextProvenance
 from compliance_platform.services.export_service import build_pdf_report, build_xlsx_report
 
 
@@ -435,3 +436,66 @@ def test_xlsx_domain_scores_header_names_the_unit() -> None:
 def test_xlsx_completion_sheet_is_empty_but_present_without_progress() -> None:
     rows = _sheet_rows(_dashboard(), "Domain Completion")
     assert len(rows) == 1  # header only
+
+
+# ---- OCR provenance reaches the exports (ADR-0076) ----
+#
+# ADR-0074 surfaced provenance in chat and disclosed that the exports
+# carried neither it nor anything like it -- so a reviewer who saw the
+# warning on screen and then sent the PDF sent a document without it.
+# That is the same screen/document divergence ADR-0069 closed for the
+# domain chart, reopened in a narrower form, and this closes it.
+
+
+def _cited(provenance: str, superseded: bool = False) -> DashboardReport:
+    dashboard = _dashboard()
+    dashboard.complication[0].gaps[0].cited_evidence = [
+        EvidenceCitation(
+            evidence_link_id="link-1",
+            document_id="doc-scanned",
+            review_status=EvidenceReviewStatus.ACCEPTED,
+            is_superseded=superseded,
+            text_provenance=TextProvenance(provenance),
+        )
+    ]
+    return dashboard
+
+
+def test_pdf_flags_a_citation_recovered_by_ocr() -> None:
+    text = _pdf_text(_cited("ocr"))
+    assert "OCR - approximate" in text
+
+
+def test_pdf_says_nothing_for_a_citation_read_from_a_text_layer() -> None:
+    """The reason this is a tag rather than a column: an annotation on
+    every ordinary citation is noise."""
+    text = _pdf_text(_cited("exact"))
+    assert "OCR" not in text
+    assert "provenance unrecorded" not in text
+
+
+def test_pdf_distinguishes_may_be_ocr_from_is_ocr() -> None:
+    assert "may be OCR" in _pdf_text(_cited("possibly_ocr"))
+    assert "OCR - approximate" not in _pdf_text(_cited("possibly_ocr"))
+
+
+def test_pdf_carries_supersession_and_provenance_together() -> None:
+    """Independent facts about one citation: where the text came from,
+    and whether the document has since been replaced."""
+    text = _pdf_text(_cited("ocr", superseded=True))
+    assert "SUPERSEDED" in text
+    assert "OCR - approximate" in text
+
+
+def test_xlsx_gaps_sheet_carries_provenance_in_the_citation_column() -> None:
+    rows = _sheet_rows(_cited("ocr"), "Gaps")
+    citation_cells = [row[8] for row in rows[1:] if row[8]]
+    assert citation_cells
+    assert any("OCR - approximate" in cell for cell in citation_cells)
+
+
+def test_xlsx_says_nothing_for_exact_text() -> None:
+    rows = _sheet_rows(_cited("exact"), "Gaps")
+    citation_cells = [row[8] for row in rows[1:] if row[8]]
+    assert citation_cells
+    assert all("OCR" not in cell for cell in citation_cells)

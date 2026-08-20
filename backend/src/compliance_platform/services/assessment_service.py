@@ -1293,6 +1293,20 @@ class AssessmentService:
         cited_document_ids = {link.document_id for link in evidence_links}
         superseded_document_ids = self._assessments.superseded_document_ids(cited_document_ids)
         organization = self._assessments.get_organization(assessment.organization_id)
+
+        # Text provenance for every cited chunk (ADR-0076), resolved in
+        # bulk for the same reason supersession is: one read per cited
+        # document, never one per citation. ADR-0074 put this in chat and
+        # disclosed that the exports had nothing; this is what the export
+        # renders.
+        chunk_provenance: dict[str, bool | None] = {}
+        parse_status_by_document: dict[str, str | None] = {}
+        for document_id in cited_document_ids:
+            document = self._assessments.get_document(document_id)
+            parse_status_by_document[document_id] = getattr(document, "parse_status", None)
+            for row in self._vectors.chunks_for_document(document_id):
+                chunk_provenance[row["chunk_id"]] = row.get("is_ocr_derived")
+
         return build_dashboard(
             assessment,
             framework,
@@ -1300,6 +1314,8 @@ class AssessmentService:
             findings,
             superseded_document_ids,
             organization.name if organization is not None else "",
+            chunk_provenance=chunk_provenance,
+            parse_status_by_document=parse_status_by_document,
         )
 
     def generate_dashboard_pdf(self, assessment_id: str, sanitized: bool = False) -> bytes:

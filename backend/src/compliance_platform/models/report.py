@@ -12,6 +12,7 @@ from __future__ import annotations
 from pydantic import BaseModel
 
 from compliance_platform.models.assessment import EvidenceReviewStatus, PracticeFindingStatus
+from compliance_platform.models.schemas import TextProvenance
 
 
 class EvidenceCitation(BaseModel):
@@ -37,6 +38,17 @@ class EvidenceCitation(BaseModel):
     # ADR-0039 itself disclosed as unfixed ("a reviewer can query the
     # endpoint but nothing proactively flags a superseded document...").
     is_superseded: bool = False
+    # Where this cited evidence's text came from (ADR-0076). ADR-0074
+    # surfaced this in chat, where the product quotes evidence verbatim,
+    # and disclosed that the exports carried neither it nor anything
+    # like it -- so a reviewer who saw the warning on screen and then
+    # sent the PDF sent a document without it, which is the same
+    # screen/document divergence ADR-0069 closed for the domain chart.
+    #
+    # Resolved per CHUNK where the citation names one, not merely per
+    # document: a mostly-exact document should not have every citation
+    # from it flagged (ParseStatus.SUCCESS_PARTIAL_OCR's own docstring).
+    text_provenance: TextProvenance = TextProvenance.UNKNOWN
 
 
 class GapItem(BaseModel):

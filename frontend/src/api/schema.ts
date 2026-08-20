@@ -1390,6 +1390,8 @@ export interface components {
              * @default false
              */
             is_superseded: boolean;
+            /** @default unknown */
+            text_provenance: components["schemas"]["TextProvenance"];
         };
         /**
          * EvidenceDomainCount
