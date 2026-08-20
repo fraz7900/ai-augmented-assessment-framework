@@ -456,6 +456,11 @@ class AssessmentService:
         embedder: Embedder | None = None,
         mapping_similarity_threshold: float = 0.55,
         mapping_candidates_per_practice: int = 1,
+        # 0 keeps pre-ADR-0072 behaviour, which is what the default
+        # here means: a caller constructing this service directly
+        # (tests, scripts) gets the old engine unless it asks
+        # otherwise. The deployed default is Settings', not this one.
+        mapping_max_practices_per_chunk: int = 0,
         chat_similarity_threshold: float = 0.35,
         chat_result_limit: int = 5,
     ) -> None:
@@ -465,6 +470,7 @@ class AssessmentService:
         self._embedder = embedder
         self._mapping_similarity_threshold = mapping_similarity_threshold
         self._mapping_candidates_per_practice = mapping_candidates_per_practice
+        self._mapping_max_practices_per_chunk = mapping_max_practices_per_chunk
         self._chat_similarity_threshold = chat_similarity_threshold
         self._chat_result_limit = chat_result_limit
 
@@ -1730,6 +1736,20 @@ class AssessmentService:
             for link in existing_links
             if link.review_status != EvidenceReviewStatus.REJECTED
         }
+        # How many live claims each chunk already carries, so ADR-0072's
+        # cap counts them. Without this the cap would be per-call: the
+        # practices already holding proposals count as covered and drop
+        # out, freeing their slots for the next three, so clicking
+        # propose repeatedly would rebuild the old flood a tier at a
+        # time. Rejected links are excluded on the same reasoning as
+        # already_covered directly above.
+        existing_claims_per_chunk: dict[str, int] = {}
+        for link in existing_links:
+            if link.review_status == EvidenceReviewStatus.REJECTED or link.chunk_id is None:
+                continue
+            existing_claims_per_chunk[link.chunk_id] = (
+                existing_claims_per_chunk.get(link.chunk_id, 0) + 1
+            )
 
         proposals = find_mapping_candidates(
             framework=framework,
@@ -1739,6 +1759,8 @@ class AssessmentService:
             vector_repository=self._vectors,
             similarity_threshold=self._mapping_similarity_threshold,
             candidates_per_practice=self._mapping_candidates_per_practice,
+            max_practices_per_chunk=self._mapping_max_practices_per_chunk,
+            existing_claims_per_chunk=existing_claims_per_chunk,
         )
 
         created: list[EvidenceLink] = []

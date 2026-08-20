@@ -78,6 +78,8 @@ def find_mapping_candidates(
     vector_repository: VectorRepositoryProtocol,
     similarity_threshold: float,
     candidates_per_practice: int,
+    max_practices_per_chunk: int = 0,
+    existing_claims_per_chunk: dict[str, int] | None = None,
 ) -> list[MappingProposal]:
     """Pure function over its inputs (no assessment/repository lookups),
     so this is unit-testable without a real database or a real
@@ -122,4 +124,73 @@ def find_mapping_candidates(
                     chunk_text=result["text"],
                 )
             )
-    return proposals
+    return _apply_chunk_competition(
+        proposals, max_practices_per_chunk, existing_claims_per_chunk or {}
+    )
+
+
+def _apply_chunk_competition(
+    proposals: list[MappingProposal],
+    max_practices_per_chunk: int,
+    existing_claims_per_chunk: dict[str, int],
+) -> list[MappingProposal]:
+    """Keep only the strongest practices claiming each chunk (ADR-0072).
+
+    Selection above is per-practice and absolute: every uncovered
+    practice takes its single best chunk and proposes it if the
+    similarity clears a fixed bar. ADR-0071 measured what that produces
+    -- one proposal for essentially every uncovered practice, at any
+    corpus size, because domain-general security vocabulary means
+    *something* always clears the bar. The false-positive count was a
+    property of the framework rather than of the evidence.
+
+    This asks the question the other direction. A chunk is a paragraph
+    or two; it can legitimately evidence a few related practices, and it
+    cannot evidence forty. On the AQS fixture one chunk was proposed
+    against 44 different practices, and 53 chunks absorbed all 354
+    proposals.
+
+    `existing_claims_per_chunk` is what makes the cap a real limit rather
+    than a per-call one. Without it, re-running propose-mappings would
+    exclude the practices that already hold proposals (they count as
+    covered) and hand their slots to the next three -- so an operator
+    could restore the old flood a tier at a time just by clicking the
+    button repeatedly, and the second call would stop being a no-op. The
+    cap is a property of how many live claims a chunk has, not of how
+    many this call is making.
+
+    Rejected links do not count, mirroring the caller's own
+    already-covered rule: a reviewer rejecting a claim frees that slot,
+    and the next-best practice becomes eligible on a subsequent run.
+    That is the same reviewer saying "not this practice for this
+    evidence", which is a reason to offer the next candidate rather than
+    to keep the slot filled.
+
+    Ties break on practice_id so two runs over the same corpus produce
+    the same proposals -- a reviewer re-running this should not get a
+    different queue.
+
+    max_practices_per_chunk <= 0 disables the cap and returns the input
+    unchanged, which is exactly the pre-ADR-0072 behaviour.
+    """
+    if max_practices_per_chunk <= 0:
+        return proposals
+
+    by_chunk: dict[str | None, list[MappingProposal]] = {}
+    for proposal in proposals:
+        by_chunk.setdefault(proposal.chunk_id, []).append(proposal)
+
+    kept: list[MappingProposal] = []
+    for chunk_id, contenders in by_chunk.items():
+        remaining = max_practices_per_chunk - existing_claims_per_chunk.get(chunk_id or "", 0)
+        if remaining <= 0:
+            continue
+        contenders.sort(key=lambda p: (-p.confidence, p.practice_id))
+        kept.extend(contenders[:remaining])
+
+    # Restored to the input's order rather than grouped by chunk: the
+    # caller persists these in order, and a reviewer reads the queue
+    # practice by practice.
+    order = {id(p): i for i, p in enumerate(proposals)}
+    kept.sort(key=lambda p: order[id(p)])
+    return kept

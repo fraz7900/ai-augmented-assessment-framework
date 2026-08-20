@@ -130,6 +130,25 @@ class Settings(BaseSettings):
     # principled cutoff, a starting point documented as such.
     mapping_similarity_threshold: float = 0.55
     mapping_candidates_per_practice: int = 1
+    # Chunk-side competition (ADR-0072). The two settings above ask, per
+    # practice, "what is my best chunk and does it clear a fixed bar?" --
+    # a question that almost always has an answer, which is why the
+    # engine proposed for every uncovered practice regardless of corpus
+    # size (ADR-0071). This asks the other direction: how many practices
+    # may claim the SAME chunk as their evidence.
+    #
+    # A chunk is a paragraph or two. It can genuinely evidence a handful
+    # of related practices -- adjacent MILs in one objective, say -- and
+    # that is the cross-framework reuse this product is built around. It
+    # cannot evidence forty. Measured on the AQS fixture, one chunk was
+    # proposed against 44 different practices.
+    #
+    # 3 is chosen from what a paragraph plausibly supports, NOT from what
+    # scored best: a cap of 1 measured better on that fixture and was
+    # rejected, because every document in it states exactly one practice,
+    # so it cannot see the recall cost of capping lower (see ADR-0072).
+    # 0 disables the cap and restores pre-ADR-0072 behaviour exactly.
+    mapping_max_practices_per_chunk: int = 3
 
     # Retrieval-only chat (see services/chat_service.py and ADR-0014).
     # Cosine-similarity threshold, calibrated empirically against real

@@ -200,12 +200,21 @@ def _reset_dependencies(settings: Settings) -> None:
     dependencies.get_settings = lambda: settings
 
 
-def run_measurement(distractor_count: int = 0) -> dict:
+def run_measurement(distractor_count: int = 0, max_practices_per_chunk: int | None = None) -> dict:
+    """`max_practices_per_chunk` overrides the deployed default so a run
+    can measure the engine before and after ADR-0072's chunk-side
+    competition without editing configuration. None uses the default."""
     corpus = build_corpus(distractor_count)
     started = time.monotonic()
     tmp_dir = Path(tempfile.mkdtemp(prefix="c2m2-aqs-measurement-"))
+    overrides = (
+        {} if max_practices_per_chunk is None
+        else {"mapping_max_practices_per_chunk": max_practices_per_chunk}
+    )
     settings = Settings(
-        vector_store_dir=tmp_dir / "lancedb", assessments_db_path=tmp_dir / "assessments.db"
+        vector_store_dir=tmp_dir / "lancedb",
+        assessments_db_path=tmp_dir / "assessments.db",
+        **overrides,
     )
     _reset_dependencies(settings)
 
@@ -284,6 +293,7 @@ def run_measurement(distractor_count: int = 0) -> dict:
         "corpus_size": len(corpus),
         "labelled_positives": len(_CORPUS),
         "distractors": distractor_count,
+        "max_practices_per_chunk": settings.mapping_max_practices_per_chunk,
         "elapsed_seconds": round(time.monotonic() - started, 1),
         "corpus_note": (
             f"{len(_CORPUS)} hand-labelled documents plus {distractor_count} synthetic "
@@ -322,7 +332,7 @@ def run_sweep(distractor_counts: list[int]) -> dict:
 
 def _print_table(sweep: dict) -> None:
     print()
-    print(f"{'docs':>6}  {'distractors':>11}  {'proposals':>9}  {'TP':>4}  {'FP':>5}  "
+    print(f"{'docs':>6}  {'cap':>4}  {'proposals':>9}  {'TP':>4}  {'FP':>5}  "
           f"{'precision':>9}  {'recall':>7}  {'secs':>6}")
     for run in sweep["runs"]:
         pr = run["evidence_precision_recall"]
@@ -330,7 +340,7 @@ def _print_table(sweep: dict) -> None:
         precision = "n/a" if pr["precision"] is None else f"{pr['precision']:.4f}"
         recall = "n/a" if pr["recall"] is None else f"{pr['recall']:.3f}"
         print(
-            f"{run['corpus_size']:>6}  {run['distractors']:>11}  {proposals:>9}  "
+            f"{run['corpus_size']:>6}  {run['max_practices_per_chunk']:>4}  {proposals:>9}  "
             f"{pr['true_positives']:>4}  {pr['false_positives']:>5}  {precision:>9}  "
             f"{recall:>7}  {run['elapsed_seconds']:>6.0f}"
         )
@@ -344,6 +354,17 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, default=None)
     parser.add_argument(
+        "--max-practices-per-chunk",
+        type=int,
+        nargs="+",
+        default=[None],
+        help=(
+            "Override ADR-0072's chunk-side cap. Pass several to compare, e.g. "
+            "--max-practices-per-chunk 0 3 to measure the engine before and after. "
+            "0 disables the cap (pre-ADR-0072 behaviour)."
+        ),
+    )
+    parser.add_argument(
         "--distractors",
         type=int,
         nargs="+",
@@ -355,11 +376,17 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    if len(args.distractors) == 1:
-        result = run_measurement(args.distractors[0])
+    caps = args.max_practices_per_chunk
+    if len(args.distractors) == 1 and len(caps) == 1:
+        result = run_measurement(args.distractors[0], caps[0])
         print(json.dumps(result, indent=2))
     else:
-        result = run_sweep(args.distractors)
+        result = {
+            "runs": [
+                run_measurement(count, cap) for cap in caps for count in args.distractors
+            ],
+            "reading": run_sweep.__doc__ or "",
+        }
         print(json.dumps(result, indent=2))
         _print_table(result)
 
