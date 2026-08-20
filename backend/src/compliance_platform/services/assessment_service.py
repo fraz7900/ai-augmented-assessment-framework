@@ -60,6 +60,7 @@ from compliance_platform.models.schemas import (
     BulkReviewSkip,
     DocumentDetail,
     DocumentSummary,
+    EvidenceLinkView,
     FinalizationBlocker,
     FinalizationBlockerCategory,
     FinalizationReadiness,
@@ -1136,6 +1137,52 @@ class AssessmentService:
             links = [link for link in links if link.practice_reference in practice_ids]
 
         return links
+
+    def evidence_view_for_assessment(
+        self,
+        assessment_id: str,
+        *,
+        review_status: EvidenceReviewStatus | None = None,
+        domain: str | None = None,
+        min_confidence: float | None = None,
+        max_confidence: float | None = None,
+    ) -> list[EvidenceLinkView]:
+        """The review queue, with each link's text provenance (ADR-0078).
+
+        The same filtering as evidence_for_assessment, which this wraps
+        rather than reimplements, plus one resolution step. Provenance
+        is read in bulk -- one vector-store call per cited document, not
+        one per link -- the same shape the dashboard uses (ADR-0076).
+        The queue is the screen most likely to hold hundreds of rows, so
+        a per-row lookup here would be the worst place to put one.
+        """
+        links = self.evidence_for_assessment(
+            assessment_id,
+            review_status=review_status,
+            domain=domain,
+            min_confidence=min_confidence,
+            max_confidence=max_confidence,
+        )
+        if not links:
+            return []
+
+        chunk_provenance: dict[str, bool | None] = {}
+        parse_status_by_document: dict[str, str | None] = {}
+        for document_id in {link.document_id for link in links}:
+            document = self._assessments.get_document(document_id)
+            parse_status_by_document[document_id] = getattr(document, "parse_status", None)
+            for row in self._vectors.chunks_for_document(document_id):
+                chunk_provenance[row["chunk_id"]] = row.get("is_ocr_derived")
+
+        views: list[EvidenceLinkView] = []
+        for link in links:
+            view = EvidenceLinkView.model_validate(link)
+            view.text_provenance = resolve_text_provenance(
+                chunk_provenance.get(link.chunk_id) if link.chunk_id is not None else None,
+                parse_status_by_document.get(link.document_id),
+            )
+            views.append(view)
+        return views
 
     def _framework_for_assessment(self, assessment_id: str) -> FrameworkDefinition | None:
         """The pinned framework definition, or None when no registry is

@@ -314,11 +314,16 @@ export interface paths {
         };
         /**
          * List Evidence
-         * @description This assessment's evidence links, optionally narrowed (ADR-0065).
+         * @description This assessment's evidence links, optionally narrowed (ADR-0065),
+         *     each carrying where its text came from (ADR-0078).
          *
          *     Every parameter is a view filter. None of them changes a record, and
-         *     the response shape is unchanged from the unfiltered call, so an
-         *     existing caller that passes nothing sees exactly what it saw before.
+         *     the filtered response has the same shape as the unfiltered one.
+         *
+         *     Returns EvidenceLinkView rather than the stored EvidenceLink: every
+         *     field of the row, plus a resolved `text_provenance`. Provenance is
+         *     computed from the vector store at read time rather than stored on
+         *     the row, so it cannot drift from the chunk that owns it.
          */
         get: operations["list_evidence_assessments__assessment_id__evidence_get"];
         put?: never;
@@ -453,6 +458,32 @@ export interface paths {
          *     schema.
          */
         get: operations["get_dashboard_assessments__assessment_id__dashboard_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/assessments/{assessment_id}/report-currency": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Check Report Currency
+         * @description Answer whether a downloaded export still matches the record
+         *     (ADR-0077, R-21).
+         *
+         *     Read-only. Exports are not persisted (ADR-0013), so the platform
+         *     cannot know which snapshots are in circulation and cannot chase one
+         *     -- but the holder of a document can ask about the one in front of
+         *     them, which is the half of the problem that is actually solvable.
+         */
+        get: operations["check_report_currency_assessments__assessment_id__report_currency_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1459,6 +1490,59 @@ export interface components {
             reviewed_by?: string | null;
         };
         /**
+         * EvidenceLinkView
+         * @description An evidence link as the review queue reads it (ADR-0078).
+         *
+         *     Every field of the stored EvidenceLink, plus where its text came
+         *     from. ADR-0074 resolved provenance per passage and put it in chat;
+         *     ADR-0076 carried it into the dashboard and the exports; both
+         *     disclosed that the review queue -- the one screen where a person
+         *     decides what to do about a proposal -- still showed nothing.
+         *
+         *     A view rather than a field on the table model: provenance is
+         *     computed from the vector store at read time and is not a property of
+         *     the row. Storing it there would duplicate a fact the chunk already
+         *     owns and let the two disagree.
+         *
+         *     Flat rather than nested so callers read it exactly as they read the
+         *     link today. The cost of that is drift -- a new EvidenceLink field
+         *     would be silently absent here -- which is why
+         *     test_evidence_link_view_covers_every_stored_field exists.
+         */
+        EvidenceLinkView: {
+            /** Id */
+            id: string;
+            /** Assessment Id */
+            assessment_id: string;
+            /** Document Id */
+            document_id: string;
+            /** Chunk Id */
+            chunk_id: string | null;
+            /** Practice Reference */
+            practice_reference: string;
+            /** Original Practice Reference */
+            original_practice_reference: string | null;
+            /** Note */
+            note: string | null;
+            source: components["schemas"]["EvidenceSource"];
+            review_status: components["schemas"]["EvidenceReviewStatus"];
+            /** Confidence */
+            confidence: number | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Reviewed At */
+            reviewed_at: string | null;
+            /** Created By */
+            created_by: string | null;
+            /** Reviewed By */
+            reviewed_by: string | null;
+            /** @default unknown */
+            text_provenance: components["schemas"]["TextProvenance"];
+        };
+        /**
          * EvidenceQueueSummary
          * @description What the review queue contains, before any filter is applied
          *     (ADR-0065).
@@ -1989,6 +2073,40 @@ export interface components {
             /** Name */
             name: string;
         };
+        /**
+         * ReportCurrency
+         * @description The answer to "is the PDF in my hand still accurate?" (ADR-0077).
+         *
+         *     `changes` states what the record says NOW rather than a diff: a
+         *     digest is one-way, so the reader's original figures cannot be
+         *     recovered, and producing a change list would mean inventing one.
+         */
+        ReportCurrency: {
+            status: components["schemas"]["ReportCurrencyStatus"];
+            /** Claimed Digest */
+            claimed_digest?: string | null;
+            /** Current Digest */
+            current_digest: string;
+            /** Payload Version */
+            payload_version: string;
+            /**
+             * Changes
+             * @default []
+             */
+            changes: string[];
+        };
+        /**
+         * ReportCurrencyStatus
+         * @description Whether a downloaded export still matches the record (ADR-0077).
+         *
+         *     Three values, and UNVERIFIABLE is not SUPERSEDED. A report this
+         *     build cannot check is not evidence that anything changed, and
+         *     reporting one as out of date would raise a false alarm about a
+         *     document that may be perfectly current -- the same distinction
+         *     ADR-0060 draws between `altered` and `unverifiable`.
+         * @enum {string}
+         */
+        ReportCurrencyStatus: "current" | "superseded" | "unverifiable";
         /** RequestMoreEvidenceRequest */
         RequestMoreEvidenceRequest: {
             /** Note */
@@ -2752,7 +2870,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["EvidenceLink"][];
+                    "application/json": components["schemas"]["EvidenceLinkView"][];
                 };
             };
             /** @description Validation Error */
@@ -2953,6 +3071,40 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DashboardReport"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    check_report_currency_assessments__assessment_id__report_currency_get: {
+        parameters: {
+            query?: {
+                /** @description The report digest printed on the export being checked. Omitted or unrecognised returns 'unverifiable' rather than 'superseded' -- a report this build cannot check is not evidence that anything changed. */
+                digest?: string | null;
+            };
+            header?: never;
+            path: {
+                assessment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportCurrency"];
                 };
             };
             /** @description Validation Error */

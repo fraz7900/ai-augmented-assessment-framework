@@ -20,6 +20,7 @@ import AttachDocumentControl from '../../components/AttachDocumentControl'
 import DetachDocumentButton from '../../components/DetachDocumentButton'
 import DocumentPicker from '../../components/DocumentPicker'
 import EvidenceSourceBadge from '../../components/EvidenceSourceBadge'
+import TextProvenanceBadge from '../../components/TextProvenanceBadge'
 import EvidenceReviewControls from '../../components/EvidenceReviewControls'
 import ConfidenceMeter from '../../components/ConfidenceMeter'
 import EvidenceQueueFilters from '../../components/EvidenceQueueFilters'
@@ -28,7 +29,7 @@ import EquivalentPractice from '../../components/EquivalentPractice'
 import SupersededDocumentBadge from '../../components/SupersededDocumentBadge'
 import type { AssessmentTabContext } from '../AssessmentDetailPage'
 import type { EvidenceFilters } from '../../api/assessments'
-import type { EvidenceLink } from '../../api/types'
+import type { EvidenceLinkView } from '../../api/types'
 
 export default function EvidenceTab() {
   const { assessmentId, assessment } = useOutletContext<AssessmentTabContext>()
@@ -105,7 +106,7 @@ export default function EvidenceTab() {
     )
   }
 
-  const renderLink = (link: EvidenceLink) => {
+  const renderLink = (link: EvidenceLinkView) => {
     const practice = findPractice(framework, link.practice_reference)
     const isSelectable = link.review_status === 'pending' && !isFinalized
     return (
@@ -127,6 +128,12 @@ export default function EvidenceTab() {
             <span className="text-sm text-slate-800">{practice?.text ?? '(practice not found in framework)'}</span>
           </div>
           <div className="flex items-center gap-2">
+            {/* Where this evidence's text came from (ADR-0078). The last
+                surface where a reviewer could meet OCR'd evidence
+                untold — and the one where they decide what to do about
+                it, which is why it belongs beside the decision rather
+                than only on the dashboard that summarises it later. */}
+            <TextProvenanceBadge provenance={link.text_provenance} />
             <SupersededDocumentBadge documentId={link.document_id} />
             <EvidenceSourceBadge source={link.source} reviewStatus={link.review_status} />
           </div>

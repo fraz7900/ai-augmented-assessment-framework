@@ -417,3 +417,64 @@ def test_filtering_never_changes_a_record(populated: tuple[TestClient, str]) -> 
 
     after = client.get(f"/assessments/{assessment_id}/evidence").json()
     assert before == after
+
+
+# ---- Provenance in the review queue (ADR-0078) ----
+#
+# ADR-0074 resolved provenance per passage and put it in chat; ADR-0076
+# carried it into the dashboard and the exports. Both disclosed that the
+# review queue still showed nothing -- the one screen where a person
+# decides what to do about a proposal, and the last surface where a
+# reviewer could meet OCR'd evidence without being told.
+
+
+def test_the_view_covers_every_stored_field() -> None:
+    """The cost of a flat view is drift: a new EvidenceLink field would
+    be silently missing from the queue's response. This fails loudly
+    instead."""
+    from compliance_platform.models.assessment import EvidenceLink as StoredLink
+    from compliance_platform.models.schemas import EvidenceLinkView
+
+    stored = set(StoredLink.model_fields)
+    view = set(EvidenceLinkView.model_fields)
+
+    assert not stored - view, f"EvidenceLinkView is missing stored fields: {sorted(stored - view)}"
+    assert view - stored == {"text_provenance"}
+
+
+def test_every_link_carries_a_resolved_provenance(populated: tuple[TestClient, str]) -> None:
+    client, assessment_id = populated
+
+    links = client.get(f"/assessments/{assessment_id}/evidence").json()
+
+    assert links
+    assert all("text_provenance" in link for link in links)
+    # A .txt document has no pages, so per-chunk provenance cannot be
+    # determined -- but the document parsed cleanly, so the text really
+    # is exact and saying so is a claim the record supports.
+    assert {link["text_provenance"] for link in links} == {"exact"}
+
+
+def test_provenance_survives_filtering(populated: tuple[TestClient, str]) -> None:
+    """The queue is read through filters (ADR-0065). Provenance that
+    appeared only on the unfiltered call would be absent exactly when a
+    reviewer had narrowed to the rows they intend to act on."""
+    client, assessment_id = populated
+
+    filtered = client.get(
+        f"/assessments/{assessment_id}/evidence?review_status=pending"
+    ).json()
+
+    assert filtered
+    assert all("text_provenance" in link for link in filtered)
+
+
+def test_the_queue_still_returns_every_stored_field(populated: tuple[TestClient, str]) -> None:
+    """The response is a view now, not the row. A caller reading
+    `confidence` or `reviewed_by` off it must still find them."""
+    client, assessment_id = populated
+
+    links = client.get(f"/assessments/{assessment_id}/evidence").json()
+
+    for field in ("id", "practice_reference", "review_status", "source", "confidence", "chunk_id"):
+        assert field in links[0], f"{field} missing from the queue response"
