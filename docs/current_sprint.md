@@ -3,7 +3,9 @@ Objective: a closing pass. Find anything genuinely critical and fix it, bring th
 back to the truth, and consolidate what this platform deliberately does not do into one place a
 reader can actually finish. No new product features: the point of this sprint is that someone
 picking the repository up should be able to trust what it says about itself.
-Status: **T1 and T2 are on PR #32.**
+Status: **Sprint 30 is closed.** T1 and T2 merged in PR #32; the follow-up in PR #33 stamps this
+sprint into the snapshot itself, since a status document that stops one sprint short of the present
+is the same defect this sprint existed to fix, only smaller.
 Sprint 29 closed with both tranches merged in `4f98557`: the oldest open risk (ADR-0082) and one
 backup command worth scheduling (ADR-0083).
 The audit, and what it found. Run before deciding what to fix, so the answer would be evidence rather
