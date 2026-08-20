@@ -264,3 +264,64 @@ def test_the_verified_database_is_never_written_to(tmp_path: Path) -> None:
     assert sqlite3.connect(root / "assessments.db").execute("PRAGMA integrity_check").fetchone()[
         0
     ] == "ok"
+
+
+# ---- One command worth scheduling (ADR-0083) ----
+#
+# ADR-0079 ended by saying "what this offers is a command worth
+# scheduling" and did not provide one, so operating this well meant
+# knowing to run three scripts in the right order. The order carries the
+# whole safety property, so it is worth a test rather than a paragraph.
+
+SCHEDULED = REPO_ROOT / "scripts" / "scheduled-backup.sh"
+
+
+class TestScheduledBackup:
+    def test_it_verifies_before_it_prunes(self) -> None:
+        """The ordering IS the safety property. Backing up and then
+        deleting older copies without checking the new one is how a
+        directory of good backups becomes a directory of one bad one."""
+        script = SCHEDULED.read_text("utf-8")
+
+        # Anchored on the invocations, not on any mention: both scripts
+        # are named in the header comment too, and the first draft of
+        # this test compared a comment against a command.
+        verify_at = script.index('"$SCRIPTS/verify-backup.sh"')
+        prune_at = script.index('"$SCRIPTS/prune-backups.sh"')
+
+        assert verify_at < prune_at, "pruning must not precede verification"
+
+    def test_a_failed_verification_stops_before_pruning(self) -> None:
+        """And says why, because the operator reading a cron log at 2am
+        needs to know the old archives are still there."""
+        script = SCHEDULED.read_text("utf-8")
+
+        assert "NOTHING has been pruned" in script
+        assert "exit 1" in script
+
+    def test_keep_is_still_required(self) -> None:
+        """Passed through to prune-backups.sh, which refuses to guess a
+        retention count. A wrapper must not quietly supply one."""
+        result = _run(SCHEDULED)
+
+        assert result.returncode == 2
+        assert "--keep N is required" in result.stderr
+
+    def test_it_documents_the_host_cron_line(self) -> None:
+        """A command worth scheduling is worth showing how to schedule."""
+        script = SCHEDULED.read_text("utf-8")
+
+        assert "cron" in script.lower()
+        assert "scheduled-backup.sh --keep" in script
+
+    def test_it_explains_why_this_is_not_a_container(self) -> None:
+        """The obvious implementation -- a scheduler service in the
+        compose stack -- needs the docker socket mounted, which is
+        root-equivalent access in a long-running service on a product
+        whose posture is that the deployment must not be exposed. That
+        reasoning has to survive in the file, or someone will helpfully
+        containerise it."""
+        script = SCHEDULED.read_text("utf-8")
+
+        assert "docker socket" in script
+        assert "root-equivalent" in script
