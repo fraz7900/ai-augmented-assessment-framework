@@ -5,7 +5,8 @@ the precision measurement the pilot readiness audit recommended in Sprint 17, at
 can actually answer whether 0.012 was an artifact of five documents (T2). Deliberately no change to
 the mapping engine itself: measuring before optimising is this project's own rule and the reason
 that finding was never acted on.
-Status: **T1 merged as `edfc0b6` (PR #21), T2 as `cb1eef7` (PR #22). T3 is on PR #23.**
+Status: **T1 `edfc0b6` (PR #21), T2 `cb1eef7` (PR #22), T3 `36bd9ce` (PR #23) are merged. T4 is
+on PR #24.**
 Sprint 23 closed with five tranches merged, all from one tester's report: `9436460` filters,
 `336a952` domain completion chart, `07a41a5` bulk reject, `d67968f` review-progress bar, `76e7479`
 exports carrying both visuals and the MIL-gate sentence. Two of those existed only because the report
@@ -99,6 +100,32 @@ propose repeatedly would rebuild the old flood a tier at a time. The existing en
 it — a second propose call stopped being the no-op it has always been. The cap now counts all live
 claims on a chunk. That is the second time in two sprints a test written for another purpose has
 found a real defect.
+T4 — does the concentration survive real documents? (ADR-0073, accepted). A fair objection to T3: its
+evidence came from a corpus padded with one-paragraph synthetic distractors, so chunk concentration
+might be an artifact of short uniform text rather than a property of the engine. Two things had to be
+said before anything could be measured. Precision and recall cannot be computed on a real corpus here
+— they need an expert-labelled answer key and no real corpus has one. And real evidence cannot enter
+this repository at all: `docs/testing-with-real-documents.md` is explicit that the repo is public and
+the working copy is cloud-synced, so real documents belong only in a Docker volume on the machine
+that owns them. That is a constraint, not a gap to route around.
+T4, what is measurable without labels. Chunk concentration needs no ground truth — it is a property
+of the proposals alone, and it is exactly the mechanism ADR-0071 identified and ADR-0072 acts on. The
+corpus is what `data/sample_evidence/` legitimately holds, including one genuinely real document:
+`nerc_cip_003_8.pdf`, a public NERC CIP standard nobody wrote for this project, which alone produces
+107 chunks. On 128 chunks: the old engine made **355 proposals over just 65 distinct chunks with one
+chunk claimed by 56 practices**; with the cap, 149 proposals over the same 65 chunks.
+T4, the answer. Concentration is worse on real documents, not better — 56 practices on one chunk
+against 44 on the synthetic corpus. A long standards PDF contains paragraphs of general governance
+language that look plausible against most of a framework, and they absorb proposals exactly as the
+synthetic ones did. The proposal count is 355 again, the same figure ADR-0071 measured at 5 and at 505
+documents, on a completely different corpus of real prose — that structural finding reproduced
+independently. The cap's default of 3 is left unchanged: this measurement gives no reason to move it,
+and moving it on a corpus with no answer key would be picking a number to flatter a statistic.
+Found while doing T4, not reported by anyone. `scripts/measure_aqs.py` wrote its retained originals
+(ADR-0056) into the repository's own `data/raw` rather than its temp directory, so T2 and T3's corpus
+sweeps left **2,320 files** behind in a cloud-synced working copy. Gitignored, so never committed,
+and still exactly what `docs/testing-with-real-documents.md` exists to prevent. Cleaned up and the
+script fixed.
 Still open and not claimed here, unchanged. R-9, no reproducible environment bootstrap, rated High
 likelihood and already occurred once. R-33, OCR-recovered text is approximate and nothing downstream
 flags a citation drawn from an OCR'd page. R-34, ADR-0057's scoring correction can lower a number
