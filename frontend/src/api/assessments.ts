@@ -7,6 +7,7 @@ import type {
   CreateAssessmentRequest,
   DashboardReport,
   EvidenceLink,
+  EvidenceLinkView,
   BulkReviewResult,
   EvidenceQueueSummary,
   EvidenceRequest,
@@ -144,7 +145,10 @@ export function useEvidenceLinks(
   return useQuery({
     queryKey: keys.evidence(assessmentId ?? '', filters),
     queryFn: () =>
-      apiClient.get<EvidenceLink[]>(
+      // EvidenceLinkView, not EvidenceLink: every stored field plus a
+      // resolved text_provenance (ADR-0078), computed at read time
+      // rather than stored so it cannot drift from the chunk.
+      apiClient.get<EvidenceLinkView[]>(
         `/assessments/${assessmentId}/evidence${evidenceQueryString(filters)}`,
       ),
     enabled: !!assessmentId,

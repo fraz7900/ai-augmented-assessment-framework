@@ -46,6 +46,7 @@ from compliance_platform.models.sanitization import SanitizationPreview
 from compliance_platform.models.schemas import (
     BulkReviewResult,
     DocumentSummary,
+    EvidenceLinkView,
     FinalizationReadiness,
     SealVerification,
 )
@@ -259,7 +260,7 @@ def link_evidence(
     )
 
 
-@router.get("/{assessment_id}/evidence", response_model=list[EvidenceLink])
+@router.get("/{assessment_id}/evidence", response_model=list[EvidenceLinkView])
 def list_evidence(
     assessment_id: str,
     review_status: EvidenceReviewStatus | None = Query(
@@ -285,14 +286,19 @@ def list_evidence(
     ),
     max_confidence: float | None = Query(default=None, ge=0.0, le=1.0),
     service: AssessmentService = Depends(get_assessment_service),
-) -> list[EvidenceLink]:
-    """This assessment's evidence links, optionally narrowed (ADR-0065).
+) -> list[EvidenceLinkView]:
+    """This assessment's evidence links, optionally narrowed (ADR-0065),
+    each carrying where its text came from (ADR-0078).
 
     Every parameter is a view filter. None of them changes a record, and
-    the response shape is unchanged from the unfiltered call, so an
-    existing caller that passes nothing sees exactly what it saw before.
+    the filtered response has the same shape as the unfiltered one.
+
+    Returns EvidenceLinkView rather than the stored EvidenceLink: every
+    field of the row, plus a resolved `text_provenance`. Provenance is
+    computed from the vector store at read time rather than stored on
+    the row, so it cannot drift from the chunk that owns it.
     """
-    return service.evidence_for_assessment(
+    return service.evidence_view_for_assessment(
         assessment_id,
         review_status=review_status,
         domain=domain,

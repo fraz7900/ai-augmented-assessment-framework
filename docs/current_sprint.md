@@ -1,84 +1,73 @@
-Current sprint: Sprint 26 — what the platform owes someone already holding something it produced
-Objective: two disclosed gaps that share a shape. A reviewer holding a PDF this platform generated
-cannot tell that a quoted passage was recognised rather than read (T1, finishing R-33), and cannot
-tell whether the numbers in it have since changed (T2, R-21). Both are about an artifact that has
-left the building and the person relying on it. No new frameworks, no auth, no notification
-infrastructure — R-34's own register entry says to revisit that only if this platform gains
-point-in-time or recurring reporting, and it has not.
-Status: **T1 merged as `3d93d62` (PR #27). T2 is on PR #28.**
-Sprint 25 closed with both tranches merged: `67570ec` OCR provenance per passage (ADR-0074) and
-`b38c5df` a reproducible bootstrap and a machine that can be questioned (ADR-0075).
-T1 — the OCR warning reaches the document (ADR-0076, accepted). ADR-0074 made provenance per-passage
-and surfaced it in chat, then disclosed in its own consequences that the exports carried nothing.
-That is the same screen/document divergence ADR-0069 closed one sprint earlier for the domain chart,
-reopened in a narrower form, and the pattern is worth naming rather than repeating quietly: this
-project keeps building a thing on screen, disclosing that the export lacks it, and closing the gap a
-sprint later.
-T1, why the export is where it matters most. An export is the artifact that LEAVES — filed with an
-auditor, attached to a board pack, read six months later by someone who cannot ask the UI a question.
-A quotation whose approximation warning exists only in a browser tab is missing exactly when it is
-load-bearing.
-T1, what it does. `EvidenceCitation` gains `text_provenance`, and the dashboard's gap list, the PDF
-and the XLSX all render it. Resolved per CHUNK rather than per document, because falling back to the
-document flags every citation from a mostly-exact one — the failure SUCCESS_PARTIAL_OCR's docstring
-names and ADR-0074 already refused once. Looked up in bulk by the caller so `build_dashboard` stays
-pure over its inputs, exactly as `superseded_document_ids` already works (ADR-0050): one read per
-cited document, never one per citation. `exact` renders nothing, in the export as on screen.
-What T1 actually took. Two test assumptions were wrong before they were right. A manual evidence link
-is created ACCEPTED, so the first end-to-end attempt tried to reject one to make its practice a gap
-and silently got a 409 — the same one-shot review rule bulk reject ran into in Sprint 23 — leaving
-the practice met and the citation absent. Planting a pending AI proposal is both the state that
-produces a citation and the realistic one. And the report route is `/report/pdf`, not `/report.pdf`.
-Neither was caught by reading; both by a test asserting on the resolved output.
-T1, what it is not. The **evidence review queue still shows no provenance**: it lists EvidenceLink
-rows, which are persisted SQLModel objects returned directly, so a resolved field there needs a
-response wrapper and a per-link chunk lookup. Disclosed rather than quietly skipped — it is the last
-surface where a reviewer can meet OCR'd evidence without being told. R-33 stays narrowed, not closed.
-The frontend runner, measured again this sprint. Three consecutive full runs on unchanged code gave
-89, 75 and 112 passing with 8, 10 and 7 files lost to the forks-worker timeout and **zero assertion
-failures** in any of them. `./scripts/doctor.sh` (ADR-0075) reported the environment sound each time,
-including `npm ls` confirming a complete tree — so this is the flaky case that ADR-0075 explicitly
-said the doctor detects nothing about, not the incomplete-install case it does. A reinstall via
-`./scripts/bootstrap.sh` moved it from 75 to 112 and did not fix it, which is what AGENTS.md already
-records. CI is the authority and settled it.
-T2 — an export can be asked whether it is still true (ADR-0077, accepted). R-21 since Sprint 7: a
-downloaded PDF is a point-in-time snapshot and nothing stops a board acting on a stale one. It is a
-direct consequence of ADR-0013 not persisting exports, so the platform has no record of what is in
-circulation and cannot chase a document. But the person holding one can ask, and that half is
-solvable. Every export now prints a digest of the figures it was generated from, and
-`GET /assessments/{id}/report-currency?digest=…` answers current / superseded / unverifiable.
-T2, and why this is not the seal. ADR-0060 asks "has this finalized record been altered?" — evidence
-of tampering on something that must not change, where a mismatch is a finding. This asks "have the
-numbers moved since this page was printed?" on a living draft that is SUPPOSED to change, where a
-mismatch is normal. Same technique, opposite subject; conflating them would make ordinary progress
-look like tampering or the reverse. `unverifiable` is likewise not `superseded`: a report this build
-cannot check is not evidence anything changed, which is ADR-0060's own distinction reapplied.
-T2, the payload is a chosen subset. DashboardReport has gained fields in three of the last four
-sprints, so digesting all of it would make every previously issued export report itself superseded
-the moment an unrelated field was added — worse than useless, because it teaches people to ignore the
-answer. The payload is what a reader acts on: scores, headline figures, review counts, and WHICH
-practices are unmet rather than how many, since a gap closing while another opens is a real change
-that a count would call no change. Versioned as v1 beside the digest, for the reason ADR-0060
-versions its seal.
-What T2 could not honestly do, and nearly did. The first draft produced a "what changed" list by
-diffing the current payload against an empty one — which would have emitted "ACCESS score changed
-from None to 1.0" for every field, a fabricated diff wearing the costume of a real one. A digest is
-one-way and the reader's original figures are simply not recoverable from it. So a superseded answer
-states what the record says NOW and tells the holder to compare against their printed copy, with that
-limitation stated in the response body rather than only in this file.
-T2, details that earned their tests. Both formats print the same digest from the one DashboardReport
-they are rendered from, because a reader told their spreadsheet is stale and their PDF is not would
-rightly stop believing either. The endpoint to call is printed on the page itself, since the page is
-what leaves the building and its reader may never have seen the UI. And it notifies nobody: R-34's
-register entry says to revisit push notification only if this platform gains point-in-time or
-recurring reporting, and it has not.
-Still open and not claimed here, unchanged. R-9 is narrowed but the interpreters still come from the
+Current sprint: Sprint 27 — finish telling reviewers where text came from, and make a backup provable
+Objective: two independent tranches, both closing residuals this project has carried and disclosed
+rather than hidden. R-33's last surface: the evidence review queue, the one screen where a reviewer
+DECIDES about a proposal, still showed nothing about whether its text was recognised or read (T1).
+And R-38's residual: backups exist and are checksummed, but a checksum proves the bytes, not that the
+archive contains a database that opens (T2). No new frameworks, no auth, no scheduling — where a
+timer lives is a deployment question this repository cannot answer for someone else's machine.
+Status: **T1 and T2 are on PR #29.**
+Sprint 26 closed with both tranches merged: `3d93d62` the OCR warning reaching the exports (ADR-0076)
+and `d3004d5` an export that can be asked whether it is still true (ADR-0077).
+T1 — provenance in the review queue (ADR-0078, accepted). R-33 has now been narrowed three times, and
+this surface was left for last, which is worth stating rather than glossing. Chat is where a reviewer
+READS evidence; the dashboard and exports are where they REPORT it. The queue is where they DECIDE,
+and a reviewer accepting a proposal quoted from an OCR'd page had no way to know the wording was
+approximate at the moment the decision was recorded.
+T1, the shape. `GET /assessments/{id}/evidence` now returns `EvidenceLinkView`: every field of the
+stored link plus a resolved `text_provenance`. A view rather than a column, because provenance is
+computed from the vector store at read time and storing it on the row would duplicate a fact the
+chunk already owns and let the two disagree. Flat rather than nested so callers read it exactly as
+before — the cost of that is drift, so a test asserts the view covers every stored field and that
+`text_provenance` is the only addition. Resolved in bulk, one read per cited document, because the
+queue is the screen most likely to hold hundreds of rows and therefore the worst place for a per-row
+lookup. Provenance survives filtering (ADR-0065), tested directly: a field present only on the
+unfiltered call would be missing exactly when a reviewer had narrowed to the rows they mean to act on.
+T2 — backups you can prove (ADR-0079, accepted). Sprint 21 closed R-38 and recorded the residual
+plainly: no schedule, no rotation, no off-machine copy. Reading `backup.sh` again surfaced a sharper
+gap it had already half-named. It writes a SHA-256 and explains why — "a backup you cannot prove is
+intact is a backup you are trusting rather than verifying" — and that reasoning stops one step early.
+A checksum proves the BYTES have not changed. It says nothing about whether the tarball contains a
+database that opens. A half-copied SQLite file hashes perfectly consistently, so the archive is
+reported as fine, which is the worst kind of green.
+T2, what it does. `scripts/verify-backup.sh` opens the archive instead of hashing it: extracts to a
+temp directory, checks the sidecar if present, opens `assessments.db` READ-ONLY, runs
+`PRAGMA integrity_check`, confirms the tables the product depends on, counts what is in them,
+confirms the vector store exists, and deletes the extraction. It needs no Docker and no running
+stack — which is why, unlike `backup.sh` and `restore.sh` that `test_deployment_config.py` can only
+read, its tests actually RUN it, including against a database truncated so its checksum still
+matches. Four distinctions it keeps: a failed checksum stops everything, a missing sidecar is not a
+failure, restorable-but-empty is said out loud, and a missing archive exits 2 rather than 1 so
+"you pointed me at nothing" cannot read as "your backup is bad".
+T2, rotation. `scripts/prune-backups.sh` bounds a directory that grew forever — the same shape as the
+ingestionjob table ADR-0064 bounded, with a worse ending when the disk fills mid-write. It follows
+`restore.sh`'s posture rather than `backup.sh`'s, because deleting a backup is the second most
+destructive act in this repository: it does nothing by default, `--apply` is required, `--keep` has
+no default because how many copies of an audit record you are willing to lose is not a decision a
+default should make, and `--keep 0` is refused. Sorting is by the UTC timestamp in the filename
+rather than mtime, which survives being copied to another disk — which is what an off-machine copy
+does.
+What Sprint 27 actually took. The Sprint 25 executable-bit test earned its keep a second time:
+`prune-backups.sh` was committed as 100644, because `chmod +x` is a no-op on this NTFS working copy
+and only `git update-index --chmod=+x` sets the mode. Worse, the local check was sloppy — a count of
+executable scripts returned 7 and was read as success without noticing there were 8 — so the
+filesystem lied and the reader did not check the denominator. CI caught both. That is the second
+consecutive sprint in which a test written for one purpose found a real defect, and the first in
+which it found one this session had already been warned about.
+What Sprint 27 does not do. Scheduling and off-machine copies stay open and stay deployment-specific;
+what this offers is a command worth scheduling. `verify-backup.sh` confirms the vector store is
+present but does not open it, because doing so properly would mean importing the application's own
+dependencies into a script that deliberately needs almost nothing — a database that opens plus a
+vector store that exists is the honest limit of a cheap check, and it catches the failure that
+actually occurs. And R-33 stays open: OCR output is still approximate, which was never a defect to
+fix, only an uncertainty to make visible.
+Still open and not claimed here, unchanged. R-9 is narrowed but interpreters still come from the
 machine and nothing is hash-pinned. R-34, a score already reported to a stakeholder can change with
-no way to tell them. R-40, client separation is enforced by the product and not against a caller that
-bypasses it. R-35's in-memory upload queue. Backups remain on demand, with no schedule, rotation or
-off-machine copy. The copyright-limited transcriptions R-28/R-30/R-32. R-16's precision ceiling, now
-measured and partly reduced but not closed, and the labelled real corpus that would be needed to take
-it further — which by policy cannot live in this repository at all.
+no way to tell them — and R-34's own entry says revisit push notification only if this platform gains
+point-in-time or recurring reporting, which it has not. R-40, client separation is enforced by the
+product and not against a caller that bypasses it. R-35's in-memory upload queue. The
+copyright-limited transcriptions R-28/R-30/R-32. R-16's precision ceiling, measured and partly
+reduced but not closed, and the labelled real corpus that would take it further — which by policy
+cannot live in this repository at all.
 Also open and unchanged. Upload retention is not retroactive, so the 6 of 30 documents whose
 originals were discarded before ADR-0056 stay permanently un-re-ingestible; 27 of 30 stored
 documents predate the registry (ADR-0039) and carry no `content_hash`; and assessments finalized

@@ -12,10 +12,11 @@ import json
 from datetime import UTC, datetime
 from enum import StrEnum
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from compliance_platform.models.assessment import (
     EvidenceReviewStatus,
+    EvidenceSource,
     IngestionJob,
     IngestionJobFailure,
     IngestionJobStatus,
@@ -351,6 +352,46 @@ class FinalizationBlockerCategory(StrEnum):
     UNSUPPORTED_SATISFIED_FINDING = "unsupported_satisfied_finding"
     UNSUPPORTED_NOT_APPLICABLE_FINDING = "unsupported_not_applicable_finding"
     FRAMEWORK_VERSION_UNRESOLVED = "framework_version_unresolved"
+
+
+class EvidenceLinkView(BaseModel):
+    """An evidence link as the review queue reads it (ADR-0078).
+
+    Every field of the stored EvidenceLink, plus where its text came
+    from. ADR-0074 resolved provenance per passage and put it in chat;
+    ADR-0076 carried it into the dashboard and the exports; both
+    disclosed that the review queue -- the one screen where a person
+    decides what to do about a proposal -- still showed nothing.
+
+    A view rather than a field on the table model: provenance is
+    computed from the vector store at read time and is not a property of
+    the row. Storing it there would duplicate a fact the chunk already
+    owns and let the two disagree.
+
+    Flat rather than nested so callers read it exactly as they read the
+    link today. The cost of that is drift -- a new EvidenceLink field
+    would be silently absent here -- which is why
+    test_evidence_link_view_covers_every_stored_field exists.
+    """
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    assessment_id: str
+    document_id: str
+    chunk_id: str | None
+    practice_reference: str
+    original_practice_reference: str | None
+    note: str | None
+    source: EvidenceSource
+    review_status: EvidenceReviewStatus
+    confidence: float | None
+    created_at: datetime
+    reviewed_at: datetime | None
+    created_by: str | None
+    reviewed_by: str | None
+
+    text_provenance: TextProvenance = TextProvenance.UNKNOWN
 
 
 class BulkReviewSkip(BaseModel):
