@@ -5,18 +5,19 @@ completion chart on the dashboard (T2) are built. Bulk actions — specifically 
 confidence > 0.85" — are declined, on this project's own measurements rather than on preference,
 and ADR-0065 records why in the terms a future reader will want. No change to the mapping engine, no
 auto-accept, no new frameworks, no refactors outside the two.
-Status: **T1 and T2 are merged and CI-confirmed; T3 (bulk reject) is built and awaiting CI.** T1
-landed as `9436460` (PR #12) at 647 backend and 105 frontend across 17 files; T2 as `336a952`
-(PR #13) at 658 and 116 across 18. T3 is on `feat/bulk-reject`, branched from T2's merge. Locally
-with T3: **669 backend tests passing** (658 plus 11), `ruff check` clean, **127 frontend tests across
-19 files** (116 plus 11), `tsc -b` and `npm run build` clean, `npm run lint` carrying the same 2
-pre-existing fast-refresh warnings in `EvidenceSourceBadge.tsx` and no new ones. Two frontend
-measurements worth keeping from this sprint: the run that produced 116 was clean at 18 of 18 with
-zero errors while the run minutes before it lost 5 files to the forks-worker timeout with zero
-assertion failures, and T3's run was clean at 19 of 19. Same code, same machine, different outcomes;
-AGENTS.md's reading of that as environmental holds and CI settled it every time.
-An earlier PR (#14) declared this sprint complete after T2. That is now wrong — T3 exists — so it
-should be closed as superseded rather than merged.
+Status: **T1, T2 and T3 are merged and CI-confirmed; T4 (review-progress bar) is built and awaiting
+CI.** T1 landed as `9436460` (PR #12) at 647 backend and 105 frontend across 17 files; T2 as
+`336a952` (PR #13) at 658 and 116 across 18; T3 as `07a41a5` (PR #15) at 669 and 127 across 19. T4
+is on `feat/review-progress-visual`, branched from T3's merge. Locally with T4: **671 backend tests
+passing** (669 plus 2), `ruff check` clean, **136 frontend tests across 20 files** (127 plus 9),
+`tsc -b` and `npm run build` clean, `npm run lint` carrying the same 2 pre-existing fast-refresh
+warnings in `EvidenceSourceBadge.tsx` and no new ones. A frontend measurement worth keeping from
+this sprint: the run that produced 116 was clean at 18 of 18 while the run minutes before it lost 5
+files to the forks-worker timeout with zero assertion failures, and every run since has been clean.
+Same code, same machine, different outcomes; AGENTS.md's reading of that as environmental holds and
+CI settled it every time.
+PR #14 declared this sprint complete after T2 and was closed as superseded rather than merged, since
+T3 and T4 followed it.
 Sprint 22 closed before this one began: T1 merged as `dac8c52` (PR #9), T2 as `9a1a223` (PR #10),
 the record corrected in `7816ee0` (PR #11). R-39 is mitigated with residual R-40; R-35 is half
 closed, its in-memory half still open.
@@ -153,10 +154,31 @@ invert the layering. Not a new pattern: `core/errors.py`'s own docstring already
 case and the re-export convention, so the service re-exports it and no existing import changed. One
 test was wrong before it was right — it tried to finalize an assessment that still had pending links,
 which ADR-0058 blocks, so reaching a finalized assessment meant rejecting the queue first.
-Still open from the tester's report. They asked for "a few visuals" and the dashboard has one. The
-Situation panel is still five bare integers, including "pending AI review" — the number that decides
-how far the rest of the report can be trusted, and the obvious candidate for the second visual.
-Unstarted.
+T4 — a review-progress bar (ADR-0068, accepted). The rest of "a few visuals". The Situation panel
+was five bare integers and one of them was not like the others: `pending_ai_review_count` decides how
+far everything below it can be trusted, and it sat in a grid looking exactly like "Total evidence
+links". A stacked bar of accepted / edited / rejected / awaiting review over `total_evidence_links`,
+with the pending share stated in words — "15% of linked evidence is still awaiting a human decision,
+so scores below are provisional and this assessment cannot be finalized yet" — because that is the
+sentence the panel existed to make someone read and a coloured band does not say it.
+T4, the segments are exact and a test says so. The four statuses are counted over the whole
+EvidenceReviewStatus enum and the total is `len(evidence_links)`, so they sum by construction; a
+backend test pins that, because a fifth status added without a segment would make the bar silently
+stop filling. If they ever do fail to account for every link the remainder shows as "Other" rather
+than a bar quietly stopping short — an obviously odd bar is a better failure than a confidently
+wrong one. This does not contradict ADR-0066's no-re-derivation rule: that concerned the domain
+chart's applicable-practice DENOMINATOR, which is real domain logic; here the denominator is sent and
+the segments are the counts.
+T4, the palette decision worth arguing. Rejected is slate grey, not red. Precision was measured at
+0.012, so declining a proposal is the expected outcome for most of the queue (ADR-0067), and a
+reviewer who correctly rejects 300 bad proposals should not be looking at a dashboard filled with
+alarm colour — that reports healthy work as failure and quietly rewards accepting to make the bar
+look better. Amber is kept for the one state that wants attention: evidence nobody has decided on.
+No API change and no new field; the dashboard payload already carried everything, which is why this
+tranche is small.
+All of the tester's report is now answered: filters (T1), a domain completion chart (T2), bulk reject
+(T3, correcting an over-broad refusal), and the second visual (T4). What remains from it is the
+exports, which carry neither chart — disclosed in ADR-0066 and true twice over after T4.
 Next (not started). The three steps this sprint's analysis put in front of any bulk-action work, in
 order. Expose `compute_assessment_agreement` (ADR-0034), which already computes accept/edit/reject
 rates from real human decisions and has no endpoint, bucketed by confidence band — after a few

@@ -96,6 +96,57 @@ def test_situation_counts_evidence_by_review_status() -> None:
     assert report.situation.total_evidence_links == 2
 
 
+def test_the_review_counts_account_for_every_link() -> None:
+    """The invariant the dashboard's review-progress bar is drawn from
+    (ADR-0068).
+
+    accepted + edited + rejected + pending must equal
+    total_evidence_links, because the bar renders those four as segments
+    of that total. If a fifth review status were ever added and not
+    given a segment, the bar would silently stop filling — so the
+    guarantee is pinned here, where the counts are produced, rather than
+    assumed by the component drawing them.
+    """
+    domain = _domain("D1", [_practice(f"D1-1{c}") for c in "abcd"])
+    framework = _framework([domain])
+    links = [
+        _evidence("D1-1a", EvidenceReviewStatus.ACCEPTED),
+        _evidence("D1-1b", EvidenceReviewStatus.EDITED),
+        _evidence("D1-1c", EvidenceReviewStatus.REJECTED),
+        _evidence("D1-1d", EvidenceReviewStatus.PENDING),
+    ]
+
+    situation = build_dashboard(_assessment(), framework, links).situation
+
+    assert (
+        situation.accepted_count
+        + situation.edited_count
+        + situation.rejected_count
+        + situation.pending_ai_review_count
+        == situation.total_evidence_links
+    )
+    assert situation.total_evidence_links == 4
+
+
+def test_every_review_status_has_a_count_of_its_own() -> None:
+    """Stronger than the sum: each status is reported separately, so the
+    bar cannot merge two of them and still add up."""
+    domain = _domain("D1", [_practice(f"D1-1{c}") for c in "abc"])
+    framework = _framework([domain])
+    links = [
+        _evidence("D1-1a", EvidenceReviewStatus.REJECTED),
+        _evidence("D1-1b", EvidenceReviewStatus.REJECTED),
+        _evidence("D1-1c", EvidenceReviewStatus.PENDING),
+    ]
+
+    situation = build_dashboard(_assessment(), framework, links).situation
+
+    assert situation.rejected_count == 2
+    assert situation.pending_ai_review_count == 1
+    assert situation.accepted_count == 0
+    assert situation.edited_count == 0
+
+
 def test_unpopulated_domain_excluded_from_complication_but_listed_in_situation() -> None:
     populated = _domain("D1", [_practice("D1-1a")])
     unpopulated = _domain("D2", [], populated=False)
