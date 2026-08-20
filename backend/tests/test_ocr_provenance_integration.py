@@ -9,6 +9,8 @@ store and chat endpoint and reads the answer off a quotation.
 
 from __future__ import annotations
 
+import importlib.util
+import sys
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -19,8 +21,27 @@ from compliance_platform.api import dependencies
 from compliance_platform.core.config import Settings
 from compliance_platform.main import app
 
-_SAMPLES = Path(__file__).resolve().parents[2] / "data" / "sample_evidence"
-_SCANNED = _SAMPLES / "generated" / "synthetic_scanned_policy.pdf"
+_SCRIPTS = Path(__file__).resolve().parents[1] / "scripts"
+
+
+def _write_scanned_pdf(path: Path) -> None:
+    """Build an image-only PDF at test time.
+
+    Generated rather than committed or skipped, which is
+    backend/conftest.py's own stated position: binary fixtures are
+    opaque in a diff, and anything decision-relevant should be
+    reproducible. Skipping was worse still -- the OCR path is the whole
+    point of these tests, and a test that silently does not run in CI
+    protects nothing.
+    """
+    spec = importlib.util.spec_from_file_location(
+        "generate_sample_evidence", _SCRIPTS / "generate_sample_evidence.py"
+    )
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    module._write_scanned_pdf(path)
 
 _CACHED = (
     dependencies.get_cached_settings,
@@ -104,13 +125,14 @@ def test_a_quotation_from_a_text_layer_is_reported_exact(client: TestClient) -> 
     assert {r["text_provenance"] for r in results} == {"exact"}
 
 
-@pytest.mark.skipif(not _SCANNED.exists(), reason="run scripts/generate_sample_evidence.py first")
-def test_a_quotation_recovered_by_ocr_says_so(client: TestClient) -> None:
+def test_a_quotation_recovered_by_ocr_says_so(client: TestClient, tmp_path: Path) -> None:
     """The case R-33 is about, through the real OCR path: a scanned PDF
     with no text layer at all, quoted back in chat."""
-    with _SCANNED.open("rb") as handle:
+    scanned = tmp_path / "synthetic_scanned_policy.pdf"
+    _write_scanned_pdf(scanned)
+    with scanned.open("rb") as handle:
         response = client.post(
-            "/ingest", files={"file": (_SCANNED.name, handle, "application/pdf")}
+            "/ingest", files={"file": (scanned.name, handle, "application/pdf")}
         )
     assert response.status_code == 200, response.text
     body = response.json()

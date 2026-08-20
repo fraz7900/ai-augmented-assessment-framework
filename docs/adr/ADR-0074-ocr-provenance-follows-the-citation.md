@@ -98,7 +98,10 @@ real defect.
   `_add_missing_columns` for SQLite (ADR-0007's no-migration-tool reality) and `add_columns` for
   LanceDB (the same path `page_number` took in ADR-0042).
 - 19 new tests: 9 on the resolution rule, 3 driving a real scanned PDF through the real OCR path to
-  chat, and 7 on the badge.
+  chat, and 7 on the badge. The OCR test builds its own image-only PDF at test time rather than
+  skipping when the gitignored sample is absent -- it was skipping in CI on the first run, which
+  meant the one test covering the actual OCR path protected nothing there. Generating it is also
+  what `backend/conftest.py` already says to do with binary fixtures.
 
 ## What this does not do
 
