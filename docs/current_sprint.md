@@ -5,15 +5,19 @@ completion chart on the dashboard (T2) are built. Bulk actions — specifically 
 confidence > 0.85" — are declined, on this project's own measurements rather than on preference,
 and ADR-0065 records why in the terms a future reader will want. No change to the mapping engine, no
 auto-accept, no new frameworks, no refactors outside the two.
-Status: **T1-T4 are merged to `main` and CI-confirmed; T5 (exports) is built and awaiting CI.** T1 as `9436460` (PR #12) at 647
+Status: **All five tranches are merged to `main` and CI-confirmed.** T1 as `9436460` (PR #12) at 647
 backend and 105 frontend across 17 files; T2 as `336a952` (PR #13) at 658 and 116 across 18; T3 as
 `07a41a5` (PR #15) at 669 and 127 across 19; T4 as `d67968f` (PR #16) at **671 backend and 136
 frontend across 20 files**, `ruff check` clean and `npm run build` clean on the runner. `npm run
 lint` is not a CI step, so it stays a local result: the same 2 pre-existing fast-refresh warnings in
-`EvidenceSourceBadge.tsx` and no new ones. T5 is on `feat/exports-carry-the-visuals`, branched from
-T4's merge: **681 backend tests passing** (671 plus 10), `ruff check` clean, **136 frontend tests
-across 20 files** — unchanged in count, because one chart test moved from asserting the component's
-own wording to asserting it renders the server's, which is the point of the change.
+`EvidenceSourceBadge.tsx` and no new ones. T5 landed as `76e7479` (PR #18) at **681 backend tests**
+and 136 frontend across 20 files — the frontend count unchanged, because one chart test moved from
+asserting the component's own wording to asserting it renders the server's, which is the point of
+that change rather than a side effect.
+A convention this file is adopting, having got it wrong three times: record which PR a tranche is on,
+not whether CI has run yet. "Awaiting CI" is true for about seven minutes and is written by the very
+PR it describes, so it is stale the moment that PR merges and needs a follow-up commit every time.
+The PR number is true before and after.
 This file does not declare the sprint closed, deliberately. PR #14 did that after T2 and had to be
 closed as superseded when T3 and T4 followed — both of which came from re-reading the tester's
 report rather than from new work being requested. What is true is recorded above; whether more
