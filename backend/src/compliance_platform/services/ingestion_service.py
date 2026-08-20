@@ -156,6 +156,7 @@ class IngestionService:
             settings=self._settings,
             page_boundaries=parsed.page_boundaries,
             row_boundaries=parsed.row_boundaries,
+            ocr_page_numbers=parsed.ocr_page_numbers,
         )
 
         if not chunks:
@@ -188,6 +189,16 @@ class IngestionService:
                     submitter=submitter,
                     supersedes_document_id=supersedes_document_id,
                     parser_version=parsed.metadata.parser_version,
+                    # Recorded on the row at last (ADR-0074). This column
+                    # has existed since the registry and was never
+                    # written, so every stored document reported an
+                    # unknown parse status -- which is exactly the
+                    # fallback a citation needs when its chunk predates
+                    # per-page OCR provenance. Rows written before this
+                    # stay NULL and resolve to "unknown", which is the
+                    # honest answer for them rather than a backfilled
+                    # guess.
+                    parse_status=parsed.parse_status.value,
                 )
             )
         except Exception:

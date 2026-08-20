@@ -64,6 +64,7 @@ from compliance_platform.models.schemas import (
     FinalizationReadiness,
     SealVerification,
     SealVerificationStatus,
+    resolve_text_provenance,
 )
 from compliance_platform.services import audit_seal
 from compliance_platform.services.aqs_service import build_agreement_report
@@ -1400,6 +1401,15 @@ class AssessmentService:
             similarity_threshold=self._chat_similarity_threshold,
             limit=self._chat_result_limit,
         )
+        # The chunk's own flag is the precise answer; the document's
+        # parse status is the fallback for chunks written before
+        # per-page provenance existed (ADR-0074).
+        parse_status_by_document = {
+            hit.document_id: getattr(
+                self._assessments.get_document(hit.document_id), "parse_status", None
+            )
+            for hit in hits
+        }
         return ChatResponse(
             question=question,
             results=[
@@ -1409,6 +1419,9 @@ class AssessmentService:
                     chunk_id=hit.chunk_id,
                     similarity=hit.similarity,
                     chunk_text=hit.chunk_text,
+                    text_provenance=resolve_text_provenance(
+                        hit.is_ocr_derived, parse_status_by_document.get(hit.document_id)
+                    ),
                 )
                 for hit in hits
             ],

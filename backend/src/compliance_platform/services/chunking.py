@@ -340,18 +340,44 @@ def _row_info_for_offset(
     return None, None
 
 
+def _is_ocr_derived(
+    ocr_page_numbers: list[int] | None, page_number: int | None
+) -> bool | None:
+    """Whether this chunk's own page came from the recogniser (ADR-0074).
+
+    None rather than False in two cases, and the distinction is the
+    point of the field: when the caller supplied no OCR page list there
+    is no basis for calling anything exact, and when the chunk has no
+    page number (every non-PDF format) the question does not apply at
+    this granularity. False is reserved for "this page was read from a
+    real text layer", which is a claim, not an absence.
+    """
+    if ocr_page_numbers is None or page_number is None:
+        return None
+    return page_number in ocr_page_numbers
+
+
 def chunk_document(
     document_id: str,
     text: str,
     settings: Settings,
     page_boundaries: list[tuple[int, int]] | None = None,
     row_boundaries: list[tuple[int, int, int, str | None]] | None = None,
+    ocr_page_numbers: list[int] | None = None,
 ) -> list[EvidenceChunk]:
     """Chunk a parsed document's raw text into EvidenceChunks.
 
     The strategy actually used is recorded on every resulting chunk
     (chunking_strategy field), so downstream consumers and debugging can
     always tell which path produced a given chunk rather than assuming.
+    ocr_page_numbers (ADR-0074), when supplied, marks each chunk with
+    whether ITS page was recovered by OCR rather than read from a text
+    layer -- so a citation can say the passage it quotes is approximate,
+    instead of the document merely being known to have involved OCR
+    somewhere. Defaults to None, which leaves every chunk's flag None
+    ("cannot say") rather than False, because a caller that does not
+    pass it has no basis for claiming a chunk is exact.
+
     page_boundaries (Sprint 18, ADR-0042), when supplied (PDF only),
     tags every chunk with the page it starts on. row_boundaries (Sprint
     18, ADR-0052), when supplied (XLSX/CSV only), tags every chunk with
@@ -380,6 +406,9 @@ def chunk_document(
                     page_number=_page_number_for_offset(page_boundaries, start),
                     row_number=row_number,
                     sheet_name=sheet_name,
+                    is_ocr_derived=_is_ocr_derived(
+                        ocr_page_numbers, _page_number_for_offset(page_boundaries, start)
+                    ),
                 )
             )
         return chunks
@@ -403,6 +432,9 @@ def chunk_document(
                 page_number=_page_number_for_offset(page_boundaries, start),
                 row_number=row_number,
                 sheet_name=sheet_name,
+                is_ocr_derived=_is_ocr_derived(
+                    ocr_page_numbers, _page_number_for_offset(page_boundaries, start)
+                ),
             )
         )
     return chunks

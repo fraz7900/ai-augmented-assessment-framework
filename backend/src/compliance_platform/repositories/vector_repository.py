@@ -49,6 +49,7 @@ class VectorRepository:
                 pa.field("page_number", pa.int32()),
                 pa.field("row_number", pa.int32()),
                 pa.field("sheet_name", pa.string()),
+                pa.field("is_ocr_derived", pa.bool_()),
             ]
         )
 
@@ -76,6 +77,13 @@ class VectorRepository:
             table.add_columns({"row_number": "CAST(NULL AS INT)"})
         if "sheet_name" not in existing_fields:
             table.add_columns({"sheet_name": "CAST(NULL AS STRING)"})
+        if "is_ocr_derived" not in existing_fields:
+            # NULL, not false (ADR-0074). A chunk written before this
+            # column existed may well be OCR-derived -- 27 of 30 stored
+            # documents predate even the registry -- and backfilling
+            # false would assert every one of them is exact. Callers
+            # resolve NULL against the document's parse_status instead.
+            table.add_columns({"is_ocr_derived": "CAST(NULL AS BOOLEAN)"})
 
     def _ensure_table(self):
         # Deliberately not implemented as "check list_tables(), then
@@ -139,6 +147,10 @@ class VectorRepository:
                 "page_number": chunk.page_number,
                 "row_number": chunk.row_number,
                 "sheet_name": chunk.sheet_name or "",
+                # Written as-is including None (ADR-0074): the column
+                # is nullable precisely so "cannot say" survives a
+                # round trip rather than collapsing into false.
+                "is_ocr_derived": chunk.is_ocr_derived,
             }
             for chunk, vector in zip(chunks, vectors, strict=True)
         ]
