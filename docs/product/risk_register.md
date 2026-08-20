@@ -1,5 +1,10 @@
 # Risk Register
 
+> For a reader rather than a maintainer: `docs/adr/ADR-0084-what-is-deliberately-not-done.md`
+> consolidates every open limitation into one page and sorts them into scope decisions, items blocked
+> for a structural reason, and things genuinely still open. This register is the detail behind it.
+
+
 Master, living register. Consolidates `PROJECT_CHARTER.md` Section 7 (initial risks) with risks found during Sprint 1-2 execution (`docs/consulting/sprint-0*-deliverables.md`). Likelihood/impact are qualitative (Low/Medium/High) — no incident data exists yet to quantify them, and presenting false-precision numbers would contradict this project's own stated documentation standard (see `PROJECT_CHARTER.md` Section 2's business problem framing).
 
 | ID | Risk | Category | Likelihood | Impact | Status | Mitigation |

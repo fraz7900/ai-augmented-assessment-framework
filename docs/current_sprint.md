@@ -1,62 +1,50 @@
-Current sprint: Sprint 29 — close the oldest open risk, and make the backup story one command
-Objective: two tranches. R-11 has been open since Sprint 1, longer than anything else in the
-register, confirmed live twice and marked "partially audited" for eight sprints (T1). And ADR-0079
-ended by promising "a command worth scheduling" and did not provide one, so operating the backups
-well meant knowing three scripts and their order (T2). Neither invents a feature; both finish
-something this project already started and said it had not finished.
-Status: **T1 and T2 are on PR #31.**
-Sprint 28 closed with both tranches merged in `01e80ae`: one declaration of the interpreters
-(ADR-0080) and hash-pinned dependencies (ADR-0081).
-T1 — open the file, do not ask whether it is there (ADR-0082, accepted). R-11: the OneDrive-synced
-filesystem this project is developed on does not give instantly-consistent directory listings, so
-`path.exists()` can report False for a file that is present. The reason it survived eight sprints is
-visible in the shape of the code — `if not path.exists(): return None` reads like careful
-programming. It is a check-then-act window, and this project has fixed the same class twice at the
-database layer: ADR-0060 moved the finalized-record check inside the transaction that writes, and
-ADR-0063 did the same for the organisation boundary. The filesystem sites never got that treatment.
-T1, what the failure actually was — silent, at every one of the four sites. A framework read as NOT
-FOUND while its file sat on disk. `_load_equivalence_entries` returned ZERO cross-framework
-equivalents, product-wide, with nothing raised — 715 human-reviewed entries and one of this
-project's larger pieces of work, gone without a word. `_build_practice_text_index` dropped one
-framework's practices via `continue`. And `original_store.path_for` reported "no retained original",
-which is indistinguishable from the disclosed normal state for 27 of 30 documents.
-T1, and the tests earn their keep by failing first. Simulating an intermittent filesystem is not
-usually possible, but the condition is: make `Path.exists` return False while every file is really
-there — a stronger version of the real fault, which affects one path at a time. Run against the
-PRE-FIX code, five of seven fail: the framework vanishes, the equivalence entries vanish, the
-practice index comes back empty. Against the fix, all seven pass. The two that pass either way assert
-a genuinely absent file still returns None rather than raising, which is the half that could have
-regressed. A test that passes before and after proves nothing, so this was checked rather than
-assumed. A regression guard asserts no `.exists()` remains anywhere in `services/`, because the next
-one would look perfectly reasonable in review — that is how these four got here.
-T2 — one command worth scheduling (ADR-0083, accepted). `scripts/scheduled-backup.sh` runs back up →
-verify → prune, and **the order carries the whole point**: it verifies before it prunes, and prunes
-nothing if verification fails. Backing up and then deleting older copies without checking the new one
-is exactly how a directory of good backups becomes a directory of one bad one. On failure it exits
-non-zero and says the older archives are still there, because at that moment they are the only copies
-worth having. `--keep` stays required, passed through to `prune-backups.sh` — a convenience wrapper
-must not quietly supply the one number ADR-0079 deliberately would not default.
-T2, and why this is not a service in the compose stack. The obvious implementation is a scheduler
-container, and it is the wrong answer: backing up means stopping the stack, stopping the stack from
-inside a container means talking to the Docker daemon, and that means mounting the Docker socket —
-**root-equivalent access on the host** — into a permanently-running service, on a deployment whose
-entire posture is that it must not be exposed. A host cron line costs one line of documentation and
-grants nothing. The reasoning lives in the script's own header, not only in the ADR, because
-otherwise someone will helpfully containerise it.
-What Sprint 29 does not do. R-11 is not closed as a class: the register describes a filesystem
-property, not a list of sites, and the regression test narrows it to `services/` rather than
-eliminating it. Neither tranche affects production — the deployed stack runs on a Docker volume, not
-`/mnt/c`, which is exactly why the R-11 fault survived eight sprints and also why losing 715
-equivalence entries during a local review would have been so hard to explain. And no timer is
-installed: the cron line is documented in the script header, not written into anyone's crontab.
-Off-machine backup copies remain the last piece of R-38's residual and remain deployment-specific.
-Still open and not claimed here, unchanged. R-34, a score already reported to a stakeholder can
-change with no way to tell them — its own entry says revisit push notification only if this platform
-gains point-in-time or recurring reporting, which it has not. R-40, client separation is enforced by
-the product and not against a caller that bypasses it. R-35's in-memory upload queue. The
-copyright-limited transcriptions R-28/R-30/R-32. R-16's precision ceiling, measured and partly
-reduced but not closed, and the labelled real corpus that would take it further — which by policy
-cannot live in this repository at all.
+Current sprint: Sprint 30 — audit what is actually broken, and make the record true
+Objective: a closing pass. Find anything genuinely critical and fix it, bring the status snapshot
+back to the truth, and consolidate what this platform deliberately does not do into one place a
+reader can actually finish. No new product features: the point of this sprint is that someone
+picking the repository up should be able to trust what it says about itself.
+Status: **T1 and T2 are on PR #32.**
+Sprint 29 closed with both tranches merged in `4f98557`: the oldest open risk (ADR-0082) and one
+backup command worth scheduling (ADR-0083).
+The audit, and what it found. Run before deciding what to fix, so the answer would be evidence rather
+than assumption: the golden-path end-to-end test passes, the app boots with all 40 endpoints
+registered including every one added since Sprint 22, 811 backend and 146 frontend tests are green,
+`ruff` is clean, there are **zero** TODO/FIXME/XXX/HACK markers anywhere in `backend/src` or
+`frontend/src`, and no ADR reference in any document points at an ADR that does not exist.
+One false alarm, recorded because reporting it as a defect would have been worse than missing it. A
+first pass flagged 15 documents referencing scripts that "do not exist" — `scripts/measure_aqs.py`
+and others. They all exist, at `backend/scripts/`; the check resolved paths from the repository root
+and the ADRs write them relative to `backend/`. Nothing was wrong except the check.
+T1 — the status snapshot was six sprints stale, and that was the critical finding. `docs/project-
+status.md` read "As of: Sprint 23", claimed 69 ADRs against an actual 83 and 681 backend tests
+against an actual 811, and accounted for none of Sprints 24-29 — which is to say none of the
+mapping-engine measurement, the OCR provenance chain, export currency, the reproducible environment,
+hash pinning, or R-11. That document is the one someone reads to decide whether to trust this
+platform, so a stale one is not a tidiness problem: it is the platform making false claims about
+itself, in the place most likely to be believed.
+T1, what changed. Header and counts corrected. Six sprint rows added, each saying what the sprint
+actually established rather than what it shipped. The backups limitation rewritten — it still said
+"no schedule, no rotation, and no off-machine copy" when two of those three are now closed. Three new
+limitations added that had never appeared in the snapshot at all: OCR provenance and its four-value
+honesty, export currency and what a one-way digest cannot tell you, and hash-pinned dependencies plus
+the interpreters being declared rather than installed. And the roadmap section rewritten, because it
+still described re-measuring precision as the next step when Sprint 24 did it and got an answer.
+T2 — what is deliberately not done, in one place (ADR-0084, accepted). This project's habit is to
+disclose rather than hide, and that habit has a cost nobody notices while it accumulates: **the
+limits are now spread across 83 ADRs and 40 register rows.** A limitation that takes an hour to find
+is not meaningfully disclosed. ADR-0084 decides nothing new; it consolidates, and it sorts the open
+items into three kinds a reader keeps conflating — scope decisions that are deliberately out and
+recorded in the charter, items blocked for a stated structural reason, and things that could be
+closed, have not been, and cost something real.
+T2, and the line worth reading if only one is. The platform's conclusions are traceable, and its
+retrieval is not accurate. Human review is what stands between those two facts — which is why it is
+structural rather than advisory, and why every feature touching the review queue has been built to
+make a reviewer's judgement cheaper rather than to replace it.
+The largest honest gap, named as such. `/aqs/agreement` was built in Sprint 24 to turn real review
+decisions into data, and **nothing has fed it.** Sprint 23's queue work came from one tester using
+the product in anger and was measurably right; everything since has reasoned from fixtures. That is
+the single largest distance between what this platform has measured and what it claims, and no
+amount of further building closes it — only a reviewer at volume does.
 Also open and unchanged. Upload retention is not retroactive, so the 6 of 30 documents whose
 originals were discarded before ADR-0056 stay permanently un-re-ingestible; 27 of 30 stored
 documents predate the registry (ADR-0039) and carry no `content_hash`; and assessments finalized
