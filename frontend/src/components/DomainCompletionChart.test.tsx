@@ -33,6 +33,7 @@ function progress(overrides: Partial<DomainProgress> = {}): DomainProgress {
     score: 1,
     blocking_mil: null,
     blocking_practice_count: null,
+    gate_note: null,
     ...overrides,
   }
 }
@@ -59,11 +60,20 @@ describe('DomainCompletionChart', () => {
   it('explains why a nearly-complete domain still scores zero', () => {
     // The misreading this component exists to prevent: 9 of 10 met is a
     // 90% bar next to MIL0, which looks like a defect unless the gate is
-    // named.
+    // named. The sentence is the server's (ADR-0069), rendered verbatim
+    // so the PDF and XLSX cannot word it differently.
     render(
       <DomainCompletionChart
         progress={[
-          progress({ met_practices: 9, total_practices: 10, score: 0, blocking_mil: 1, blocking_practice_count: 1 }),
+          progress({
+            met_practices: 9,
+            total_practices: 10,
+            score: 0,
+            blocking_mil: 1,
+            blocking_practice_count: 1,
+            gate_note:
+              '1 practice(s) at MIL1 still unmet, so this domain cannot score above MIL0 however complete it looks.',
+          }),
         ]}
         overall={milOverall}
       />,
@@ -73,18 +83,20 @@ describe('DomainCompletionChart', () => {
     ).toBeInTheDocument()
   })
 
-  it('names the next gate once a level has been cleared', () => {
+  it('renders the gate sentence verbatim rather than composing its own', () => {
+    // If this component ever starts building the wording locally again,
+    // the screen and the exported PDF can drift apart — which is the
+    // thing ADR-0069 closed.
     render(
       <DomainCompletionChart
-        progress={[progress({ score: 1, blocking_mil: 2, blocking_practice_count: 4 })]}
+        progress={[progress({ gate_note: 'Server-composed sentence about the gate.' })]}
         overall={milOverall}
       />,
     )
-    expect(screen.getByText(/4 practice\(s\) at MIL2 still unmet/)).toBeInTheDocument()
-    expect(screen.getByText(/cannot score above MIL1/)).toBeInTheDocument()
+    expect(screen.getByText('Server-composed sentence about the gate.')).toBeInTheDocument()
   })
 
-  it('says nothing about a gate when nothing is blocked', () => {
+  it('says nothing about a gate when the server sends none', () => {
     render(
       <DomainCompletionChart
         progress={[progress({ met_practices: 10, total_practices: 10, score: 3 })]}

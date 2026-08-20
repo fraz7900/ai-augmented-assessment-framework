@@ -5,12 +5,15 @@ completion chart on the dashboard (T2) are built. Bulk actions — specifically 
 confidence > 0.85" — are declined, on this project's own measurements rather than on preference,
 and ADR-0065 records why in the terms a future reader will want. No change to the mapping engine, no
 auto-accept, no new frameworks, no refactors outside the two.
-Status: **All four tranches are merged to `main` and CI-confirmed.** T1 as `9436460` (PR #12) at 647
+Status: **T1-T4 are merged to `main` and CI-confirmed; T5 (exports) is built and awaiting CI.** T1 as `9436460` (PR #12) at 647
 backend and 105 frontend across 17 files; T2 as `336a952` (PR #13) at 658 and 116 across 18; T3 as
 `07a41a5` (PR #15) at 669 and 127 across 19; T4 as `d67968f` (PR #16) at **671 backend and 136
 frontend across 20 files**, `ruff check` clean and `npm run build` clean on the runner. `npm run
 lint` is not a CI step, so it stays a local result: the same 2 pre-existing fast-refresh warnings in
-`EvidenceSourceBadge.tsx` and no new ones. Nothing is left in the working tree.
+`EvidenceSourceBadge.tsx` and no new ones. T5 is on `feat/exports-carry-the-visuals`, branched from
+T4's merge: **681 backend tests passing** (671 plus 10), `ruff check` clean, **136 frontend tests
+across 20 files** — unchanged in count, because one chart test moved from asserting the component's
+own wording to asserting it renders the server's, which is the point of the change.
 This file does not declare the sprint closed, deliberately. PR #14 did that after T2 and had to be
 closed as superseded when T3 and T4 followed — both of which came from re-reading the tester's
 report rather than from new work being requested. What is true is recorded above; whether more
@@ -181,9 +184,32 @@ All of the tester's report is now answered: filters (T1), a domain completion ch
 (T3, correcting an over-broad refusal), and the second visual (T4). Two of those existed only because
 the report was re-read against what had shipped rather than against the summary of it — the words
 were "a few visuals" and "some bulk actions", and both had been treated as answered by their first
-example. What remains from the report is the exports, which carry neither visual and not the MIL-gate
-sentence either: a reviewer who reads that explanation on screen and then sends the PDF has sent
-something without it. Disclosed in ADR-0066, true twice over after T4, and still not fixed.
+example. The last item from it, the exports, is T5 below.
+T5 — the exports carry the visuals (ADR-0069, accepted). ADR-0066 disclosed that the exports did not
+get the domain chart; ADR-0068 disclosed the same thing a second time. A disclosure repeated twice
+without being fixed stops being a disclosure and starts being a defect — and the MIL-gate sentence
+was the sharp half of it, being genuinely new information that existed on screen and nowhere else.
+T5, and why the two formats got different things. ADR-0013 already decided this: the PDF is the
+narrative artifact and the XLSX is the flat sortable working-data appendix, and that ADR warns by
+name against pulling the two back toward one layout. So the PDF gets drawn bars — a Domain
+Completion section with one bar per populated domain, a stacked review-progress bar in Situation,
+the gate sentence under each affected bar, and the "bars are not the maturity score" caveat under
+cumulative_mil with the opposite statement under coverage. The XLSX gets a Domain Completion sheet
+with the numbers behind those bars, completion as a real fraction so it sorts and charts as a number
+in the reader's own spreadsheet rather than as a pre-formatted string. No charting dependency
+anywhere: two filled rectangles per bar, and fpdf2 already draws rectangles.
+T5, the interpretation is now written once. `DomainProgress` gains `gate_note`, composed in
+report_service and rendered verbatim by the frontend, the PDF and the XLSX. ADR-0012 established
+exactly this for `Situation.so_what`: an interpretation written separately in three renderers is
+three chances to say something different about the same number. The frontend previously built that
+sentence in JSX and now prints the server's, the way ScoreHeadline already does.
+Found while writing T5, not reported by anyone. The XLSX "Domain Scores" sheet had a bare `Score`
+column — an ordinal MIL 0-3 under one scoring model and a 0.0-1.0 fraction under the other, with
+nothing saying which. That is the same R-15 ambiguity ADR-0066 refused to draw as a bar length,
+sitting unlabelled in a spreadsheet a reader would sort by. The header now names the unit, and every
+score in both exports carries its own. A fully-met domain also appears in the PDF for the first
+time: only gapped domains were listed before, so the best news in an assessment was invisible in the
+exported document.
 Next (not started). The three steps this sprint's analysis put in front of any bulk-action work, in
 order. Expose `compute_assessment_agreement` (ADR-0034), which already computes accept/edit/reject
 rates from real human decisions and has no endpoint, bucketed by confidence band — after a few
