@@ -204,6 +204,13 @@ class DomainProgress(BaseModel):
     score: float
     blocking_mil: int | None = None
     blocking_practice_count: int | None = None
+    # The gate stated as a sentence, composed once here rather than in
+    # each renderer (ADR-0069). ADR-0012 already established this for
+    # Situation.so_what and DomainGapGroup.so_what: an interpretation
+    # written separately in the frontend, the PDF and the XLSX is three
+    # chances to say something different about the same number. None
+    # whenever blocking_mil is None -- there is no gate to describe.
+    gate_note: str | None = None
 
 
 class EvidenceDomainCount(BaseModel):

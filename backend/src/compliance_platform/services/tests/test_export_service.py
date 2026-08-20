@@ -18,6 +18,7 @@ from compliance_platform.models.assessment import EvidenceReviewStatus, Practice
 from compliance_platform.models.report import (
     DashboardReport,
     DomainGapGroup,
+    DomainProgress,
     EvidenceCitation,
     GapItem,
     OverallSummary,
@@ -123,7 +124,13 @@ def test_pdf_report_survives_em_dash_in_source_text_without_crashing() -> None:
 def test_xlsx_report_has_expected_sheets() -> None:
     xlsx_bytes = build_xlsx_report(_dashboard())
     wb = openpyxl.load_workbook(io.BytesIO(xlsx_bytes))
-    assert wb.sheetnames == ["Situation", "Domain Scores", "Gaps", "Resolution"]
+    assert wb.sheetnames == [
+        "Situation",
+        "Domain Scores",
+        "Domain Completion",
+        "Gaps",
+        "Resolution",
+    ]
 
 
 def test_xlsx_situation_sheet_carries_review_status_counts() -> None:
@@ -265,3 +272,166 @@ def test_xlsx_gaps_sheet_flags_superseded_cited_evidence() -> None:
     first_row = next(row for row in data_rows if row[2] == "ACCESS-1d")
     assert "doc-old-policy" in first_row[8]
     assert "SUPERSEDED" in first_row[8]
+
+
+# ---- Domain completion and the MIL gate in both exports (ADR-0069) ----
+#
+# ADR-0066 and ADR-0068 shipped two dashboard visuals and disclosed, twice,
+# that the exports carried neither them nor the MIL-gate sentence. A
+# reviewer who read that explanation on screen and then sent the PDF had
+# sent something without it. These cover closing that.
+
+
+def _progress_dashboard(scoring_model: str = "cumulative_mil") -> DashboardReport:
+    dashboard = _dashboard()
+    dashboard.overall = OverallSummary(
+        scoring_model=scoring_model,
+        headline="headline",
+        populated_domains=2,
+        total_domains=10,
+        domains_at_mil1_or_above=1,
+    )
+    dashboard.domain_progress = [
+        DomainProgress(
+            short_code="ACCESS",
+            full_name="Identity and Access Management",
+            met_practices=9,
+            total_practices=10,
+            score=0.0,
+            blocking_mil=1,
+            blocking_practice_count=1,
+            gate_note=(
+                "1 practice(s) at MIL1 still unmet, so this domain cannot score above MIL0 "
+                "however complete it looks."
+            ),
+        ),
+        DomainProgress(
+            short_code="ASSET",
+            full_name="Asset, Change, and Configuration Management",
+            met_practices=36,
+            total_practices=36,
+            score=3.0,
+        ),
+    ]
+    return dashboard
+
+
+def _pdf_text(dashboard: DashboardReport) -> str:
+    """Extracted text with whitespace collapsed.
+
+    The renderer wraps paragraphs to the page width, so a sentence this
+    file asserts on is split across lines in the output. Collapsing
+    whitespace keeps the assertions about what the document SAYS rather
+    than about where fpdf happened to break the line.
+    """
+    reader = PdfReader(io.BytesIO(build_pdf_report(dashboard)))
+    raw = "\n".join(page.extract_text() for page in reader.pages)
+    return " ".join(raw.split())
+
+
+def test_pdf_carries_domain_completion_including_a_fully_met_domain() -> None:
+    """Complication lists only domains with gaps, so a PDF reader could
+    not previously tell a finished domain from one nobody had started."""
+    text = _pdf_text(_progress_dashboard())
+
+    assert "Domain Completion" in text
+    assert "9/10 practices" in text
+    assert "36/36 practices" in text
+    assert "Asset, Change, and Configuration Management" in text
+
+
+def test_pdf_carries_the_mil_gate_sentence() -> None:
+    """The information that existed only on screen. Without it a 90% bar
+    beside MIL0 reads as a defect in the report."""
+    text = _pdf_text(_progress_dashboard())
+
+    assert "1 practice(s) at MIL1 still unmet" in text
+    assert "cannot score above MIL0" in text
+
+
+def test_pdf_states_that_bars_are_not_the_maturity_score() -> None:
+    text = _pdf_text(_progress_dashboard())
+    assert "not the maturity score" in text
+
+
+def test_pdf_says_the_opposite_for_a_coverage_framework() -> None:
+    """Under coverage the bar and the score ARE the same measure, so the
+    caveat would be wrong rather than merely unnecessary."""
+    text = _pdf_text(_progress_dashboard(scoring_model="coverage"))
+
+    assert "same measure as this framework's coverage score" in text
+    assert "not the maturity score" not in text
+
+
+def test_pdf_labels_a_domain_score_in_its_own_units() -> None:
+    """Never a bare float: the same number means MIL under one scoring
+    model and a fraction under the other (R-15)."""
+    assert "MIL0" in _pdf_text(_progress_dashboard())
+    assert "0% coverage" in _pdf_text(_progress_dashboard(scoring_model="coverage"))
+
+
+def test_pdf_still_renders_with_no_domain_progress() -> None:
+    """An older report, or one whose domains are all untranscribed. The
+    section is skipped rather than printed empty."""
+    dashboard = _dashboard()
+    assert dashboard.domain_progress == []
+
+    text = _pdf_text(dashboard)
+
+    assert "Domain Completion" not in text
+    assert "Complication" in text
+
+
+def _sheet_rows(dashboard: DashboardReport, sheet: str) -> list[tuple]:
+    wb = openpyxl.load_workbook(io.BytesIO(build_xlsx_report(dashboard)))
+    return list(wb[sheet].values)
+
+
+def test_xlsx_completion_sheet_carries_the_numbers_behind_the_bars() -> None:
+    rows = _sheet_rows(_progress_dashboard(), "Domain Completion")
+
+    header, access, asset = rows
+    assert header[:5] == (
+        "Domain Code",
+        "Domain Name",
+        "Practices Met",
+        "Applicable Practices",
+        "Completion",
+    )
+    assert access[0] == "ACCESS"
+    assert access[2] == 9
+    assert access[3] == 10
+    # A real fraction rather than a formatted string, so the column sorts
+    # and charts as a number in the reader's own spreadsheet.
+    assert access[4] == 0.9
+    assert asset[4] == 1.0
+
+
+def test_xlsx_completion_sheet_carries_the_gate_and_its_sentence() -> None:
+    rows = _sheet_rows(_progress_dashboard(), "Domain Completion")
+    _, access, asset = rows
+
+    assert access[6] == 1
+    assert access[7] == 1
+    assert "cannot score above MIL0" in access[8]
+    # Nothing blocking the fully-met domain, and no sentence invented for
+    # it. openpyxl reads a blank cell back as None, which is what an
+    # empty string written into a spreadsheet becomes.
+    assert asset[6] is None
+    assert asset[8] is None
+
+
+def test_xlsx_domain_scores_header_names_the_unit() -> None:
+    """This column was a bare "Score" whose meaning depends on the
+    framework — the R-15 ambiguity, sitting in a spreadsheet where a
+    reader would sort by it."""
+    mil_header = _sheet_rows(_progress_dashboard(), "Domain Scores")[0]
+    coverage_header = _sheet_rows(_progress_dashboard(scoring_model="coverage"), "Domain Scores")[0]
+
+    assert mil_header == ("Domain", "Score (MIL 0-3, ordinal)")
+    assert coverage_header == ("Domain", "Score (coverage, 0.0-1.0)")
+
+
+def test_xlsx_completion_sheet_is_empty_but_present_without_progress() -> None:
+    rows = _sheet_rows(_dashboard(), "Domain Completion")
+    assert len(rows) == 1  # header only

@@ -86,13 +86,16 @@ export default function DomainCompletionChart({
                 contradiction and not a bug — it is what a gated scale
                 does — but only if the chart says which gate and by how
                 much.
+
+                Rendered verbatim from the server rather than composed
+                here (ADR-0069), the same way ScoreHeadline renders its
+                sentence: the PDF and XLSX print this too, and an
+                interpretation written separately in three renderers is
+                three chances to say something different about the same
+                number.
               */}
-              {entry.blocking_mil != null && entry.blocking_practice_count != null && (
-                <p className="mt-1 text-xs text-amber-700">
-                  {entry.blocking_practice_count} practice(s) at MIL{entry.blocking_mil} still
-                  unmet, so this domain cannot score above MIL{entry.blocking_mil - 1} however
-                  complete the bar looks.
-                </p>
+              {entry.gate_note && (
+                <p className="mt-1 text-xs text-amber-700">{entry.gate_note}</p>
               )}
             </li>
           )

@@ -446,6 +446,13 @@ def _build_domain_progress(
                     blocking_count = len(missing)
                     break
 
+        gate_note = None
+        if blocking_mil is not None and blocking_count is not None:
+            gate_note = (
+                f"{blocking_count} practice(s) at MIL{blocking_mil} still unmet, so this domain "
+                f"cannot score above MIL{blocking_mil - 1} however complete it looks."
+            )
+
         progress.append(
             DomainProgress(
                 short_code=domain.short_code,
@@ -455,6 +462,7 @@ def _build_domain_progress(
                 score=domain_scores[domain.short_code],
                 blocking_mil=blocking_mil,
                 blocking_practice_count=blocking_count,
+                gate_note=gate_note,
             )
         )
     return progress

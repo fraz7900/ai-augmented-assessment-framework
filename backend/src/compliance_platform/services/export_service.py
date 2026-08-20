@@ -68,6 +68,78 @@ def _evidence_citation_summary(citations: list[EvidenceCitation]) -> str:
     return "; ".join(_one(c) for c in citations)
 
 
+# Segment colours for the review-progress bar, matching the dashboard's
+# (ADR-0068). Rejected is deliberately grey rather than red: retrieval
+# precision was measured at 0.012, so declining a proposal is the
+# expected outcome for most of a queue, and a report that paints correct
+# review work as an alarm misreports it -- on paper as much as on screen.
+_REVIEW_SEGMENT_COLOURS = {
+    "accepted": (16, 150, 105),
+    "edited": (14, 132, 197),
+    "rejected": (148, 158, 170),
+    "pending": (222, 148, 22),
+}
+
+_BAR_WIDTH = 120.0
+_BAR_HEIGHT = 3.2
+
+
+def _score_label(score: float, scoring_model: str) -> str:
+    """A domain score in the units of its own scoring model.
+
+    Never a bare float. `domain_scores` is an ordinal MIL 0-3 under
+    cumulative_mil and a 0.0-1.0 fraction under coverage (R-15), and a
+    number printed without its unit is the same ambiguity ADR-0066
+    refused to draw as a bar.
+    """
+    if scoring_model == "cumulative_mil":
+        return f"MIL{score:.0f}"
+    return f"{score * 100:.0f}% coverage"
+
+
+def _score_column_header(scoring_model: str) -> str:
+    if scoring_model == "cumulative_mil":
+        return "Score (MIL 0-3, ordinal)"
+    return "Score (coverage, 0.0-1.0)"
+
+
+def _draw_progress_bar(pdf: FPDF, filled_fraction: float) -> None:
+    """One horizontal bar at the current cursor, drawn as two rectangles.
+
+    Rendered rather than described because the PDF is this project's
+    narrative artifact (ADR-0013) and the tester's report was that the
+    dashboard's numbers needed a shape. No charting dependency: a filled
+    rectangle over a track is the whole requirement.
+    """
+    x = pdf.get_x()
+    y = pdf.get_y()
+    pdf.set_fill_color(226, 230, 235)
+    pdf.rect(x, y, _BAR_WIDTH, _BAR_HEIGHT, style="F")
+    if filled_fraction > 0:
+        pdf.set_fill_color(79, 92, 216)
+        pdf.rect(x, y, _BAR_WIDTH * min(filled_fraction, 1.0), _BAR_HEIGHT, style="F")
+    pdf.ln(_BAR_HEIGHT + 2)
+
+
+def _draw_review_bar(pdf: FPDF, segments: list[tuple[str, int]], total: int) -> None:
+    """The review-status breakdown as one stacked bar (ADR-0068)."""
+    if total <= 0:
+        return
+    x = pdf.get_x()
+    y = pdf.get_y()
+    pdf.set_fill_color(226, 230, 235)
+    pdf.rect(x, y, _BAR_WIDTH, _BAR_HEIGHT, style="F")
+    offset = 0.0
+    for key, count in segments:
+        if count <= 0:
+            continue
+        width = _BAR_WIDTH * (count / total)
+        pdf.set_fill_color(*_REVIEW_SEGMENT_COLOURS[key])
+        pdf.rect(x + offset, y, width, _BAR_HEIGHT, style="F")
+        offset += width
+    pdf.ln(_BAR_HEIGHT + 2)
+
+
 def _line(pdf: FPDF, height: float, text: str) -> None:
     """Write one paragraph and reliably leave the cursor at the left
     margin on the next line. fpdf2's own default post-multi_cell cursor
@@ -130,6 +202,19 @@ def build_pdf_report(dashboard: DashboardReport) -> bytes:
         f"{s.pending_ai_review_count} still pending human review "
         "(AI-proposed, not yet counted toward any score below).",
     )
+    # The same breakdown as a shape (ADR-0068). The counts above are the
+    # figures; this is how much of the assessment is still undecided,
+    # which is what decides how far everything below can be trusted.
+    _draw_review_bar(
+        pdf,
+        [
+            ("accepted", s.accepted_count),
+            ("edited", s.edited_count),
+            ("rejected", s.rejected_count),
+            ("pending", s.pending_ai_review_count),
+        ],
+        s.total_evidence_links,
+    )
     if s.unpopulated_domains:
         _line(
             pdf,
@@ -153,6 +238,46 @@ def build_pdf_report(dashboard: DashboardReport) -> bytes:
     pdf.set_font("Helvetica", "B", 11)
     _line(pdf, 6, dashboard.overall.headline)
     pdf.ln(4)
+
+    # Domain completion (ADR-0066), which until now existed only on
+    # screen. Distinct from Complication below: that section lists
+    # domains with at least one gap, so a fully-met domain never appears
+    # in it, and a reader of the PDF alone could not tell a finished
+    # domain from one nobody had started.
+    if dashboard.domain_progress:
+        pdf.set_font("Helvetica", "B", 13)
+        _line(pdf, 8, "Domain Completion")
+        pdf.set_font("Helvetica", "", 9)
+        _line(
+            pdf,
+            5,
+            "Bars show applicable practices met. Practices marked not applicable are excluded. "
+            + (
+                "They are not the maturity score: MIL is cumulative, so a domain reaches MIL2 "
+                "only when every MIL1 practice is also met."
+                if dashboard.overall.scoring_model == "cumulative_mil"
+                else "This is the same measure as this framework's coverage score."
+            ),
+        )
+        pdf.ln(1)
+        for entry in dashboard.domain_progress:
+            pdf.set_font("Helvetica", "B", 10)
+            _line(
+                pdf,
+                5,
+                f"{entry.short_code} - {entry.full_name}: {entry.met_practices}/"
+                f"{entry.total_practices} practices, "
+                f"{_score_label(entry.score, dashboard.overall.scoring_model)}",
+            )
+            _draw_progress_bar(pdf, entry.met_practices / entry.total_practices)
+            # The reconciliation between a nearly-full bar and a low
+            # score. Composed in report_service (ADR-0069) so this
+            # document and the screen cannot word it differently.
+            if entry.gate_note:
+                pdf.set_font("Helvetica", "I", 9)
+                _line(pdf, 5, f"  {entry.gate_note}")
+            pdf.ln(1)
+        pdf.ln(2)
 
     pdf.set_font("Helvetica", "B", 13)
     _line(pdf, 8, "Complication - Gaps by Domain")
@@ -270,10 +395,60 @@ def build_xlsx_report(dashboard: DashboardReport) -> bytes:
     situation_ws.column_dimensions["B"].width = 70
 
     scores_ws = wb.create_sheet("Domain Scores")
-    _write_header(scores_ws, ["Domain", "Score"])
+    # The header now carries the UNIT. This column held a bare "Score"
+    # whose meaning depends on the framework -- an ordinal MIL 0-3 or a
+    # 0.0-1.0 fraction -- so a reader sorting it had no way to know which
+    # (R-15). Same ambiguity ADR-0066 refused to draw as a bar length,
+    # and it was sitting in a spreadsheet the whole time.
+    _write_header(scores_ws, ["Domain", _score_column_header(dashboard.overall.scoring_model)])
     for domain, score in dashboard.domain_scores.items():
         scores_ws.append((domain, score))
     scores_ws.column_dimensions["A"].width = 16
+    scores_ws.column_dimensions["B"].width = 26
+
+    # Domain completion (ADR-0066/ADR-0069). The XLSX gets the numbers
+    # behind the PDF's bars rather than a chart of its own: ADR-0013 made
+    # this the flat, sortable working-data appendix on purpose, and warns
+    # against pulling the two formats back toward one layout. A reader
+    # who wants a chart here has a spreadsheet.
+    completion_ws = wb.create_sheet("Domain Completion")
+    _write_header(
+        completion_ws,
+        [
+            "Domain Code",
+            "Domain Name",
+            "Practices Met",
+            "Applicable Practices",
+            "Completion",
+            _score_column_header(dashboard.overall.scoring_model),
+            "Blocking MIL",
+            "Practices Blocking",
+            "What This Means",
+        ],
+    )
+    for entry in dashboard.domain_progress:
+        completion_ws.append(
+            (
+                entry.short_code,
+                entry.full_name,
+                entry.met_practices,
+                entry.total_practices,
+                # A real fraction, not a pre-formatted string, so the
+                # column sorts and charts as a number in the reader's
+                # own spreadsheet.
+                entry.met_practices / entry.total_practices,
+                entry.score,
+                entry.blocking_mil if entry.blocking_mil is not None else "",
+                entry.blocking_practice_count if entry.blocking_practice_count is not None else "",
+                entry.gate_note or "",
+            )
+        )
+    for cell in completion_ws["E"][1:]:
+        cell.number_format = "0%"
+    for col, width in zip(
+        "ABCDEFGHI", (12, 32, 14, 20, 12, 26, 13, 18, 80), strict=True
+    ):
+        completion_ws.column_dimensions[col].width = width
 
     gaps_ws = wb.create_sheet("Gaps")
     _write_header(

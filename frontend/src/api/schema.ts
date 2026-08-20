@@ -1246,6 +1246,8 @@ export interface components {
             blocking_mil?: number | null;
             /** Blocking Practice Count */
             blocking_practice_count?: number | null;
+            /** Gate Note */
+            gate_note?: string | null;
         };
         /**
          * Equivalent
