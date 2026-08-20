@@ -1,7 +1,7 @@
 # AI-Augmented Compliance Assessment Platform — Project Status
 
-**As of:** Sprint 23 (2026-08-20)
-**Charter:** `PROJECT_CHARTER.md` · **Decisions:** `docs/adr/` (69 ADRs) · **Live status:** `docs/current_sprint.md`
+**As of:** Sprint 29 (2026-08-20)
+**Charter:** `PROJECT_CHARTER.md` · **Decisions:** `docs/adr/` (83 ADRs) · **Live status:** `docs/current_sprint.md`
 
 This is the living project snapshot, maintained current. Two siblings are deliberately frozen and not
 updated: `docs/project-status-sprint16.md` at Sprint 16, and `docs/project-status.html` at Sprint 21 —
@@ -60,8 +60,8 @@ Everything else in the design follows from defending that claim.
 |---|---|
 | **Frameworks** | 7 frameworks, 8 transcribed framework-versions, 1,267 practices |
 | **Cross-framework equivalence** | 715 human-reviewed entries across 8 pairings; 121 of 141 NERC CIP practices have at least one reviewed equivalent |
-| **Tests** | 681 backend, 136 frontend; `ruff` clean; CI green on `main` |
-| **Architecture decisions** | 69 ADRs |
+| **Tests** | 811 backend, 146 frontend; `ruff` clean; CI green on `main` |
+| **Architecture decisions** | 83 ADRs |
 | **Deployment** | Docker Compose stack with TLS, hardened for single-user / small-team hosting |
 
 ### Frameworks transcribed
@@ -111,6 +111,12 @@ licensing status was checked directly against the source document, never assumed
 | 21 | **Ingestion limits and a defensible record** | Ingestion moved behind a pollable job queue, so a document larger than the proxy's 300s read ceiling — a 505-page manual, a scan needing OCR throughout — can be ingested at all; part-scanned PDFs now OCR only the pages that lack a text layer. Then R-12, open since Sprint 2: the finalized-assessment write lock moved into the transaction that performs the write, and the finalized record is **sealed** with a SHA-256 printed into every export, so alteration by anything — including a text editor on the SQLite file — is detectable. Decisions are attributed to the authenticated user, the audit record gained a backup and restore path, and documents became scoped to the assessments they belong to | 0059–0062 |
 | 22 | **Whose assessment this is, and a bound on job rows** | An `Organization` owns assessments and documents, enforced twice — in the service before any work is done, and again in the repository *inside* the write transaction — with the owner sealed into the finalized record at payload v3. Closed the reachable half of R-39, the only open High-impact risk. Then a retention window for `ingestionjob`, which ADR-0059 had disclosed rather than solved, argued from how long a job row stays useful rather than from a number nobody had evidence for | 0063–0064 |
 | 23 | **Acting on a tester's report** | Five tranches from one piece of feedback. Filters on the evidence review queue, which previously returned every link with no parameters. A domain completion chart — bound to applicable practices met, *not* `domain_scores`, which is an ordinal MIL under one scoring model and a fraction under the other. **Bulk reject**, which corrected an over-broad refusal: the arguments against auto-*accepting* do not transfer to declining, and at the measured precision most of a queue should be declined. A review-progress bar. Then both visuals and the MIL-gate explanation carried into the PDF and XLSX, closing a gap this repo had disclosed twice without fixing | 0065–0069 |
+| 24 | **Measuring the mapping engine instead of guessing at it** | Exposed the agreement measurement that had existed since Sprint 18 with no endpoint. Then answered the precision question the pilot audit left open in Sprint 17: across 5 → 505 documents precision moved 0.0117 → 0.0113 and the proposal count **saturated at 355** — every uncovered C2M2 practice — so 0.012 is structural, not a small-corpus artifact. Acted on it with competitive candidate selection (at most 3 practices may claim one chunk, where one chunk had been claimed by 44), then validated on a real public standards PDF where concentration proved *worse* than synthetic | 0070–0073 |
+| 25 | **A record that says where its text came from, and an environment that reproduces** | OCR provenance resolved per passage and surfaced where evidence is quoted — four values, because "cannot say" is a real answer and 27 of 30 documents predate the registry. Then R-9, open since Sprint 1: the backend had **no lock at all**, so CI resolved dependencies fresh on every run and every published measurement was taken against an environment nobody recorded | 0074–0075 |
+| 26 | **What the platform owes someone already holding its output** | The OCR warning carried into the PDF and XLSX — the artifact that actually leaves the building. Then R-21, open since Sprint 7: every export now prints a digest of the figures it was generated from, and an endpoint answers whether it is still current. A superseded answer states what the record says *now* rather than inventing a diff, because a digest is one-way | 0076–0077 |
+| 27 | **Provenance at the point of decision, and backups you can prove** | The review queue — where a reviewer *decides* rather than reads or reports — finally carries provenance. Then the gap `backup.sh` had half-named: a checksum proves the bytes, not that the archive contains a database that opens. `verify-backup.sh` opens it, and its tests run against an archive truncated so its checksum still matches | 0078–0079 |
+| 28 | **The environment reproduces exactly, and can prove what it installed** | The interpreters were held together by a comment across four declarations; now declared once and verified by test. Then hash-pinning: version pinning proves the *name*, not the *bytes* — and this platform's central promise is a claim about code paths, so a substituted dependency would break it silently while every claim still read as true | 0080–0081 |
+| 29 | **The oldest open risk, and one command worth scheduling** | R-11, open since Sprint 1: `path.exists()` before an open is a check-then-act window on a filesystem without instant listing consistency, and every one of the four sites failed *silently* — worst, returning zero cross-framework equivalents, 715 reviewed entries gone with nothing raised. Fixed by EAFP, proven by tests that fail against the pre-fix code. Plus one scheduled backup command that verifies before it prunes | 0082–0083 |
 
 ---
 
@@ -137,6 +143,10 @@ The same four commitments recur in every sprint, and they are what make the outp
 
 These are stated deliberately; a compliance tool that hid them would undercut its own argument.
 
+**Consolidated view:** `docs/adr/ADR-0084-what-is-deliberately-not-done.md` sorts everything below —
+plus the charter scope decisions — into what is deliberately out, what is blocked for a structural
+reason, and what is genuinely still open. Three kinds a reader keeps conflating.
+
 - **Three frameworks are partially transcribed for copyright reasons** — ISO 27001 (titles only),
   SOC 2 and PCI DSS (requirement statements only). All three are disclosed per framework.
 - **Upload retention is not retroactive.** Documents ingested before ADR-0056 have no retained
@@ -154,7 +164,16 @@ These are stated deliberately; a compliance tool that hid them would undercut it
   directly can claim any name. That is the same assumption the whole deployment already rests on,
   and it is why the stack must not be exposed to a network. Requests arriving with no identity are
   recorded as `unauthenticated` rather than guessed at.
-- **Backups are on demand, not scheduled.** `scripts/backup.sh` and `scripts/restore.sh` exist and
+- **Backups can be proved, and pruned; off-machine copies are still yours to arrange.**
+  `scripts/verify-backup.sh` opens an archive rather than hashing it — a checksum proves the bytes
+  have not changed, not that the tarball contains a database that opens, and a half-copied SQLite
+  file hashes perfectly consistently (ADR-0079). `scripts/scheduled-backup.sh` runs backup → verify →
+  prune in that order, and prunes nothing if verification fails (ADR-0083); it is deliberately a host
+  cron line rather than a compose service, because backing up stops the stack, doing that from a
+  container means mounting the Docker socket, and root-equivalent access in a permanently-running
+  service is the wrong trade for a deployment whose posture is that it must not be exposed. **Still
+  open:** an off-machine copy, which depends on where this is deployed. The original position, for
+  the record: `scripts/backup.sh` and `scripts/restore.sh` exist and
   are verified by checksum, but there is no schedule, no rotation, and no off-machine copy — those
   depend on where this is deployed.
 - **Assessments finalized before ADR-0060 carry no seal.** They report `unsealed`, never `verified`,
@@ -195,6 +214,25 @@ These are stated deliberately; a compliance tool that hid them would undercut it
   evidence corpus remains unmeasured and, in this repository, unmeasurable** — it needs an
   expert-labelled answer key, and real evidence deliberately never enters this repo at all. Sprint 23 made the resulting queue navigable — filters, and bulk reject for
   the outcome most of it should receive — without pretending that shortens it.
+- **OCR-recovered text is approximate, and now says so wherever it is quoted.** A passage recovered
+  by the recogniser is flagged in chat, on the dashboard's citations, in the review queue where a
+  reviewer *decides*, and in both exports (ADR-0074, 0076, 0078). Four values rather than a boolean,
+  because "OCR ran somewhere in this document but not recorded for this passage" and "no basis for an
+  answer" are different claims — and 27 of 30 stored documents predate the record that would settle
+  it. What has not changed: OCR output is still approximate. That was never a defect to fix, only an
+  uncertainty to make visible.
+- **A downloaded export can be checked, not chased.** Exports are not persisted (ADR-0013), so the
+  platform cannot know which snapshots are in circulation. Every export now prints a digest of the
+  figures it was generated from, and `/report-currency` answers current / superseded / unverifiable
+  (ADR-0077). It cannot say what the report *used to* say — a digest is one-way — so a superseded
+  answer states the current figures for the holder to compare against their printed copy.
+- **Dependencies are pinned by version and verified by hash; interpreters are declared, not
+  installed.** All 75 backend packages carry a SHA-256 and both install paths use `--require-hashes`
+  (ADR-0081) — version pinning proves which *name* was installed, and this platform's central promise
+  is a claim about code paths, so a substituted dependency would break it silently while every claim
+  still read as true. `.python-version` and `.nvmrc` declare the interpreters once and a test asserts
+  the Dockerfiles agree (ADR-0080). **Not covered:** what code inside a package *does* — if a package
+  was already malicious when the lock was written, this pins it faithfully.
 - **Confidence is a retrieval similarity, not a calibrated probability.** Correct practice/evidence
   pairs were measured at 0.65–0.78 and incorrect ones at 0.43–0.53, with a confirmed false positive
   at 0.71 — above many genuinely correct pairs (R-16). The number is always shown and never collapsed
@@ -222,9 +260,30 @@ that turned out to be a measured defect rather than a UI complaint — retrieval
 means a reviewer meets roughly 99 wrong proposals for every right one. The sprint made that queue
 navigable and made declining efficient, which is worth doing and is not the fix.
 
-**So the honest next step is the mapping engine, not another feature.** Re-measuring precision against
-a realistic corpus is what decides whether the threshold and candidate-selection defaults are
-miscalibrated or whether the small-corpus run was misleading. Until that is known, the platform's
-retrieval is proposing far more than it should and a human is absorbing the difference — which the
-human-in-the-loop design survives, but at a cost to the reviewer that this project has now measured
-rather than assumed.
+Sprint 24 took that step. Re-measuring precision across 5 → 505 documents answered it: **0.012 is
+structural, not a small-corpus artifact.** A 101× increase in documents moved precision by 0.0004, and
+the proposal count *saturated at 355* — every uncovered C2M2 practice — because the engine proposes
+one candidate for each regardless of how much evidence exists. The false-positive count is a property
+of the framework, not of the corpus, so no amount of better evidence reduces it. Competitive candidate
+selection (ADR-0072) improved it 2.7× and the ADR says plainly that 0.0305 is still bad.
+
+Sprints 25–29 spent themselves on the things that make any of the above believable: where a quoted
+passage came from, whether a downloaded report is still true, whether the environment that produced a
+number can be reproduced and its dependencies verified, whether a backup would actually restore, and
+the oldest open risk in the register.
+
+**Where this stands now.** For the single-organisation pilot the charter scopes, the argument is
+complete and the disclosures above are the honest edges of it. Three things would move it further,
+and none of them is another feature:
+
+1. **A labelled corpus of real evidence.** It is the only way to measure retrieval quality on
+   documents that look like the ones a client would send — and it *cannot live in this repository*,
+   which is public and frequently cloud-synced. It has to be built on the machine that owns the
+   documents, producing a number that stays there.
+2. **Authentication.** Client separation is enforced by the product rather than against a caller that
+   bypasses it (R-40), and that is what stands between this and a *multi-client* pilot. It is
+   explicitly "Won't (for MVP)" in the charter, so it is a scope decision rather than an oversight.
+3. **A real reviewer, at volume, for a sustained period.** The queue features of Sprint 23 came from
+   one tester's report and were measurably right. Everything since has been reasoning from
+   measurements taken on fixtures. `/aqs/agreement` (ADR-0070) exists precisely to turn a reviewer's
+   real decisions into data, and nothing has yet fed it.
