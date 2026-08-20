@@ -330,6 +330,35 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/assessments/{assessment_id}/aqs/agreement": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Agreement Report
+         * @description How often reviewers accepted an AI proposal as-is, per confidence
+         *     band (ADR-0070).
+         *
+         *     Under `/aqs/` rather than alongside the assessment's own endpoints on
+         *     purpose. This is evaluation of the mapping engine, not a property of
+         *     the assessment, and nothing in the product UI renders it -- an
+         *     agreement rate shown next to a score invites being read as a verdict
+         *     on the work rather than on the engine.
+         *
+         *     Read-only, computed on demand, never persisted.
+         */
+        get: operations["get_agreement_report_assessments__assessment_id__aqs_agreement_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/assessments/{assessment_id}/evidence/bulk-reject": {
         parameters: {
             query?: never;
@@ -875,6 +904,25 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * AgreementByBand
+         * @description Agreement within one retrieval-confidence band (ADR-0070).
+         *
+         *     The bands are R-16's measured structure, not round numbers: correct
+         *     practice/evidence pairs were observed at 0.65-0.78 and incorrect ones
+         *     at 0.43-0.53, with the live threshold at 0.55. Bucketing agreement
+         *     this way is what turns "should we trust a high confidence score?"
+         *     from an intuition into a question real review decisions can answer.
+         */
+        AgreementByBand: {
+            /** Label */
+            label: string;
+            /** Min Confidence */
+            min_confidence: number | null;
+            /** Max Confidence */
+            max_confidence: number | null;
+            agreement: components["schemas"]["AssessmentAgreementResult"];
+        };
         /** ApproveSanitizationRequest */
         ApproveSanitizationRequest: {
             /**
@@ -923,6 +971,49 @@ export interface components {
             sealed_at?: string | null;
             /** Seal Version */
             seal_version?: string | null;
+        };
+        /**
+         * AssessmentAgreementReport
+         * @description Agreement overall and per confidence band, for one assessment.
+         *
+         *     `interpretation` travels with the numbers rather than being left to
+         *     each caller, the same discipline ADR-0012 applied to the dashboard's
+         *     so_what sentences: a rate like this is easy to read as a score for
+         *     the assessment, and it is a measurement of the mapping engine's
+         *     proposals against what a human decided.
+         */
+        AssessmentAgreementReport: {
+            overall: components["schemas"]["AssessmentAgreementResult"];
+            /** By Confidence Band */
+            by_confidence_band: components["schemas"]["AgreementByBand"][];
+            /** Interpretation */
+            interpretation: string;
+        };
+        /**
+         * AssessmentAgreementResult
+         * @description How often a human reviewer's real accept/edit/reject decision on
+         *     an AI-proposed evidence link agreed with the proposal (i.e. was
+         *     accepted as-is). Computable from real production review data, not
+         *     just a labeled corpus — see
+         *     `services/aqs_service.py.compute_assessment_agreement`.
+         *
+         *     `agreement_rate` is None (not 0.0) when there is nothing reviewed
+         *     yet to measure — a fresh assessment with only pending AI proposals
+         *     has an undefined agreement rate, not a zero one.
+         */
+        AssessmentAgreementResult: {
+            /** Total Ai Proposed */
+            total_ai_proposed: number;
+            /** Pending */
+            pending: number;
+            /** Accepted */
+            accepted: number;
+            /** Edited */
+            edited: number;
+            /** Rejected */
+            rejected: number;
+            /** Agreement Rate */
+            agreement_rate: number | null;
         };
         /**
          * AssessmentStatus
@@ -1052,6 +1143,8 @@ export interface components {
             similarity: number;
             /** Chunk Text */
             chunk_text: string;
+            /** @default unknown */
+            text_provenance: components["schemas"]["TextProvenance"];
         };
         /** CreateAssessmentRequest */
         CreateAssessmentRequest: {
@@ -2093,6 +2186,18 @@ export interface components {
             /** Note */
             note?: string | null;
         };
+        /**
+         * TextProvenance
+         * @description How a quoted passage's text was obtained (ADR-0074).
+         *
+         *     A closed set rather than a boolean, on the same discipline as
+         *     IngestionJobFailure and FinalizationBlockerCategory: the UI decides
+         *     what to render and how loudly, and "we cannot tell" is a genuinely
+         *     different answer from "this is approximate" -- collapsing them
+         *     either understates a real warning or manufactures one.
+         * @enum {string}
+         */
+        TextProvenance: "exact" | "ocr" | "possibly_ocr" | "unknown";
         /** ValidationError */
         ValidationError: {
             /** Location */
@@ -2683,6 +2788,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EvidenceLink"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_agreement_report_assessments__assessment_id__aqs_agreement_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                assessment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssessmentAgreementReport"];
                 };
             };
             /** @description Validation Error */

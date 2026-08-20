@@ -3,6 +3,7 @@ import { useOutletContext } from 'react-router-dom'
 import { Loader2, Send } from 'lucide-react'
 import { useChat } from '../../api/assessments'
 import ConfidenceMeter from '../../components/ConfidenceMeter'
+import TextProvenanceBadge from '../../components/TextProvenanceBadge'
 import type { AssessmentTabContext } from '../AssessmentDetailPage'
 
 // Retrieval-only chat (ADR-0014): every result IS the cited, already
@@ -68,9 +69,16 @@ export default function ChatTab() {
               key={`${index}-${result.practice_reference}-${result.document_id}-${result.chunk_id}`}
               className="rounded-lg border border-slate-200 bg-white p-3"
             >
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-2">
                 <span className="font-mono text-xs text-slate-500">{result.practice_reference}</span>
-                <ConfidenceMeter value={result.similarity} label="similarity" />
+                <div className="flex items-center gap-2">
+                  {/* Next to the quotation it qualifies, not in a footer
+                      (ADR-0074). Chat is where this product quotes
+                      evidence verbatim, so it is where approximate text
+                      does the most damage. */}
+                  <TextProvenanceBadge provenance={result.text_provenance} />
+                  <ConfidenceMeter value={result.similarity} label="similarity" />
+                </div>
               </div>
               <p className="mt-1 text-sm text-slate-800">{result.chunk_text}</p>
               <p className="mt-1 text-xs text-slate-400">

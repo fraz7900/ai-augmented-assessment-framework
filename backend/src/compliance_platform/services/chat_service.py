@@ -44,7 +44,18 @@ class ChatHit:
     mapping_service.py.
     """
 
-    __slots__ = ("practice_reference", "document_id", "chunk_id", "similarity", "chunk_text")
+    __slots__ = (
+        "practice_reference",
+        "document_id",
+        "chunk_id",
+        "similarity",
+        "chunk_text",
+        # Raw, unresolved (ADR-0074). This function is pure over its
+        # inputs and has no Document registry, so it reports what the
+        # chunk itself recorded and leaves combining that with the
+        # document's parse status to the caller that has one.
+        "is_ocr_derived",
+    )
 
     def __init__(
         self,
@@ -53,12 +64,14 @@ class ChatHit:
         chunk_id: str,
         similarity: float,
         chunk_text: str,
+        is_ocr_derived: bool | None = None,
     ) -> None:
         self.practice_reference = practice_reference
         self.document_id = document_id
         self.chunk_id = chunk_id
         self.similarity = similarity
         self.chunk_text = chunk_text
+        self.is_ocr_derived = is_ocr_derived
 
 
 def answer_question(
@@ -95,9 +108,11 @@ def answer_question(
         return []
 
     chunk_text_by_key: dict[tuple[str, str], str] = {}
+    ocr_flag_by_key: dict[tuple[str, str], bool | None] = {}
     for document_id in {link.document_id for link in reviewed}:
         for row in vector_repository.chunks_for_document(document_id):
             chunk_text_by_key[(document_id, row["chunk_id"])] = row["text"]
+            ocr_flag_by_key[(document_id, row["chunk_id"])] = row.get("is_ocr_derived")
 
     candidates = [
         link for link in reviewed if (link.document_id, link.chunk_id) in chunk_text_by_key
@@ -116,6 +131,7 @@ def answer_question(
             chunk_id=link.chunk_id,
             similarity=cosine_similarity(question_vector, chunk_vector),
             chunk_text=chunk_text_by_key[(link.document_id, link.chunk_id)],
+            is_ocr_derived=ocr_flag_by_key.get((link.document_id, link.chunk_id)),
         )
         for link, chunk_vector in zip(candidates, chunk_vectors, strict=True)
     ]

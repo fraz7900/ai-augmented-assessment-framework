@@ -55,6 +55,12 @@ ParseResult = tuple[
     list[str],
     list[tuple[int, int]] | None,
     list[tuple[int, int, int, str | None]] | None,
+    # Pages OCR recovered, 1-indexed (ADR-0074). Only parse_pdf ever
+    # produces a non-None value; every other format has no page concept
+    # and no OCR path. Positional like the rest of this tuple, which is
+    # already long -- widening it was still the smaller change than
+    # restructuring every parser's return for one field.
+    list[int] | None,
 ]
 
 
@@ -342,7 +348,16 @@ def _ocr_pdf(content: bytes, page_count: int, settings: Settings) -> ParseResult
         "approximate -- verify any passage against the source page before relying on it as "
         "evidence."
     )
-    return text, ParseStatus.SUCCESS_OCR, warnings, _page_boundaries_for(page_texts), None
+    # Every page in a no-text-layer PDF came from the recogniser, so the
+    # whole document is OCR-derived and each page says so (ADR-0074).
+    return (
+        text,
+        ParseStatus.SUCCESS_OCR,
+        warnings,
+        _page_boundaries_for(page_texts),
+        None,
+        list(range(1, len(page_texts) + 1)),
+    )
 
 
 def _ocr_missing_pages(
@@ -400,11 +415,11 @@ def parse_pdf(content: bytes, settings: Settings | None = None) -> ParseResult:
     try:
         reader = PdfReader(io.BytesIO(content))
     except Exception as exc:  # pypdf raises varied exception types on malformed PDFs
-        return "", ParseStatus.FAILED, [f"Could not open PDF: {exc}"], None, None
+        return "", ParseStatus.FAILED, [f"Could not open PDF: {exc}"], None, None, None
 
     page_count = len(reader.pages)
     if page_count == 0:
-        return "", ParseStatus.EMPTY, ["PDF has zero pages."], None, None
+        return "", ParseStatus.EMPTY, ["PDF has zero pages."], None, None, None
 
     page_texts: list[str] = []
     for i, page in enumerate(reader.pages):
@@ -438,15 +453,22 @@ def parse_pdf(content: bytes, settings: Settings | None = None) -> ParseResult:
         if settings.ocr_enabled:
             ocr_result = _ocr_pdf(content, page_count, settings)
             if ocr_result is not None:
-                ocr_text, status, ocr_warnings, ocr_boundaries, _ = ocr_result
-                return ocr_text, status, warnings + ocr_warnings, ocr_boundaries, None
+                ocr_text, status, ocr_warnings, ocr_boundaries, _, ocr_pages = ocr_result
+                return (
+                    ocr_text,
+                    status,
+                    warnings + ocr_warnings,
+                    ocr_boundaries,
+                    None,
+                    ocr_pages,
+                )
             warnings.append(
                 "OCR was attempted and did not recover usable text; treating this document as "
                 "unsupported rather than storing near-empty content as if it had parsed."
             )
         else:
             warnings.append("OCR is disabled by configuration (ocr_enabled=false).")
-        return text, ParseStatus.UNSUPPORTED_SCANNED, warnings, page_boundaries, None
+        return text, ParseStatus.UNSUPPORTED_SCANNED, warnings, page_boundaries, None, None
 
     # A document can clear the average and still be part scan. Judging
     # scannedness only on the whole-document average silently loses those
@@ -483,9 +505,20 @@ def parse_pdf(content: bytes, settings: Settings | None = None) -> ParseResult:
             # distinction for a reader is "OCR was involved, treat quotes
             # as approximate", which SUCCESS_OCR already carries, and the
             # warning above says exactly which pages.
-            return text, ParseStatus.SUCCESS_PARTIAL_OCR, warnings, page_boundaries, None
+            # Only the pages OCR actually replaced, 1-indexed to match
+            # EvidenceChunk.page_number. recovered_pages was already
+            # computed to pick the status above and then discarded --
+            # which is precisely what made R-33 unfixable downstream.
+            return (
+                text,
+                ParseStatus.SUCCESS_PARTIAL_OCR,
+                warnings,
+                page_boundaries,
+                None,
+                [index + 1 for index in recovered_pages],
+            )
 
-    return text, ParseStatus.SUCCESS, warnings, page_boundaries, None
+    return text, ParseStatus.SUCCESS, warnings, page_boundaries, None, None
 
 
 def parse_docx(content: bytes) -> ParseResult:
@@ -493,14 +526,14 @@ def parse_docx(content: bytes) -> ParseResult:
     try:
         _, ceiling_warning = _zip_bomb_ceiling_warning(content, "DOCX")
     except zipfile.BadZipFile as exc:
-        return "", ParseStatus.FAILED, [f"Could not open DOCX: {exc}"], None, None
+        return "", ParseStatus.FAILED, [f"Could not open DOCX: {exc}"], None, None, None
     if ceiling_warning:
-        return "", ParseStatus.FAILED, [ceiling_warning], None, None
+        return "", ParseStatus.FAILED, [ceiling_warning], None, None, None
 
     try:
         doc = DocxDocument(io.BytesIO(content))
     except Exception as exc:
-        return "", ParseStatus.FAILED, [f"Could not open DOCX: {exc}"], None, None
+        return "", ParseStatus.FAILED, [f"Could not open DOCX: {exc}"], None, None, None
 
     lines: list[str] = []
     for para in doc.paragraphs:
@@ -516,9 +549,9 @@ def parse_docx(content: bytes) -> ParseResult:
     full_text = "\n".join(lines)
     if not full_text.strip():
         warnings.append("DOCX contained no extractable paragraph text.")
-        return full_text, ParseStatus.EMPTY, warnings, None, None
+        return full_text, ParseStatus.EMPTY, warnings, None, None, None
 
-    return full_text, ParseStatus.SUCCESS, warnings, None, None
+    return full_text, ParseStatus.SUCCESS, warnings, None, None, None
 
 
 def parse_plain_text(content: bytes) -> ParseResult:
@@ -532,12 +565,12 @@ def parse_plain_text(content: bytes) -> ParseResult:
         )
         text = content.decode("latin-1", errors="replace")
         if not text.strip():
-            return "", ParseStatus.ENCODING_FAILURE, warnings, None, None
+            return "", ParseStatus.ENCODING_FAILURE, warnings, None, None, None
 
     if not text.strip():
-        return text, ParseStatus.EMPTY, ["File contained no text content."], None, None
+        return text, ParseStatus.EMPTY, ["File contained no text content."], None, None, None
 
-    return text, ParseStatus.SUCCESS, warnings, None, None
+    return text, ParseStatus.SUCCESS, warnings, None, None, None
 
 
 def _render_tabular_rows(
@@ -598,14 +631,14 @@ def parse_xlsx(content: bytes) -> ParseResult:
     try:
         _, ceiling_warning = _zip_bomb_ceiling_warning(content, "XLSX")
     except zipfile.BadZipFile as exc:
-        return "", ParseStatus.FAILED, [f"Could not open XLSX: {exc}"], None, None
+        return "", ParseStatus.FAILED, [f"Could not open XLSX: {exc}"], None, None, None
     if ceiling_warning:
-        return "", ParseStatus.FAILED, [ceiling_warning], None, None
+        return "", ParseStatus.FAILED, [ceiling_warning], None, None, None
 
     try:
         workbook = openpyxl.load_workbook(io.BytesIO(content), read_only=True, data_only=True)
     except Exception as exc:
-        return "", ParseStatus.FAILED, [f"Could not open XLSX: {exc}"], None, None
+        return "", ParseStatus.FAILED, [f"Could not open XLSX: {exc}"], None, None, None
 
     # Sheet names rendered as "# Sheet Name" headings so
     # chunking.py's existing structure-aware chunker (already keyed off
@@ -636,9 +669,10 @@ def parse_xlsx(content: bytes) -> ParseResult:
             ["XLSX contained no data rows across any sheet."],
             None,
             None,
+            None,
         )
 
-    return text, ParseStatus.SUCCESS, warnings, None, row_boundaries
+    return text, ParseStatus.SUCCESS, warnings, None, row_boundaries, None
 
 
 def parse_csv(content: bytes) -> ParseResult:
@@ -655,10 +689,10 @@ def parse_csv(content: bytes) -> ParseResult:
     try:
         rows = list(csv.reader(io.StringIO(text_content)))
     except Exception as exc:  # the stdlib csv module can raise on pathological content
-        return "", ParseStatus.FAILED, [f"Could not parse CSV: {exc}"], None, None
+        return "", ParseStatus.FAILED, [f"Could not parse CSV: {exc}"], None, None, None
 
     if not rows:
-        return "", ParseStatus.EMPTY, ["CSV contained no rows."], None, None
+        return "", ParseStatus.EMPTY, ["CSV contained no rows."], None, None, None
 
     rendered = _render_tabular_rows(rows[0], rows[1:], start_row_number=2)
     lines: list[str] = []
@@ -667,9 +701,9 @@ def parse_csv(content: bytes) -> ParseResult:
     _append_rendered_rows(rendered, None, lines, row_boundaries, cursor=0)
     text = "\n".join(lines)
     if not text.strip():
-        return text, ParseStatus.EMPTY, ["CSV contained no data rows."], None, None
+        return text, ParseStatus.EMPTY, ["CSV contained no data rows."], None, None, None
 
-    return text, ParseStatus.SUCCESS, warnings, None, row_boundaries
+    return text, ParseStatus.SUCCESS, warnings, None, row_boundaries, None
 
 
 _PARSERS = {
@@ -717,7 +751,7 @@ def parse_document(
     file_type = file_type_from_extension(filename)
 
     if not _content_matches_file_type(content, file_type):
-        text, status, warnings, page_boundaries, row_boundaries = (
+        text, status, warnings, page_boundaries, row_boundaries, ocr_pages = (
             "",
             ParseStatus.FAILED,
             [
@@ -727,13 +761,16 @@ def parse_document(
             ],
             None,
             None,
+            None,
         )
     elif file_type == FileType.PDF:
         # The only parser that takes settings (OCR configuration).
-        text, status, warnings, page_boundaries, row_boundaries = parse_pdf(content, settings)
+        text, status, warnings, page_boundaries, row_boundaries, ocr_pages = parse_pdf(
+            content, settings
+        )
     else:
         parser = _PARSERS[file_type]
-        text, status, warnings, page_boundaries, row_boundaries = parser(content)
+        text, status, warnings, page_boundaries, row_boundaries, ocr_pages = parser(content)
 
     metadata = SourceDocumentMetadata(
         document_id=_new_document_id(),
@@ -751,4 +788,5 @@ def parse_document(
         parse_warnings=warnings,
         page_boundaries=page_boundaries,
         row_boundaries=row_boundaries,
+        ocr_page_numbers=ocr_pages,
     )

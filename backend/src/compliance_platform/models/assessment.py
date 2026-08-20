@@ -345,6 +345,18 @@ class Document(SQLModel, table=True):
     # Default "" only for schema-evolution safety (a value is always
     # supplied by ingestion_service.py in practice); no pre-existing
     # Document row can lack it, since this table is new this same sprint.
+    # How this document's text was obtained (ADR-0074). The same value
+    # IngestionJob already recorded for the transient job row, kept on
+    # the durable record too -- a citation months later needs to know
+    # whether the passage it quotes was read from a text layer or
+    # recovered by OCR, and the job row is swept after 30 days
+    # (ADR-0064) while the document is not.
+    #
+    # None on every row written before this existed. That resolves to
+    # "unknown", which is the honest answer for them: nothing was
+    # recorded, and backfilling "success" would assert an intact text
+    # layer nobody checked.
+    parse_status: str | None = None
     parser_version: str = ""
 
 

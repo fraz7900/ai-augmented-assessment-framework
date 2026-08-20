@@ -80,6 +80,10 @@ class AssessmentRepository:
         _add_missing_columns(
             self._engine, "evidencelink", {"original_practice_reference": "TEXT"}
         )
+        # ADR-0074. Nullable with no default on purpose: an existing row
+        # has no recorded parse status and must not acquire a fabricated
+        # one, so it stays NULL and reads as "unknown".
+        _add_missing_columns(self._engine, "document", {"parse_status": "TEXT"})
         _add_missing_columns(
             self._engine,
             "evidencelink",

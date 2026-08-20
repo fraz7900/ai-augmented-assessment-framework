@@ -108,6 +108,75 @@ class ParsedDocument(BaseModel):
     # every non-tabular format, same "format doesn't apply" convention as
     # page_boundaries above.
     row_boundaries: list[tuple[int, int, int, str | None]] | None = None
+    # Which pages OCR actually recovered (ADR-0074), 1-indexed to match
+    # EvidenceChunk.page_number. parse_pdf computes this already -- the
+    # selective-OCR path (ADR-0055) knows exactly which textless pages it
+    # replaced -- and until now it threw the list away after using it to
+    # pick a ParseStatus.
+    #
+    # That loss is what made R-33 unfixable downstream: a citation could
+    # be told its DOCUMENT involved OCR, but not whether the passage
+    # being quoted did. On a mostly-exact document that forces a choice
+    # between warning about every quotation or none of them, and
+    # ParseStatus.SUCCESS_PARTIAL_OCR's own docstring already names both
+    # as wrong.
+    #
+    # None means the format has no pages or OCR never ran; an empty list
+    # would mean OCR ran and recovered nothing, which parse_pdf reports
+    # as a non-OCR status instead.
+    ocr_page_numbers: list[int] | None = None
+
+
+class TextProvenance(StrEnum):
+    """How a quoted passage's text was obtained (ADR-0074).
+
+    A closed set rather than a boolean, on the same discipline as
+    IngestionJobFailure and FinalizationBlockerCategory: the UI decides
+    what to render and how loudly, and "we cannot tell" is a genuinely
+    different answer from "this is approximate" -- collapsing them
+    either understates a real warning or manufactures one.
+    """
+
+    # Read from a real text layer. A quotation should match the source
+    # character for character.
+    EXACT = "exact"
+    # This passage's own page was recovered by the OCR recogniser. The
+    # quotation is approximate and a reviewer relying on it should check
+    # it against the source page.
+    OCR = "ocr"
+    # OCR ran somewhere in this document, but not which page this
+    # passage came from -- a chunk with no page number, or a store
+    # written before per-page provenance existed. Weaker than OCR and
+    # very different from EXACT.
+    POSSIBLY_OCR = "possibly_ocr"
+    # No basis for an answer: the document's parse status is unknown.
+    # Deliberately not folded into EXACT, which is a claim.
+    UNKNOWN = "unknown"
+
+
+def resolve_text_provenance(
+    is_ocr_derived: bool | None, parse_status: str | None
+) -> TextProvenance:
+    """Combine what the chunk knows with what the document knows.
+
+    The chunk's own flag wins when it has one, because it is the precise
+    answer. When it does not -- a pre-ADR-0074 chunk, or a format with
+    no pages -- the document's parse status is the only evidence left,
+    and it can only support a hedged answer.
+
+    A document that never involved OCR resolves to EXACT even for a
+    chunk with no flag, because SUCCESS means every character came from
+    a text layer; there is nothing per-page to be uncertain about.
+    """
+    if is_ocr_derived is True:
+        return TextProvenance.OCR
+    if is_ocr_derived is False:
+        return TextProvenance.EXACT
+    if parse_status in (ParseStatus.SUCCESS_OCR.value, ParseStatus.SUCCESS_PARTIAL_OCR.value):
+        return TextProvenance.POSSIBLY_OCR
+    if parse_status == ParseStatus.SUCCESS.value:
+        return TextProvenance.EXACT
+    return TextProvenance.UNKNOWN
 
 
 class EvidenceChunk(BaseModel):
@@ -130,6 +199,16 @@ class EvidenceChunk(BaseModel):
     # doesn't respect them) is attributed to its starting page only --
     # a disclosed simplification, not full multi-page provenance.
     page_number: int | None = None
+    # Was THIS chunk's text recovered by OCR (ADR-0074)? True/False when
+    # known; None when it cannot be determined -- a chunk written before
+    # this field existed, or a format with no page concept where the
+    # document-level status is the only available answer.
+    #
+    # None is not False. A chunk from a pre-ADR-0074 store belonging to
+    # an OCR'd document really is approximate, and reporting it as
+    # definitely-not-OCR would be worse than admitting the store cannot
+    # say. Callers resolve None against the document's parse_status.
+    is_ocr_derived: bool | None = None
     # Row/sheet provenance (Sprint 18, ADR-0052): the 1-indexed spreadsheet
     # row (matching the "Row N" label already rendered into the chunk's own
     # text by document_parsers.py) and, for XLSX, the sheet it came from.
