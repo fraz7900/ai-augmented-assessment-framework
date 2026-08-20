@@ -180,10 +180,15 @@ These are stated deliberately; a compliance tool that hid them would undercut it
   precision at **0.012** — 4 true positives against 338 false positives across 342 proposals —
   because the mapping engine proposes its single best chunk for every uncovered practice whenever it
   clears the similarity threshold, and on a small corpus nearly every practice finds one. Recall was
-  1.0. That run is explicitly scaffolding-scale and may be an artifact of corpus size, which is why
-  the engine has not been changed on the strength of it; re-running against a realistic corpus is the
-  open next step. Sprint 23 made the resulting queue navigable — filters, and bulk reject for the
-  outcome most of it should receive — without pretending that shortens it.
+  1.0. **Sprint 24 established that this is structural, not a small-corpus artifact** (ADR-0071):
+  across 5 to 505 documents precision moved 0.0117 → 0.0113, and the proposal count saturated at 355 —
+  every uncovered C2M2 practice. The engine proposes one candidate per practice, so the false-positive
+  count is a property of the framework rather than of the evidence, and more or better evidence does
+  not reduce it. Raising the threshold is not the fix either: a confirmed false positive sits at 0.71,
+  inside the 0.65–0.78 band correct pairs were measured in. The fix points at competitive rather than
+  absolute candidate selection, which has real recall consequences and is deliberately not made in the
+  sprint that measured it. Sprint 23 made the resulting queue navigable — filters, and bulk reject for
+  the outcome most of it should receive — without pretending that shortens it.
 - **Confidence is a retrieval similarity, not a calibrated probability.** Correct practice/evidence
   pairs were measured at 0.65–0.78 and incorrect ones at 0.43–0.53, with a confirmed false positive
   at 0.71 — above many genuinely correct pairs (R-16). The number is always shown and never collapsed

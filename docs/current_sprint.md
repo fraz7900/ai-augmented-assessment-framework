@@ -5,7 +5,7 @@ the precision measurement the pilot readiness audit recommended in Sprint 17, at
 can actually answer whether 0.012 was an artifact of five documents (T2). Deliberately no change to
 the mapping engine itself: measuring before optimising is this project's own rule and the reason
 that finding was never acted on.
-Status: **T1 is on PR #21. T2 is not begun.**
+Status: **T1 merged as `edfc0b6` (PR #21). T2 is on PR #22.**
 Sprint 23 closed with five tranches merged, all from one tester's report: `9436460` filters,
 `336a952` domain completion chart, `07a41a5` bulk reject, `d67968f` review-progress bar, `76e7479`
 exports carrying both visuals and the MIL-gate sentence. Two of those existed only because the report
@@ -35,15 +35,38 @@ reports None rather than 0.0: "no data up here" and "humans reject everything up
 findings, and 0.0 states the wrong one. Empty bands are returned rather than omitted, for the same
 reason. Bulk reject decisions show up here like any other review, which matters because bulk is now
 the fastest way a reviewer works.
-T2 (not begun) — re-measure precision at a corpus size that can answer the question. The pilot
-readiness audit measured precision 0.012 and recall 1.0 on five documents, named
-`mapping_candidates_per_practice=1` plus the 0.55 threshold as the cause, and explicitly did not act:
-one 5-document run cannot distinguish a miscalibrated default from a small-corpus artifact, and
-changing engine behaviour on that sample would be the optimise-before-benchmarking mistake this
-project's own discipline prohibits. That recommendation has been open since Sprint 17. The measurement
-has to be honest about its own method: synthetic positives paraphrased from practice text would
-flatter the engine, so the variable worth scaling is the negative corpus — realistic documents that
-are genuinely not evidence — with the hand-labelled positives kept as they are.
+T2 — the precision question is answered (ADR-0071, accepted). Open since Sprint 17: was 0.012 a
+miscalibrated default or an artifact of five documents? It is neither miscalibrated nor an artifact —
+it is structural. `scripts/measure_aqs.py` gained a `--distractors` sweep that scales only the
+negative half of the corpus, because synthetic positives paraphrased from practice text would be
+embedding the framework's own words back at itself and calling the match a success. The distractors
+are policy-shaped and use domain-general security vocabulary, which is the hard case: R-16 names
+exactly that vocabulary as the mechanism behind false positives near the threshold.
+T2, what it measured. Across 5, 30, 80, 205 and 505 documents on this machine against the real stack,
+precision moved 0.0117 to 0.0113 — in the wrong direction — while recall stayed 1.0 throughout. A
+101x increase in documents changed precision by 0.0004.
+T2, the finding that matters more than the number. **The proposal count saturates at 355 and then
+stops moving entirely**, identical at 205 and 505 documents. C2M2 has 356 practices and one was
+already covered by the fixture, so 355 is every uncovered practice: the engine proposes one candidate
+for each, and at any realistic corpus size essentially every practice finds some chunk clearing 0.55.
+The false-positive count is therefore a property of the FRAMEWORK, not of the evidence. Precision is
+bounded by roughly (practices with genuine evidence) / (all uncovered practices) no matter how good
+retrieval gets — on a real corpus the numerator would be far higher than this fixture's 4, but the
+denominator does not depend on the corpus at all.
+T2, what is deliberately not done. No engine parameter changed. Measuring was this sprint's scope and
+tuning is not, which is the same discipline the audit invoked when it declined to act on the original
+run. Raising the threshold is ruled out on evidence rather than preference: R-16 puts a confirmed
+false positive at 0.71, inside the 0.65-0.78 band correct pairs were measured in, so no single cutoff
+separates them. The direction that survives is competitive rather than absolute selection — proposing
+only where the best match stands out from its own alternatives, and letting some practices receive no
+proposal at all. That changes recall and deserves its own ADR, measurement and sprint.
+T2, stated limits. The distractors contribute no true positives by construction, so a real
+500-document corpus would show higher absolute precision; the false-positive behaviour is what this
+establishes and that part is corpus-independent. 505 documents is the low end of the audit's stated
+100-1,000 range — the curve is flat and saturated well before it, but it was not run there. Six tests
+cover the corpus construction only: the script is a script, but the ground-truth set is the answer key
+a precision number is computed against, and a defect there would produce a plausible wrong measurement
+rather than a loud failure.
 Still open and not claimed here, unchanged. R-9, no reproducible environment bootstrap, rated High
 likelihood and already occurred once. R-33, OCR-recovered text is approximate and nothing downstream
 flags a citation drawn from an OCR'd page. R-34, ADR-0057's scoring correction can lower a number

@@ -42,6 +42,7 @@ from __future__ import annotations
 
 import json
 import tempfile
+import time
 from pathlib import Path
 
 from fastapi.testclient import TestClient
@@ -127,6 +128,66 @@ _CORPUS: list[tuple[str, bytes, set[str]]] = [
 _PLACEHOLDER_PRACTICE = "PROGRAM-3a"
 
 
+# --- Distractor documents, for measuring precision at corpus scale ---
+#
+# The pilot readiness audit's recommended next step, open since Sprint 17:
+# re-run this measurement against a corpus larger than five documents,
+# because one 5-document run cannot distinguish a miscalibrated default
+# from an artifact of corpus size.
+#
+# What gets scaled is deliberately the NEGATIVE half. Generating synthetic
+# positives by paraphrasing practice text would flatter the engine — it
+# would be embedding the framework's own words back at itself and calling
+# the match a success — so the hand-labelled positives above stay exactly
+# as they are, and the variable is how much plausible non-evidence sits
+# alongside them.
+#
+# These distractors are policy-SHAPED and use domain-general cybersecurity
+# vocabulary, which is the hard case rather than the easy one: R-16 names
+# that vocabulary as the mechanism behind false positives near the
+# threshold. A corpus of cafeteria menus would prove nothing.
+#
+# Their ground truth is the empty set, and that is true by construction:
+# each describes an organisation's general approach to a topic without
+# stating that any specific C2M2 practice is performed.
+_DISTRACTOR_TOPICS = [
+    "identity and access provisioning",
+    "credential encryption standards",
+    "vendor risk assessment procedures",
+    "incident response escalation",
+    "patch management cadence",
+    "physical facility access controls",
+    "network segmentation requirements",
+    "security awareness training",
+    "asset inventory and classification",
+    "logging and monitoring retention",
+]
+
+
+def distractor_document(index: int) -> tuple[str, bytes, set[str]]:
+    """One plausible non-evidence document, in this script's corpus shape.
+
+    Returns the same (name, content, correct_practices) triple as the
+    hand-labelled corpus, with an empty ground-truth set. Deterministic in
+    `index` so a sweep is reproducible and two runs are comparable.
+    """
+    topic = _DISTRACTOR_TOPICS[index % len(_DISTRACTOR_TOPICS)]
+    content = (
+        f"Policy Document #{index}: {topic.title()}.\n\n"
+        f"This document describes the organization's general approach to {topic}. "
+        f"Personnel are expected to be familiar with the procedures related to {topic}, "
+        "which the compliance team reviews annually. Deviations are reported through "
+        "the usual channels and remediated within a defined timeframe. "
+        f"Document reference: SYN-{index:05d}."
+    ).encode()
+    return (f"distractor_{index:05d}", content, set())
+
+
+def build_corpus(distractor_count: int) -> list[tuple[str, bytes, set[str]]]:
+    """The 5 hand-labelled documents, plus `distractor_count` negatives."""
+    return list(_CORPUS) + [distractor_document(i) for i in range(distractor_count)]
+
+
 def _reset_dependencies(settings: Settings) -> None:
     for cached in (
         dependencies.get_cached_settings,
@@ -139,7 +200,9 @@ def _reset_dependencies(settings: Settings) -> None:
     dependencies.get_settings = lambda: settings
 
 
-def run_measurement() -> dict:
+def run_measurement(distractor_count: int = 0) -> dict:
+    corpus = build_corpus(distractor_count)
+    started = time.monotonic()
     tmp_dir = Path(tempfile.mkdtemp(prefix="c2m2-aqs-measurement-"))
     settings = Settings(
         vector_store_dir=tmp_dir / "lancedb", assessments_db_path=tmp_dir / "assessments.db"
@@ -153,7 +216,7 @@ def run_measurement() -> dict:
         assessment_id = assessment["id"]
 
         document_ids: dict[str, str] = {}
-        for name, content, _correct in _CORPUS:
+        for name, content, _correct in corpus:
             response = client.post("/ingest", files={"file": (f"{name}.txt", content)})
             document_ids[name] = response.json()["document_id"]
 
@@ -172,7 +235,7 @@ def run_measurement() -> dict:
 
         all_links_before_review = client.get(f"/assessments/{assessment_id}/evidence").json()
         document_id_to_name = {doc_id: name for name, doc_id in document_ids.items()}
-        correct_by_name = {name: correct for name, _content, correct in _CORPUS}
+        correct_by_name = {name: correct for name, _content, correct in corpus}
 
         # --- Evidence precision/recall ---
         # Items are (document, practice) pairs, not bare practice
@@ -218,10 +281,16 @@ def run_measurement() -> dict:
         agreement = compute_assessment_agreement(evidence_link_objects)
 
     return {
-        "corpus_size": len(_CORPUS),
+        "corpus_size": len(corpus),
+        "labelled_positives": len(_CORPUS),
+        "distractors": distractor_count,
+        "elapsed_seconds": round(time.monotonic() - started, 1),
         "corpus_note": (
-            "5 documents -- pipeline-scaffolding scale, NOT a statistically "
-            "meaningful sample. See this script's module docstring."
+            f"{len(_CORPUS)} hand-labelled documents plus {distractor_count} synthetic "
+            "distractors. The positives are unchanged from the original 5-document run; "
+            "only the negative half is scaled, because synthetic positives paraphrased "
+            "from practice text would flatter the engine. Still not a statistically "
+            "meaningful sample -- see this script's module docstring."
         ),
         "evidence_precision_recall": precision_recall.model_dump(),
         "assessment_agreement": agreement.model_dump(),
@@ -229,15 +298,70 @@ def run_measurement() -> dict:
     }
 
 
+def run_sweep(distractor_counts: list[int]) -> dict:
+    """The same measurement at several corpus sizes.
+
+    A sweep rather than one bigger run, because the open question is not
+    "what is precision at N documents" but "does precision move with N".
+    A single larger number could not tell a miscalibrated threshold from
+    a small-corpus artifact, which is exactly why the audit did not act
+    on the original run.
+    """
+    runs = [run_measurement(count) for count in distractor_counts]
+    return {
+        "runs": runs,
+        "reading": (
+            "Recall staying at 1.0 while precision falls as distractors grow means the "
+            "engine proposes its best chunk for nearly every practice regardless of "
+            "whether a good one exists -- a property of candidates-per-practice and the "
+            "threshold, not of corpus size. Precision RISING would mean the opposite: "
+            "that the original 0.012 was a small-corpus artifact."
+        ),
+    }
+
+
+def _print_table(sweep: dict) -> None:
+    print()
+    print(f"{'docs':>6}  {'distractors':>11}  {'proposals':>9}  {'TP':>4}  {'FP':>5}  "
+          f"{'precision':>9}  {'recall':>7}  {'secs':>6}")
+    for run in sweep["runs"]:
+        pr = run["evidence_precision_recall"]
+        proposals = pr["true_positives"] + pr["false_positives"]
+        precision = "n/a" if pr["precision"] is None else f"{pr['precision']:.4f}"
+        recall = "n/a" if pr["recall"] is None else f"{pr['recall']:.3f}"
+        print(
+            f"{run['corpus_size']:>6}  {run['distractors']:>11}  {proposals:>9}  "
+            f"{pr['true_positives']:>4}  {pr['false_positives']:>5}  {precision:>9}  "
+            f"{recall:>7}  {run['elapsed_seconds']:>6.0f}"
+        )
+    print()
+    print(sweep["reading"])
+
+
 def main() -> None:
     import argparse
 
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, default=None)
+    parser.add_argument(
+        "--distractors",
+        type=int,
+        nargs="+",
+        default=[0],
+        help=(
+            "One or more distractor counts to measure at. Pass several to sweep, e.g. "
+            "--distractors 0 25 75. Default 0 reproduces the original 5-document run."
+        ),
+    )
     args = parser.parse_args()
 
-    result = run_measurement()
-    print(json.dumps(result, indent=2))
+    if len(args.distractors) == 1:
+        result = run_measurement(args.distractors[0])
+        print(json.dumps(result, indent=2))
+    else:
+        result = run_sweep(args.distractors)
+        print(json.dumps(result, indent=2))
+        _print_table(result)
 
     if args.output:
         args.output.write_text(json.dumps(result, indent=2))

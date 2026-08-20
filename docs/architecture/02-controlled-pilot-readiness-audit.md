@@ -311,7 +311,17 @@ retrieval-latency number: one 5-document run does not establish whether 0.55/can
 is miscalibrated at realistic corpus sizes (tens to hundreds of documents) or is an artifact specific
 to a corpus this small, and changing production mapping-engine behavior on a 5-document sample would
 be exactly the "optimize before benchmarking" mistake this project's own discipline prohibits.
-Recommended next step: re-run `scripts/measure_aqs.py` against a corpus sized closer to
+**ANSWERED IN SPRINT 24 (ADR-0071).** That re-run was done, scaling only the negative half of
+the corpus (synthetic positives paraphrased from practice text would flatter the engine). Across
+5 -> 505 documents precision moved from 0.0117 to 0.0113 -- in the wrong direction -- while recall
+stayed 1.0. The proposal count SATURATED at 355 and stopped moving entirely between 205 and 505
+documents; C2M2 has 356 practices and one was already covered, so 355 is every uncovered practice.
+The engine proposes one candidate for each, so the false-positive count is a property of the
+framework rather than of the evidence, and 0.012 is structural rather than a small-corpus artifact.
+No engine parameter was changed on the strength of it -- see ADR-0071 for why the fix points at
+competitive rather than absolute candidate selection, and why that needs its own decision.
+
+Original recommendation, left in place: re-run `scripts/measure_aqs.py` against a corpus sized closer to
 `scripts/benchmark_scalability.py`'s 100-1,000 document range with proper negative-label documents
 included, before considering any threshold change.
 
