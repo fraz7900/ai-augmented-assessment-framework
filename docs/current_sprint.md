@@ -1,73 +1,71 @@
-Current sprint: Sprint 27 — finish telling reviewers where text came from, and make a backup provable
-Objective: two independent tranches, both closing residuals this project has carried and disclosed
-rather than hidden. R-33's last surface: the evidence review queue, the one screen where a reviewer
-DECIDES about a proposal, still showed nothing about whether its text was recognised or read (T1).
-And R-38's residual: backups exist and are checksummed, but a checksum proves the bytes, not that the
-archive contains a database that opens (T2). No new frameworks, no auth, no scheduling — where a
-timer lives is a deployment question this repository cannot answer for someone else's machine.
-Status: **T1 and T2 are on PR #29.**
-Sprint 26 closed with both tranches merged: `3d93d62` the OCR warning reaching the exports (ADR-0076)
-and `d3004d5` an export that can be asked whether it is still true (ADR-0077).
-T1 — provenance in the review queue (ADR-0078, accepted). R-33 has now been narrowed three times, and
-this surface was left for last, which is worth stating rather than glossing. Chat is where a reviewer
-READS evidence; the dashboard and exports are where they REPORT it. The queue is where they DECIDE,
-and a reviewer accepting a proposal quoted from an OCR'd page had no way to know the wording was
-approximate at the moment the decision was recorded.
-T1, the shape. `GET /assessments/{id}/evidence` now returns `EvidenceLinkView`: every field of the
-stored link plus a resolved `text_provenance`. A view rather than a column, because provenance is
-computed from the vector store at read time and storing it on the row would duplicate a fact the
-chunk already owns and let the two disagree. Flat rather than nested so callers read it exactly as
-before — the cost of that is drift, so a test asserts the view covers every stored field and that
-`text_provenance` is the only addition. Resolved in bulk, one read per cited document, because the
-queue is the screen most likely to hold hundreds of rows and therefore the worst place for a per-row
-lookup. Provenance survives filtering (ADR-0065), tested directly: a field present only on the
-unfiltered call would be missing exactly when a reviewer had narrowed to the rows they mean to act on.
-T2 — backups you can prove (ADR-0079, accepted). Sprint 21 closed R-38 and recorded the residual
-plainly: no schedule, no rotation, no off-machine copy. Reading `backup.sh` again surfaced a sharper
-gap it had already half-named. It writes a SHA-256 and explains why — "a backup you cannot prove is
-intact is a backup you are trusting rather than verifying" — and that reasoning stops one step early.
-A checksum proves the BYTES have not changed. It says nothing about whether the tarball contains a
-database that opens. A half-copied SQLite file hashes perfectly consistently, so the archive is
-reported as fine, which is the worst kind of green.
-T2, what it does. `scripts/verify-backup.sh` opens the archive instead of hashing it: extracts to a
-temp directory, checks the sidecar if present, opens `assessments.db` READ-ONLY, runs
-`PRAGMA integrity_check`, confirms the tables the product depends on, counts what is in them,
-confirms the vector store exists, and deletes the extraction. It needs no Docker and no running
-stack — which is why, unlike `backup.sh` and `restore.sh` that `test_deployment_config.py` can only
-read, its tests actually RUN it, including against a database truncated so its checksum still
-matches. Four distinctions it keeps: a failed checksum stops everything, a missing sidecar is not a
-failure, restorable-but-empty is said out loud, and a missing archive exits 2 rather than 1 so
-"you pointed me at nothing" cannot read as "your backup is bad".
-T2, rotation. `scripts/prune-backups.sh` bounds a directory that grew forever — the same shape as the
-ingestionjob table ADR-0064 bounded, with a worse ending when the disk fills mid-write. It follows
-`restore.sh`'s posture rather than `backup.sh`'s, because deleting a backup is the second most
-destructive act in this repository: it does nothing by default, `--apply` is required, `--keep` has
-no default because how many copies of an audit record you are willing to lose is not a decision a
-default should make, and `--keep 0` is refused. Sorting is by the UTC timestamp in the filename
-rather than mtime, which survives being copied to another disk — which is what an off-machine copy
-does.
-What Sprint 27 actually took. The Sprint 25 executable-bit test earned its keep a second time:
-`prune-backups.sh` was committed as 100644, because `chmod +x` is a no-op on this NTFS working copy
-and only `git update-index --chmod=+x` sets the mode. Worse, the local check was sloppy — a count of
-executable scripts returned 7 and was read as success without noticing there were 8 — so the
-filesystem lied and the reader did not check the denominator. CI caught both. That is the second
-consecutive sprint in which a test written for one purpose found a real defect, and the first in
-which it found one this session had already been warned about.
-What Sprint 27 does not do. Scheduling and off-machine copies stay open and stay deployment-specific;
-what this offers is a command worth scheduling. `verify-backup.sh` confirms the vector store is
-present but does not open it, because doing so properly would mean importing the application's own
-dependencies into a script that deliberately needs almost nothing — a database that opens plus a
-vector store that exists is the honest limit of a cheap check, and it catches the failure that
-actually occurs. And R-33 stays open: OCR output is still approximate, which was never a defect to
-fix, only an uncertainty to make visible.
-Still open and not claimed here, unchanged. R-9 is narrowed but interpreters still come from the
-machine and nothing is hash-pinned. R-34, a score already reported to a stakeholder can change with
-no way to tell them — and R-34's own entry says revisit push notification only if this platform gains
-point-in-time or recurring reporting, which it has not. R-40, client separation is enforced by the
-product and not against a caller that bypasses it. R-35's in-memory upload queue. The
-copyright-limited transcriptions R-28/R-30/R-32. R-16's precision ceiling, measured and partly
-reduced but not closed, and the labelled real corpus that would take it further — which by policy
-cannot live in this repository at all.
+Current sprint: Sprint 28 — the environment reproduces exactly, and can prove what it installed
+Objective: the two things ADR-0075 explicitly listed as not done. The interpreters were never pinned,
+so a developer could be a major.minor away from CI and production and nothing said so (T1). And
+nothing was hash-pinned, so a version pin proved which NAME was installed but never which BYTES (T2).
+Both are R-9 residuals, both are verifiable in this environment, and neither invents a feature.
+Status: **T1 and T2 are on PR #30.**
+Sprint 27 closed with both tranches merged in `6ab350e`: provenance in the review queue (ADR-0078)
+and backups you can prove (ADR-0079).
+T1 — one declaration of the interpreters (ADR-0080, accepted). The situation was better than
+ADR-0075 described in one way and worse in another. Better: the versions already agreed — Docker
+builds on python:3.12-slim and node:24-slim, and CI pinned "3.12" and "24". Worse: **the only thing
+holding those four declarations together was a comment.** Nothing verified them, so a Dockerfile bump
+would leave CI building against the old version silently, and a comment claiming they match becomes
+false at exactly the moment it matters.
+T1, and what development had. No pin at all. `bootstrap.sh` checked `>= 3.11` — the pyproject floor,
+which describes what the PACKAGE supports, not what this project ships on — so a developer on 3.11
+got an environment CI and production never use. There was no `.nvmrc`, so Node was whatever the
+machine had, which for a project that has spent three sprints establishing that "it passed in CI"
+must name something specific was the last unpinned variable.
+T1, the shape. `.nvmrc` says 24 and `.python-version` says 3.12, both in the files nvm and pyenv
+already read, so the right version comes from walking into the directory. CI reads them via
+`node-version-file` and `python-version-file` rather than repeating literals — a declaration cannot
+drift from itself. `bootstrap.sh` checks the declared version and refuses a mismatch; `doctor.sh`
+reports one as an environment fault. The Dockerfiles keep their own literals, because `FROM` cannot
+read a file and a build-arg indirection would trade a checked duplication for an unchecked
+complexity — and a test asserts all four agree. Verified by deliberately declaring the wrong versions
+and watching both tools refuse.
+T2 — hash-pinned dependencies (ADR-0081, accepted). ADR-0075 deferred this as "a different risk",
+which was defensible until you notice where the risk lands. Version pinning makes the build
+REPRODUCIBLE: everyone installs fastapi==0.139.0. It does not make it VERIFIABLE: nothing says the
+bytes served under that name are the bytes anyone reviewed.
+T2, why that matters more here than elsewhere. This platform's central promise is a claim about code
+paths — the charter says evidence never leaves local infrastructure, ADR-0020 and ADR-0055 make it
+true BY CONSTRUCTION, and R-2's mitigation is "no network client exists anywhere in the ingestion or
+assessment code path, verified by code inspection." That inspection covers THIS repository. A
+substituted dependency would run in the same process with the same access to real evidence, and every
+one of those statements would still read as true while being false.
+T2, what it does. All 75 pins carry a SHA-256 and both install paths use `--require-hashes`, which is
+all-or-nothing by design: one missing hash turns the guarantee off rather than weakening it, so a
+test asserts hashes equal pins. Hashes come from the artifacts pip actually resolved —
+`lock-backend.sh` downloads the set and hashes each file from disk, rather than looking digests up
+separately and assuming they correspond. Verified before shipping: a clean venv installs the hashed
+lock under `--require-hashes`, and a copy with one digest corrupted is refused outright.
+What T2 cost immediately, and it is worth recording. The lock's format changed from one line per
+package to a pin plus an indented `--hash` continuation, and **`doctor.sh` parsed it wrong** — its
+drift check split on `==`, so every version read as `0.139.0 \` and all 75 packages were reported as
+drifted. A tool built two sprints ago to answer "is my environment wrong?" answered a confident and
+completely wrong yes. Caught by running it rather than by reading the diff, which is the argument for
+having built it. The general shape recurs: changing a file's format silently breaks whatever parses
+it, and the parser is usually somewhere you were not editing.
+What Sprint 28 does not do. Neither ADR installs an interpreter — bootstrap checks and refuses rather
+than fetching Python or Node, because managing toolchains is a materially larger decision and the
+Docker path already exists for anyone who wants the whole environment fixed. Patch versions stay
+unpinned (3.12, not 3.12.3): the base images track patches within a minor and pinning tighter would
+mean a repository change every security patch, for a difference that has never caused anything here.
+And hash pinning does not verify what code inside a package DOES — if a package was already malicious
+when the lock was written, this pins the malice faithfully. That is a review problem, and this
+project's dependency list is short and deliberate for that reason. The frontend already had this:
+`package-lock.json` records integrity hashes and `npm ci` verifies them, so npm has always had what
+pip has just gained.
+Still open and not claimed here, unchanged. R-34, a score already reported to a stakeholder can
+change with no way to tell them — and its own entry says revisit push notification only if this
+platform gains point-in-time or recurring reporting, which it has not. R-40, client separation is
+enforced by the product and not against a caller that bypasses it. R-35's in-memory upload queue.
+Backup scheduling and off-machine copies, both deployment-specific. The copyright-limited
+transcriptions R-28/R-30/R-32. R-16's precision ceiling, measured and partly reduced but not closed,
+and the labelled real corpus that would take it further — which by policy cannot live in this
+repository at all.
 Also open and unchanged. Upload retention is not retroactive, so the 6 of 30 documents whose
 originals were discarded before ADR-0056 stay permanently un-re-ingestible; 27 of 30 stored
 documents predate the registry (ADR-0039) and carry no `content_hash`; and assessments finalized
