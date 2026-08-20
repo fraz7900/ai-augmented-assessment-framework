@@ -58,8 +58,10 @@ what you're touching before editing it:
 ./scripts/prune-backups.sh --keep N        # bound the backup directory; does nothing without --apply
 ```
 
-Backend dependencies are pinned in `backend/requirements.lock` (ADR-0075) and CI installs from it, so
-"it passed in CI" names a specific set of versions. Regenerate deliberately with
+Backend dependencies are pinned in `backend/requirements.lock` (ADR-0075) with a SHA-256 each, and
+both bootstrap and CI install with `--require-hashes` (ADR-0081) — so "it passed in CI" names a
+specific set of versions AND the bytes they were built from. The interpreters are declared once in
+`.python-version` and `.nvmrc` (ADR-0080); bootstrap refuses a mismatch rather than warning. Regenerate deliberately with
 `./scripts/lock-backend.sh`, never as a side effect of setup.
 
 **Run `./scripts/doctor.sh` before debugging a red suite.** The troubleshooting section below exists
@@ -69,10 +71,10 @@ few seconds instead of by inference.
 ## Commands
 
 ```
-cd backend && source .venv/bin/activate && pytest          # 787 tests as of Sprint 27 — run before finishing any backend change
+cd backend && source .venv/bin/activate && pytest          # 799 tests as of Sprint 28 — run before finishing any backend change
 cd backend && source .venv/bin/activate && ruff check .    # lint
 cd backend && source .venv/bin/activate && uvicorn compliance_platform.main:app --reload   # run the API, http://127.0.0.1:8000/docs
-cd frontend && npm run test    # vitest, 146 tests as of Sprint 27 — run before finishing any frontend change
+cd frontend && npm run test    # vitest, 146 tests as of Sprint 28 — run before finishing any frontend change
                                # (if it will not run, see the troubleshooting section below)
 cd frontend && npm run dev     # run the UI, http://localhost:5173
 ```

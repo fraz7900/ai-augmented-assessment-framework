@@ -24,13 +24,23 @@ fail() { printf '\nerror: %s\n' "$1" >&2; exit 1; }
 # --- Preconditions, checked before anything is written ---------------
 step "Checking prerequisites"
 
+# The declared versions (ADR-0080), not the pyproject floor. 3.11 satisfies
+# `requires-python` and is not what this project ships on; an environment
+# a major.minor away from CI and production is the half-right state that
+# makes a later test failure ambiguous.
+WANT_PY="$(tr -d '[:space:]' < "$REPO_ROOT/.python-version")"
+WANT_NODE="$(tr -d '[:space:]' < "$REPO_ROOT/.nvmrc")"
+
 command -v python3 >/dev/null || fail "python3 not found on PATH."
 PY_VERSION=$(python3 -c 'import sys; print("%d.%d" % sys.version_info[:2])')
-python3 -c 'import sys; raise SystemExit(0 if sys.version_info >= (3, 11) else 1)' \
-  || fail "Python $PY_VERSION found; pyproject.toml requires >=3.11."
+[[ "$PY_VERSION" == "$WANT_PY" ]] || fail \
+  "Python $PY_VERSION found; this project runs on $WANT_PY (.python-version, and the Docker image). Install it, or use pyenv, which reads .python-version."
 echo "python3 $PY_VERSION"
 
 command -v node >/dev/null || fail "node not found on PATH."
+NODE_VERSION=$(node --version | sed 's/^v//' | cut -d. -f1)
+[[ "$NODE_VERSION" == "$WANT_NODE" ]] || fail \
+  "Node $NODE_VERSION found; this project runs on $WANT_NODE (.nvmrc, and the Docker image). \`nvm use\` reads .nvmrc."
 echo "node $(node --version)"
 command -v npm >/dev/null || fail "npm not found on PATH."
 echo "npm $(npm --version)"
@@ -54,9 +64,12 @@ step "Backend dependencies (pinned)"
 # The lock first, then the project itself WITHOUT dependencies. Installing
 # the project normally would let pip re-resolve and quietly upgrade past
 # the pins that were just installed.
-pip install --quiet --requirement "$LOCK"
+# --require-hashes (ADR-0081): every artifact is verified against the
+# hash recorded in the lock before it is installed. A compromised
+# index cannot substitute a package under a name this project trusts.
+pip install --quiet --require-hashes --requirement "$LOCK"
 pip install --quiet --no-deps --editable "$BACKEND"
-echo "installed $(grep -c '==' "$LOCK") pinned packages"
+echo "installed $(grep -c -- '--hash=' "$LOCK") hash-verified packages"
 
 # --- Frontend --------------------------------------------------------
 step "Frontend dependencies (from package-lock.json)"

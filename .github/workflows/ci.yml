@@ -26,7 +26,10 @@ jobs:
 
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12" # matches deployment/backend.Dockerfile
+          # Read from .python-version (ADR-0080) rather than repeated here.
+          # A comment claiming CI matches the Dockerfile becomes false at
+          # exactly the moment it matters; a file cannot drift from itself.
+          python-version-file: .python-version
           cache: pip
           cache-dependency-path: backend/requirements.lock
 
@@ -39,14 +42,14 @@ jobs:
       # cannot quietly upgrade past the pins it just installed.
       - name: Install backend dependencies from the lock
         run: |
-          pip install --requirement requirements.lock
+          pip install --require-hashes --requirement requirements.lock
           pip install --no-deps --editable .
 
       # A lock CI does not verify is decorative. This fails the build if
       # the resolved set has drifted from what is committed, which is the
       # same check scripts/doctor.sh runs on a developer's machine.
       - name: Verify the installed set matches the lock
-        run: pip install --requirement requirements.lock --dry-run --no-deps --quiet
+        run: pip install --require-hashes --requirement requirements.lock --dry-run --quiet
 
       # Gates on ruff (ADR-0049): the codebase was cleaned to a genuine
       # zero findings under the existing backend/pyproject.toml
@@ -83,7 +86,8 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: "24" # matches deployment/frontend.Dockerfile
+          # Read from .nvmrc (ADR-0080). Same reasoning as the backend job.
+          node-version-file: .nvmrc
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 

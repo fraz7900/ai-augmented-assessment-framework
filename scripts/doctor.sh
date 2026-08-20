@@ -40,11 +40,16 @@ else
     bad "backend/.venv exists but has no python -- the venv is broken, not just stale"
     note "rm -rf backend/.venv && ./scripts/bootstrap.sh"
   else
-    PY_OK=$("$VENV_PY" -c 'import sys; print(1 if sys.version_info >= (3, 11) else 0)' 2>/dev/null || echo 0)
-    if [[ "$PY_OK" == "1" ]]; then
-      ok "python $("$VENV_PY" -c 'import sys; print("%d.%d.%d" % sys.version_info[:3])')"
+    WANT_PY="$(tr -d '[:space:]' < "$REPO_ROOT/.python-version" 2>/dev/null || echo '')"
+    VENV_MINOR=$("$VENV_PY" -c 'import sys; print("%d.%d" % sys.version_info[:2])' 2>/dev/null || echo '?')
+    if [[ -n "$WANT_PY" && "$VENV_MINOR" != "$WANT_PY" ]]; then
+      # Not "older than the floor" (ADR-0080): a venv on a different
+      # minor from CI and production is a different environment, and a
+      # test result from it means something different.
+      bad "venv python is $VENV_MINOR; .python-version declares $WANT_PY"
+      note "rm -rf backend/.venv && ./scripts/bootstrap.sh, on a $WANT_PY interpreter"
     else
-      bad "venv python is older than the required 3.11"
+      ok "python $("$VENV_PY" -c 'import sys; print("%d.%d.%d" % sys.version_info[:3])')"
     fi
 
     if "$VENV_PY" -c 'import compliance_platform' >/dev/null 2>&1; then
@@ -65,8 +70,13 @@ from importlib.metadata import PackageNotFoundError, version
 drifted = []
 for line in open(sys.argv[1], encoding="utf-8"):
     line = line.strip()
-    if not line or line.startswith("#") or "==" not in line:
+    # Hash lines and continuations (ADR-0081): a pin is now written as
+    # `name==version \` followed by an indented --hash line, so the
+    # trailing backslash has to come off or every package reads as
+    # drifted -- which is what happened the first time.
+    if not line or line.startswith(("#", "--hash=")) or "==" not in line:
         continue
+    line = line.rstrip("\\").strip()
     name, _, pinned = line.partition("==")
     try:
         installed = version(name)
@@ -101,6 +111,14 @@ if [[ ! -d "$FRONTEND/node_modules" ]]; then
   note "run ./scripts/bootstrap.sh"
 else
   ok "node_modules present"
+  WANT_NODE="$(tr -d '[:space:]' < "$REPO_ROOT/.nvmrc" 2>/dev/null || echo '')"
+  NODE_MAJOR="$(node --version 2>/dev/null | sed 's/^v//' | cut -d. -f1)"
+  if [[ -n "$WANT_NODE" && -n "$NODE_MAJOR" && "$NODE_MAJOR" != "$WANT_NODE" ]]; then
+    bad "node is v$NODE_MAJOR; .nvmrc declares $WANT_NODE"
+    note "nvm use   (it reads .nvmrc)"
+  else
+    ok "node $(node --version 2>/dev/null || echo 'not found')"
+  fi
   # The failure AGENTS.md describes: an install that LOOKS complete and
   # is not. `npm ls` is the only thing here that actually inspects the
   # tree rather than trusting that a directory exists.
