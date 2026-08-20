@@ -88,11 +88,21 @@ def path_for(settings: Settings, document_id: str) -> Path | None:
     (retention disabled, write failed, or -- the common case -- the
     document was ingested before retention existed).
     """
-    if not settings.data_raw_dir.exists():
+    # No exists() check (ADR-0082, R-11). It was redundant -- glob over a
+    # missing directory already yields nothing -- and it added a
+    # check-then-act window on a filesystem whose directory listings are
+    # not instantly consistent. `is_file()` below is a check about the
+    # match itself rather than a guard before an action, so it stays.
+    try:
+        for path in settings.data_raw_dir.glob(f"{document_id}{_SEPARATOR}*"):
+            if path.is_file():
+                return path
+    except OSError:
+        # An unreadable or vanished directory means no retained original,
+        # which is the disclosed normal state for most documents anyway
+        # (27 of 30 predate retention) -- not an error worth raising into
+        # an ingestion path.
         return None
-    for path in settings.data_raw_dir.glob(f"{document_id}{_SEPARATOR}*"):
-        if path.is_file():
-            return path
     return None
 
 

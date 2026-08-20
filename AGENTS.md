@@ -56,6 +56,7 @@ what you're touching before editing it:
 ```
 ./scripts/verify-backup.sh <archive>       # prove a backup would restore, not just that it hashes
 ./scripts/prune-backups.sh --keep N        # bound the backup directory; does nothing without --apply
+./scripts/scheduled-backup.sh --keep N     # back up, verify, then prune — one command worth cron
 ```
 
 Backend dependencies are pinned in `backend/requirements.lock` (ADR-0075) with a SHA-256 each, and
@@ -71,10 +72,10 @@ few seconds instead of by inference.
 ## Commands
 
 ```
-cd backend && source .venv/bin/activate && pytest          # 799 tests as of Sprint 28 — run before finishing any backend change
+cd backend && source .venv/bin/activate && pytest          # 811 tests as of Sprint 29 — run before finishing any backend change
 cd backend && source .venv/bin/activate && ruff check .    # lint
 cd backend && source .venv/bin/activate && uvicorn compliance_platform.main:app --reload   # run the API, http://127.0.0.1:8000/docs
-cd frontend && npm run test    # vitest, 146 tests as of Sprint 28 — run before finishing any frontend change
+cd frontend && npm run test    # vitest, 146 tests as of Sprint 29 — run before finishing any frontend change
                                # (if it will not run, see the troubleshooting section below)
 cd frontend && npm run dev     # run the UI, http://localhost:5173
 ```

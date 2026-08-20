@@ -162,9 +162,16 @@ class FrameworkRegistry:
         if filename is None:
             return None
         path = self._dir / filename
-        if not path.exists():
+        # Opened directly rather than checked first (ADR-0082, R-11).
+        # `exists()` then `open()` is a check-then-act window, and on the
+        # OneDrive-synced filesystem this project is developed on,
+        # directory listings are not instantly consistent -- so `exists()`
+        # can report False for a file that is there. The failure was
+        # silent: a framework that IS present reads as not found.
+        try:
+            framework = load_framework_file(path)
+        except FileNotFoundError:
             return None
-        framework = load_framework_file(path)
         self._merge_equivalents(framework)
         self._cache[cache_key] = framework
         return framework
@@ -232,11 +239,15 @@ class FrameworkRegistry:
         if self._equivalence_entries is not None:
             return self._equivalence_entries
         path = self._dir / _EQUIVALENCE_FILENAME
-        if not path.exists():
+        # The worst of the four check-then-act sites (ADR-0082): a stale
+        # listing here does not fail, it silently returns NO cross-
+        # framework equivalents, and every equivalence in the product
+        # quietly disappears with nothing raised and nothing logged.
+        try:
+            with path.open("r", encoding="utf-8") as f:
+                self._equivalence_entries = yaml.safe_load(f) or []
+        except FileNotFoundError:
             self._equivalence_entries = []
-            return self._equivalence_entries
-        with path.open("r", encoding="utf-8") as f:
-            self._equivalence_entries = yaml.safe_load(f) or []
         return self._equivalence_entries
 
     def _build_practice_text_index(self) -> dict[tuple[str, str], str]:
@@ -270,10 +281,14 @@ class FrameworkRegistry:
             f for versions in _KNOWN_FRAMEWORKS.values() for f in versions.values()
         ):
             path = self._dir / filename
-            if not path.exists():
+            # Same window, same silence (ADR-0082): `continue` on a
+            # stale listing drops one framework's practices out of the
+            # index without a word.
+            try:
+                with path.open("r", encoding="utf-8") as f:
+                    raw = yaml.safe_load(f)
+            except FileNotFoundError:
                 continue
-            with path.open("r", encoding="utf-8") as f:
-                raw = yaml.safe_load(f)
             declared_name = raw.get("name")
             if not declared_name:
                 continue
