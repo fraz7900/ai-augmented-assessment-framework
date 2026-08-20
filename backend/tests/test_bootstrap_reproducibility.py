@@ -16,8 +16,8 @@ quietly stopped matching CI is the same failure wearing overalls.
 
 from __future__ import annotations
 
-import os
 import re
+import subprocess
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -39,10 +39,38 @@ def _pinned() -> dict[str, str]:
     return pins
 
 
-def test_the_scripts_exist_and_are_executable() -> None:
+def test_every_shell_script_is_executable_in_git() -> None:
+    """Checked against git's index, not the filesystem.
+
+    This working copy lives on NTFS via WSL, where every file reports
+    mode 777 and `chmod +x` is a no-op -- so the local filesystem cannot
+    answer this question, and CI caught the first version of these
+    scripts committed as 100644. A cloner would have received scripts
+    they could not run, including the one bootstrap.sh itself calls.
+
+    Covers the whole directory rather than a list, because the same
+    mistake was already sitting in install-git-hooks.sh, which AGENTS.md
+    tells people to run directly.
+    """
+    listing = subprocess.run(
+        ["git", "ls-files", "-s", "scripts/"],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+
+    non_executable = [
+        line.split("\t", 1)[1]
+        for line in listing.splitlines()
+        if line.endswith(".sh") and not line.startswith("100755")
+    ]
+    assert not non_executable, f"committed without the executable bit: {non_executable}"
+
+
+def test_the_scripts_this_adr_adds_exist() -> None:
     for script in (BOOTSTRAP, DOCTOR, LOCK_SCRIPT):
         assert script.is_file(), f"{script.name} is referenced by AGENTS.md and ADR-0075"
-        assert os.access(script, os.X_OK), f"{script.name} is not executable"
 
 
 def test_the_lock_pins_every_version_exactly() -> None:

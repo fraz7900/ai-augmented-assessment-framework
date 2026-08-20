@@ -70,7 +70,13 @@ question — is the environment wrong, or the code? — checking venv importabil
 against the lock rather than mere absence, and whether `node_modules` is COMPLETE via `npm ls` rather
 than merely present. It exits non-zero on any fault, and when clean it says the thing worth saying:
 a failing suite is now telling you something about the code.
-What T2 actually took. The bootstrap path was proved rather than assumed: the lock installs into a
+What T2 actually took. CI caught a defect on its first run that this machine structurally cannot
+see: the new scripts were committed **without the executable bit**. This working copy is on NTFS via
+WSL, where every file reports mode 777 and `chmod +x` is a no-op — so a fresh clone would have
+received scripts nobody could run. `install-git-hooks.sh` turned out to have had the same problem
+already, and AGENTS.md tells people to run it directly while `bootstrap.sh` calls it. The test now
+inspects git's index across the whole `scripts/` directory rather than the filesystem, because the
+filesystem here is not a witness. The bootstrap path was proved rather than assumed: the lock installs into a
 throwaway venv from scratch, the package imports, and the app builds its 39 routes there. One test
 was wrong before it was right — it asserted CI no longer contains `pip install -e ".[dev]"` and
 failed on the explanatory comment quoting the old command. A test that can be tripped by a comment is

@@ -74,7 +74,14 @@ bumps the lock exists to record.
 - Setup is one command instead of a sprint document read by hand.
 - A red suite is now interpretable. `./scripts/doctor.sh` says whether the machine is at fault before
   anyone reads the failure as a statement about the code.
-- 9 new tests. The scripts are shell and cannot be meaningfully executed in CI, so the tests check
+- A pre-existing defect surfaced immediately: **the scripts were committed without the executable
+  bit.** This working copy is on NTFS via WSL, where every file reports mode 777 and `chmod +x` is a
+  no-op, so the local filesystem cannot answer the question at all — CI caught it on the first run.
+  `install-git-hooks.sh` had the same problem already, and AGENTS.md tells people to run it directly;
+  `bootstrap.sh` calls it too, so a fresh clone would have failed at that step. The test now checks
+  git's index across the whole `scripts/` directory rather than the filesystem, because the
+  filesystem here is not a witness.
+- 10 new tests. The scripts are shell and cannot be meaningfully executed in CI, so the tests check
   what actually rots: that the lock pins everything with no range specifiers, that every dependency
   pyproject declares is covered, that CI installs from the lock rather than resolving, and that the
   doctor still checks the specific failure AGENTS.md documents.
