@@ -23,6 +23,10 @@ from openpyxl.worksheet.worksheet import Worksheet
 from compliance_platform.models.assessment import PracticeFindingStatus
 from compliance_platform.models.report import DashboardReport, EvidenceCitation
 from compliance_platform.models.schemas import TextProvenance
+from compliance_platform.services.report_currency import (
+    CURRENT_PAYLOAD_VERSION,
+    report_digest,
+)
 
 # fpdf2's core fonts (Helvetica/Times/Courier) only reliably encode
 # Latin-1. This project's framework source text is transcribed verbatim
@@ -211,6 +215,25 @@ def build_pdf_report(dashboard: DashboardReport) -> bytes:
         pdf.set_font("Courier", "", 7)
         _line(pdf, 5, f"Finalization seal (SHA-256): {s.finalization_seal}")
         pdf.set_font("Helvetica", "", 10)
+    # The report digest (ADR-0077), printed on every export rather than
+    # only on finalized ones. The seal above answers "has this immutable
+    # record been altered?"; this answers "have the numbers moved since
+    # this page was printed?", which is the question a draft export
+    # raises and R-21 has named since Sprint 7.
+    pdf.set_font("Courier", "", 7)
+    _line(
+        pdf,
+        5,
+        f"Report digest (SHA-256, v{CURRENT_PAYLOAD_VERSION}): {report_digest(dashboard)}",
+    )
+    pdf.set_font("Helvetica", "", 8)
+    _line(
+        pdf,
+        4,
+        "Check whether this report is still current: GET "
+        f"/assessments/{s.assessment_id}/report-currency?digest=<the digest above>",
+    )
+    pdf.set_font("Helvetica", "", 10)
     pdf.ln(4)
 
     pdf.set_font("Helvetica", "B", 13)
@@ -392,6 +415,12 @@ def build_xlsx_report(dashboard: DashboardReport) -> bytes:
             [("Finalization Seal (SHA-256)", s.finalization_seal)]
             if s.finalization_seal
             else []
+        ),
+        # On every export, not only finalized ones (ADR-0077).
+        (f"Report Digest (SHA-256, v{CURRENT_PAYLOAD_VERSION})", report_digest(dashboard)),
+        (
+            "Check This Report Is Current",
+            f"GET /assessments/{s.assessment_id}/report-currency?digest=<the digest above>",
         ),
         ("Assessment Name", s.assessment_name),
         *([("Organization", s.organization_name)] if s.organization_name else []),

@@ -37,7 +37,11 @@ from compliance_platform.models.assessment import (
     SanitizationApproval,
 )
 from compliance_platform.models.chat import ChatResponse
-from compliance_platform.models.report import DashboardReport, EvidenceQueueSummary
+from compliance_platform.models.report import (
+    DashboardReport,
+    EvidenceQueueSummary,
+    ReportCurrency,
+)
 from compliance_platform.models.sanitization import SanitizationPreview
 from compliance_platform.models.schemas import (
     BulkReviewResult,
@@ -405,6 +409,30 @@ _SLUG_INVALID_CHARS = re.compile(r"[^A-Za-z0-9._-]+")
 def _slugify_filename(name: str) -> str:
     slug = _SLUG_INVALID_CHARS.sub("-", name).strip("-")
     return slug or "assessment"
+
+
+@router.get("/{assessment_id}/report-currency", response_model=ReportCurrency)
+def check_report_currency(
+    assessment_id: str,
+    digest: str | None = Query(
+        default=None,
+        description=(
+            "The report digest printed on the export being checked. Omitted or "
+            "unrecognised returns 'unverifiable' rather than 'superseded' -- a report "
+            "this build cannot check is not evidence that anything changed."
+        ),
+    ),
+    service: AssessmentService = Depends(get_assessment_service),
+) -> ReportCurrency:
+    """Answer whether a downloaded export still matches the record
+    (ADR-0077, R-21).
+
+    Read-only. Exports are not persisted (ADR-0013), so the platform
+    cannot know which snapshots are in circulation and cannot chase one
+    -- but the holder of a document can ask about the one in front of
+    them, which is the half of the problem that is actually solvable.
+    """
+    return service.check_report_currency(assessment_id, digest)
 
 
 @router.get("/{assessment_id}/report/pdf")

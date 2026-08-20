@@ -52,6 +52,7 @@ from compliance_platform.models.report import (
     DashboardReport,
     EvidenceDomainCount,
     EvidenceQueueSummary,
+    ReportCurrency,
 )
 from compliance_platform.models.sanitization import SanitizationPreview
 from compliance_platform.models.schemas import (
@@ -71,6 +72,7 @@ from compliance_platform.services.aqs_service import build_agreement_report
 from compliance_platform.services.chat_service import answer_question
 from compliance_platform.services.export_service import build_pdf_report, build_xlsx_report
 from compliance_platform.services.mapping_service import find_mapping_candidates
+from compliance_platform.services.report_currency import check_currency
 from compliance_platform.services.report_service import (
     build_dashboard,
     performed_and_excluded_practice_ids,
@@ -1317,6 +1319,18 @@ class AssessmentService:
             chunk_provenance=chunk_provenance,
             parse_status_by_document=parse_status_by_document,
         )
+
+    def check_report_currency(
+        self, assessment_id: str, digest: str | None
+    ) -> ReportCurrency:
+        """Is an export someone is holding still accurate? (ADR-0077)
+
+        Rebuilds the dashboard and compares. Reusing build_dashboard
+        rather than a cheaper query on purpose: the digest has to be
+        computed from exactly what an export would print, or the answer
+        is about something other than the document in their hands.
+        """
+        return check_currency(self.build_dashboard(assessment_id), digest)
 
     def generate_dashboard_pdf(self, assessment_id: str, sanitized: bool = False) -> bytes:
         """PDF rendering of the same DashboardReport build_dashboard
