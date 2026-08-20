@@ -5,7 +5,7 @@ and nothing downstream of ingestion could tell a reviewer which passages were wh
 only High-likelihood open risk and one that has already occurred once: no reproducible environment
 bootstrap (T2). Neither needs data this repository cannot hold, which is what disqualified the
 precision work from continuing.
-Status: **T1 is on PR #25. T2 is not begun.**
+Status: **T1 merged as `67570ec` (PR #25). T2 is on PR #26.**
 Sprint 24 closed with four tranches merged: `edfc0b6` the agreement endpoint, `cb1eef7` precision
 measured at scale (0.012 is structural, not a small-corpus artifact), `36bd9ce` competitive candidate
 selection, `300b3b2` the same validated on real documents. One of those reached main without a PR and
@@ -47,14 +47,40 @@ is that the approximation is visible where it is acted on. The exports do not ca
 which reopens a narrower version of the screen/document gap ADR-0069 closed, and is the obvious next
 tranche. Evidence links in the review queue do not carry it either: that needs a chunk lookup per
 link rather than reading a field the chat search already returns.
-T2 (not begun) — R-9, no reproducible environment bootstrap. Rated High likelihood and already
-occurred once. AGENTS.md carries the symptoms rather than the cause: `npm install` needs
-`--legacy-peer-deps` for a real peer conflict, `node_modules` goes subtly incomplete on this
-filesystem in a way that looks like test failures rather than an install problem, and the documented
-remedy is a 3.5-minute delete-and-reinstall. The fix is a bootstrap that either produces a known-good
-environment or fails loudly saying why, plus a check that can tell "your environment is wrong" from
-"your code is wrong" — which is the distinction that cost this project a sprint's worth of confusion
-already.
+T2 — a reproducible bootstrap, and a machine that can be questioned (ADR-0075, accepted). R-9's
+mitigation column said the gap was a missing setup script. Looking properly, it was worse: **the
+backend had no lock at all.** 19 direct dependencies declared as `>=` floors with no upper bounds,
+and CI running `pip install -e ".[dev]"`, resolving fresh on every run — so a transitive release
+could turn the build red with no code change, and every measurement this project has published,
+including ADR-0071's and ADR-0072's four-decimal precision figures, was taken against a dependency
+set nobody recorded. "It passed in CI" named a moving target.
+T2, what shipped. `backend/requirements.lock` pins all 75 resolved packages with a header saying how
+to regenerate it. `scripts/bootstrap.sh` builds both environments from pinned versions and fails
+loudly rather than half-succeeding — installing the lock first, then the project with `--no-deps`,
+because installing it normally lets pip re-resolve and upgrade straight past the pins just installed;
+`npm ci` rather than `npm install`, which honours the lockfile and clears `node_modules` first.
+`scripts/lock-backend.sh` regenerates the lock and is deliberately NOT part of bootstrap: if setup
+regenerated it, every developer would silently adopt whatever PyPI served that morning, which is R-9
+rather than a fix for it. CI now installs from the lock, verifies it, and caches on it.
+T2, the half a bootstrap cannot fix. AGENTS.md spends more words on one failure than on anything
+else: `node_modules` goes subtly incomplete on this filesystem and the symptom is not a
+missing-binary error but vitest worker-startup timeouts, which look like test failures. This project
+has already spent real time debugging code that was never broken. `scripts/doctor.sh` answers one
+question — is the environment wrong, or the code? — checking venv importability, per-package drift
+against the lock rather than mere absence, and whether `node_modules` is COMPLETE via `npm ls` rather
+than merely present. It exits non-zero on any fault, and when clean it says the thing worth saying:
+a failing suite is now telling you something about the code.
+What T2 actually took. The bootstrap path was proved rather than assumed: the lock installs into a
+throwaway venv from scratch, the package imports, and the app builds its 39 routes there. One test
+was wrong before it was right — it asserted CI no longer contains `pip install -e ".[dev]"` and
+failed on the explanatory comment quoting the old command. A test that can be tripped by a comment is
+checking the wrong thing, so it now strips YAML comments and asserts about what CI RUNS.
+T2, what it is not. **R-9 is narrowed, not closed.** The interpreters still come from the machine —
+Python and Node versions are checked, not pinned; that is the Docker image's job. Nothing is
+hash-pinned: `--require-hashes` would defend against a compromised index as well as drift, but that
+is supply-chain integrity rather than reproducibility and deserves its own decision. And the frontend
+runner still loses a worker sometimes even with a complete install; the doctor can detect the
+incomplete case, not the flaky one, and CI remains the authority.
 Also open and unchanged. Upload retention is not retroactive, so the 6 of 30 documents whose
 originals were discarded before ADR-0056 stay permanently un-re-ingestible; 27 of 30 stored
 documents predate the registry (ADR-0039) and carry no `content_hash`; and assessments finalized

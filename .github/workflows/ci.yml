@@ -28,10 +28,25 @@ jobs:
         with:
           python-version: "3.12" # matches deployment/backend.Dockerfile
           cache: pip
-          cache-dependency-path: backend/pyproject.toml
+          cache-dependency-path: backend/requirements.lock
 
-      - name: Install backend package with dev dependencies
-        run: pip install -e ".[dev]"
+      # Pinned, not resolved (ADR-0075). This step used to run
+      # `pip install -e ".[dev]"`, which re-resolved every dependency
+      # from the ">=" floors in pyproject.toml on every run -- so a
+      # transitive release could turn CI red with no code change, and
+      # nothing recorded what had actually been tested. The lock is
+      # installed first, then the project itself with --no-deps so pip
+      # cannot quietly upgrade past the pins it just installed.
+      - name: Install backend dependencies from the lock
+        run: |
+          pip install --requirement requirements.lock
+          pip install --no-deps --editable .
+
+      # A lock CI does not verify is decorative. This fails the build if
+      # the resolved set has drifted from what is committed, which is the
+      # same check scripts/doctor.sh runs on a developer's machine.
+      - name: Verify the installed set matches the lock
+        run: pip install --requirement requirements.lock --dry-run --no-deps --quiet
 
       # Gates on ruff (ADR-0049): the codebase was cleaned to a genuine
       # zero findings under the existing backend/pyproject.toml
