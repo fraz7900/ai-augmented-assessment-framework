@@ -46,6 +46,13 @@ no default because how many copies of an audit record you are willing to lose is
 default should make, and `--keep 0` is refused. Sorting is by the UTC timestamp in the filename
 rather than mtime, which survives being copied to another disk — which is what an off-machine copy
 does.
+What Sprint 27 actually took. The Sprint 25 executable-bit test earned its keep a second time:
+`prune-backups.sh` was committed as 100644, because `chmod +x` is a no-op on this NTFS working copy
+and only `git update-index --chmod=+x` sets the mode. Worse, the local check was sloppy — a count of
+executable scripts returned 7 and was read as success without noticing there were 8 — so the
+filesystem lied and the reader did not check the denominator. CI caught both. That is the second
+consecutive sprint in which a test written for one purpose found a real defect, and the first in
+which it found one this session had already been warned about.
 What Sprint 27 does not do. Scheduling and off-machine copies stay open and stay deployment-specific;
 what this offers is a command worth scheduling. `verify-backup.sh` confirms the vector store is
 present but does not open it, because doing so properly would mean importing the application's own
