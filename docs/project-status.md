@@ -1,7 +1,7 @@
 # AI-Augmented Compliance Assessment Platform — Project Status
 
-**As of:** Sprint 29 (2026-08-20)
-**Charter:** `PROJECT_CHARTER.md` · **Decisions:** `docs/adr/` (83 ADRs) · **Live status:** `docs/current_sprint.md`
+**As of:** Sprint 30 (2026-08-20)
+**Charter:** `PROJECT_CHARTER.md` · **Decisions:** `docs/adr/` (84 ADRs) · **Live status:** `docs/current_sprint.md`
 
 This is the living project snapshot, maintained current. Two siblings are deliberately frozen and not
 updated: `docs/project-status-sprint16.md` at Sprint 16, and `docs/project-status.html` at Sprint 21 —
@@ -61,7 +61,7 @@ Everything else in the design follows from defending that claim.
 | **Frameworks** | 7 frameworks, 8 transcribed framework-versions, 1,267 practices |
 | **Cross-framework equivalence** | 715 human-reviewed entries across 8 pairings; 121 of 141 NERC CIP practices have at least one reviewed equivalent |
 | **Tests** | 811 backend, 146 frontend; `ruff` clean; CI green on `main` |
-| **Architecture decisions** | 83 ADRs |
+| **Architecture decisions** | 84 ADRs |
 | **Deployment** | Docker Compose stack with TLS, hardened for single-user / small-team hosting |
 
 ### Frameworks transcribed
@@ -117,6 +117,7 @@ licensing status was checked directly against the source document, never assumed
 | 27 | **Provenance at the point of decision, and backups you can prove** | The review queue — where a reviewer *decides* rather than reads or reports — finally carries provenance. Then the gap `backup.sh` had half-named: a checksum proves the bytes, not that the archive contains a database that opens. `verify-backup.sh` opens it, and its tests run against an archive truncated so its checksum still matches | 0078–0079 |
 | 28 | **The environment reproduces exactly, and can prove what it installed** | The interpreters were held together by a comment across four declarations; now declared once and verified by test. Then hash-pinning: version pinning proves the *name*, not the *bytes* — and this platform's central promise is a claim about code paths, so a substituted dependency would break it silently while every claim still read as true | 0080–0081 |
 | 29 | **The oldest open risk, and one command worth scheduling** | R-11, open since Sprint 1: `path.exists()` before an open is a check-then-act window on a filesystem without instant listing consistency, and every one of the four sites failed *silently* — worst, returning zero cross-framework equivalents, 715 reviewed entries gone with nothing raised. Fixed by EAFP, proven by tests that fail against the pre-fix code. Plus one scheduled backup command that verifies before it prunes | 0082–0083 |
+| 30 | **Auditing what is broken, and making the record true** | An audit run *before* deciding what to fix. It found no functional defects — golden path passing, 40 endpoints registered, 811/146 green, no stale ADR references — and one false alarm recorded rather than reported as a fix. The critical finding was this document: stamped Sprint 23, claiming 69 ADRs and 681 tests, accounting for none of Sprints 24–29. A stale status snapshot is not untidiness — it is the platform making false claims about itself in the place most likely to be believed | 0084 |
 
 ---
 
