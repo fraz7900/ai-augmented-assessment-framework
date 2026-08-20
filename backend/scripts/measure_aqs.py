@@ -214,11 +214,6 @@ def run_measurement(distractor_count: int = 0, max_practices_per_chunk: int | No
     settings = Settings(
         vector_store_dir=tmp_dir / "lancedb",
         assessments_db_path=tmp_dir / "assessments.db",
-        # Retained originals (ADR-0056) go to the temp dir too. Without
-        # this they land in the repository's own data/raw, and a sweep
-        # over several corpus sizes leaves a few thousand files behind
-        # in a working copy that is frequently cloud-synced.
-        data_raw_dir=tmp_dir / "raw",
         **overrides,
     )
     _reset_dependencies(settings)
