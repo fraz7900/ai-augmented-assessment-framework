@@ -29,6 +29,7 @@ from compliance_platform.core.errors import (
     OrganizationNotFoundError,
 )
 from compliance_platform.core.identity import UNAUTHENTICATED_ACTOR
+from compliance_platform.models.aqs import AssessmentAgreementReport
 from compliance_platform.models.assessment import (
     Assessment,
     AssessmentDocument,
@@ -65,6 +66,7 @@ from compliance_platform.models.schemas import (
     SealVerificationStatus,
 )
 from compliance_platform.services import audit_seal
+from compliance_platform.services.aqs_service import build_agreement_report
 from compliance_platform.services.chat_service import answer_question
 from compliance_platform.services.export_service import build_pdf_report, build_xlsx_report
 from compliance_platform.services.mapping_service import find_mapping_candidates
@@ -1154,6 +1156,20 @@ class AssessmentService:
             return set()
         found = framework.domain(domain)
         return found.practice_ids() if found is not None else set()
+
+    def agreement_report(self, assessment_id: str) -> AssessmentAgreementReport:
+        """How often this assessment's reviewers accepted an AI proposal
+        as-is, overall and per confidence band (ADR-0070).
+
+        Evaluation, not product. It is namespaced under /aqs/ and
+        rendered nowhere in the assessment UI, because an agreement rate
+        on a dashboard invites being read as a verdict on the assessment
+        rather than on the mapping engine -- the interpretation sentence
+        travels with the numbers for the same reason.
+        """
+        self.get_assessment(assessment_id)  # raises AssessmentNotFoundError if missing
+        links = self._assessments.evidence_for_assessment(assessment_id)
+        return build_agreement_report(links)
 
     def evidence_queue_summary(self, assessment_id: str) -> EvidenceQueueSummary:
         """Counts over the WHOLE queue, never over a filtered view

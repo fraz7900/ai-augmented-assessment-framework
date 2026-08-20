@@ -22,6 +22,7 @@ from pydantic import BaseModel
 
 from compliance_platform.api.dependencies import get_assessment_service
 from compliance_platform.core.identity import get_actor
+from compliance_platform.models.aqs import AssessmentAgreementReport
 from compliance_platform.models.assessment import (
     Assessment,
     AssessmentStatus,
@@ -308,6 +309,25 @@ class BulkRejectRequest(BaseModel):
 
     evidence_link_ids: list[str]
     note: str | None = None
+
+
+@router.get("/{assessment_id}/aqs/agreement", response_model=AssessmentAgreementReport)
+def get_agreement_report(
+    assessment_id: str,
+    service: AssessmentService = Depends(get_assessment_service),
+) -> AssessmentAgreementReport:
+    """How often reviewers accepted an AI proposal as-is, per confidence
+    band (ADR-0070).
+
+    Under `/aqs/` rather than alongside the assessment's own endpoints on
+    purpose. This is evaluation of the mapping engine, not a property of
+    the assessment, and nothing in the product UI renders it -- an
+    agreement rate shown next to a score invites being read as a verdict
+    on the work rather than on the engine.
+
+    Read-only, computed on demand, never persisted.
+    """
+    return service.agreement_report(assessment_id)
 
 
 @router.post("/{assessment_id}/evidence/bulk-reject", response_model=BulkReviewResult)
