@@ -22,6 +22,7 @@ from openpyxl.worksheet.worksheet import Worksheet
 
 from compliance_platform.models.assessment import PracticeFindingStatus
 from compliance_platform.models.report import DashboardReport, EvidenceCitation
+from compliance_platform.models.schemas import TextProvenance
 
 # fpdf2's core fonts (Helvetica/Times/Courier) only reliably encode
 # Latin-1. This project's framework source text is transcribed verbatim
@@ -56,6 +57,24 @@ def _status_label(status: PracticeFindingStatus) -> str:
     return status.value.replace("_", " ")
 
 
+_PROVENANCE_LABELS = {
+    TextProvenance.OCR: "OCR - approximate",
+    TextProvenance.POSSIBLY_OCR: "may be OCR",
+    TextProvenance.UNKNOWN: "provenance unrecorded",
+}
+
+
+def _provenance_tag(provenance: TextProvenance) -> str:
+    """A tag only when there is something to say (ADR-0076).
+
+    `exact` renders nothing, in the export exactly as on screen: a note
+    on every ordinary citation is noise, and noise is what stops anyone
+    reading the one that matters.
+    """
+    label = _PROVENANCE_LABELS.get(provenance)
+    return f" [{label}]" if label else ""
+
+
 def _evidence_citation_summary(citations: list[EvidenceCitation]) -> str:
     # IDs/status only, per EvidenceCitation's own docstring -- never the
     # underlying evidence text. [SUPERSEDED] (ADR-0050) surfaces in the
@@ -63,7 +82,10 @@ def _evidence_citation_summary(citations: list[EvidenceCitation]) -> str:
     # have to think to make.
     def _one(c: EvidenceCitation) -> str:
         superseded_tag = " [SUPERSEDED]" if c.is_superseded else ""
-        return f"{c.document_id} ({c.review_status.value}){superseded_tag}"
+        return (
+            f"{c.document_id} ({c.review_status.value})"
+            f"{superseded_tag}{_provenance_tag(c.text_provenance)}"
+        )
 
     return "; ".join(_one(c) for c in citations)
 

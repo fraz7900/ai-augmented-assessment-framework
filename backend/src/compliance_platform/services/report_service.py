@@ -38,6 +38,7 @@ from compliance_platform.models.report import (
     ResolutionItem,
     Situation,
 )
+from compliance_platform.models.schemas import resolve_text_provenance
 from compliance_platform.services.scoring_service import compute_assessment_domain_scores
 
 # Findings that override an unmet practice back to "not a gap" if it has
@@ -332,6 +333,8 @@ def _build_complication(
     findings_by_practice: dict[str, PracticeFinding],
     evidence_links_by_practice: dict[str, list[EvidenceLink]],
     superseded_document_ids: frozenset[str],
+    chunk_provenance: dict[str, bool | None],
+    parse_status_by_document: dict[str, str | None],
 ) -> list[DomainGapGroup]:
     groups: list[DomainGapGroup] = []
     for domain in framework.domains:
@@ -365,6 +368,17 @@ def _build_complication(
                             document_id=link.document_id,
                             review_status=link.review_status,
                             is_superseded=link.document_id in superseded_document_ids,
+                            # Per chunk where the citation names one,
+                            # falling back to the document (ADR-0076).
+                            # A link with no chunk_id is a coarse,
+                            # document-level manual link and genuinely
+                            # has no passage to be precise about.
+                            text_provenance=resolve_text_provenance(
+                                chunk_provenance.get(link.chunk_id)
+                                if link.chunk_id is not None
+                                else None,
+                                parse_status_by_document.get(link.document_id),
+                            ),
                         )
                         for link in evidence_links_by_practice.get(p.id, [])
                     ],
@@ -567,9 +581,20 @@ def build_dashboard(
     findings: list[PracticeFinding] | None = None,
     superseded_document_ids: frozenset[str] | set[str] | None = None,
     organization_name: str = "",
+    chunk_provenance: dict[str, bool | None] | None = None,
+    parse_status_by_document: dict[str, str | None] | None = None,
 ) -> DashboardReport:
+    """chunk_provenance and parse_status_by_document (ADR-0076) are
+    supplied by the caller in bulk, the same shape superseded_document_ids
+    already uses: this function stays pure over its inputs and does not
+    reach for a vector store or a registry of its own. Both default to
+    empty, which resolves every citation to `unknown` -- honest for a
+    caller that did not supply them, and never a claim that the text is
+    exact."""
     findings = findings if findings is not None else []
     superseded_document_ids = frozenset(superseded_document_ids or ())
+    chunk_provenance = chunk_provenance or {}
+    parse_status_by_document = parse_status_by_document or {}
     credit = performed_and_excluded_practice_ids(evidence_links, findings)
     performed_practice_ids = credit.performed_practice_ids
     excluded_practice_ids = credit.excluded_practice_ids
@@ -594,6 +619,8 @@ def build_dashboard(
         findings_by_practice,
         evidence_links_by_practice,
         superseded_document_ids,
+        chunk_provenance,
+        parse_status_by_document,
     )
     return DashboardReport(
         situation=_build_situation(

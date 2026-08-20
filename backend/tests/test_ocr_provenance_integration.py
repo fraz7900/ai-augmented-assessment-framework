@@ -20,6 +20,11 @@ from fastapi.testclient import TestClient
 from compliance_platform.api import dependencies
 from compliance_platform.core.config import Settings
 from compliance_platform.main import app
+from compliance_platform.models.assessment import (
+    EvidenceLink,
+    EvidenceReviewStatus,
+    EvidenceSource,
+)
 
 _SCRIPTS = Path(__file__).resolve().parents[1] / "scripts"
 
@@ -160,3 +165,64 @@ def test_the_flag_is_stored_on_the_chunk_not_recomputed(client: TestClient) -> N
     # answer survives the round trip instead of being recomputed.
     assert all("is_ocr_derived" in row for row in rows)
     assert all(row["is_ocr_derived"] in (None, False) for row in rows)
+
+
+def test_the_pdf_export_carries_what_the_screen_showed(client: TestClient, tmp_path: Path) -> None:
+    """The gap ADR-0074 disclosed and ADR-0076 closes, end to end.
+
+    A reviewer who reads "OCR — approximate" on screen and then sends
+    the PDF must not be sending a document that omits it. Everything
+    here is real: the OCR path, the review decision, the dashboard
+    build, and the generated PDF read back with pypdf.
+    """
+    from pypdf import PdfReader
+
+    scanned = tmp_path / "synthetic_scanned_policy.pdf"
+    _write_scanned_pdf(scanned)
+    with scanned.open("rb") as handle:
+        ingested = client.post(
+            "/ingest", files={"file": (scanned.name, handle, "application/pdf")}
+        )
+    assert ingested.status_code == 200, ingested.text
+    document_id = ingested.json()["document_id"]
+
+    assessment_id = client.post(
+        "/assessments", json={"name": "Export provenance", "framework_name": "C2M2"}
+    ).json()["id"]
+
+    # A citation only reaches the export if its practice is still a GAP,
+    # and a manual link is created ACCEPTED -- which makes the practice
+    # met, so it would never appear. A pending AI proposal is both the
+    # state that produces a citation and the realistic one: evidence the
+    # engine offered from an OCR'd page and nobody has decided on yet.
+    dependencies.get_cached_assessment_repository().add_evidence_link(
+        EvidenceLink(
+            assessment_id=assessment_id,
+            document_id=document_id,
+            practice_reference="ACCESS-1a",
+            chunk_id=_first_chunk_id(client, document_id),
+            source=EvidenceSource.AI_PROPOSED,
+            review_status=EvidenceReviewStatus.PENDING,
+            confidence=0.71,
+        )
+    )
+
+    dashboard = client.get(f"/assessments/{assessment_id}/dashboard").json()
+    cited = [
+        citation
+        for group in dashboard["complication"]
+        for gap in group["gaps"]
+        for citation in gap["cited_evidence"]
+    ]
+    assert cited, "expected the rejected OCR evidence to be cited against its gap"
+    assert {c["text_provenance"] for c in cited} == {"ocr"}
+
+    pdf = client.get(f"/assessments/{assessment_id}/report/pdf")
+    assert pdf.status_code == 200
+    import io as _io
+
+    text = " ".join(
+        " ".join(page.extract_text().split())
+        for page in PdfReader(_io.BytesIO(pdf.content)).pages
+    )
+    assert "OCR - approximate" in text

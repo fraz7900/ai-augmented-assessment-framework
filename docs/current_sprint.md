@@ -1,92 +1,61 @@
-Current sprint: Sprint 25 — close two gaps this project has disclosed for years and not fixed
-Objective: the register's own two longest-standing open items that are actually fixable here. R-33,
-open since Sprint 19: OCR text is approximate, the product's credibility rests on verbatim quotation,
-and nothing downstream of ingestion could tell a reviewer which passages were which (T1). R-9, the
-only High-likelihood open risk and one that has already occurred once: no reproducible environment
-bootstrap (T2). Neither needs data this repository cannot hold, which is what disqualified the
-precision work from continuing.
-Status: **T1 merged as `67570ec` (PR #25). T2 is on PR #26.**
-Sprint 24 closed with four tranches merged: `edfc0b6` the agreement endpoint, `cb1eef7` precision
-measured at scale (0.012 is structural, not a small-corpus artifact), `36bd9ce` competitive candidate
-selection, `300b3b2` the same validated on real documents. One of those reached main without a PR and
-was reverted and reapplied through one (`a8bac3b`, then PR #24) rather than force-pushed over.
-T1 — OCR provenance follows the citation (ADR-0074, accepted). R-33 was disclosed rather than hidden,
-but disclosure at UPLOAD is not disclosure at the point of use: `ParseStatus.SUCCESS_OCR` is a
-warning tone in the upload UI, and by the time a reviewer read a quotation back in chat the fact was
-gone. That matters more here than it would elsewhere, because Sprint 19 rewrote the chunker
-specifically to protect verbatim quotation, taking mid-word chunks from 140 to 2.
-T1, and why a document-level flag would not do. `ParseStatus.SUCCESS_PARTIAL_OCR` exists because "all
-of this is approximate" and "pages 3, 5 and 7 are approximate, the rest is exact" are different
-instructions to a reviewer — its own docstring says collapsing them either makes a mostly-exact
-document look wholly untrustworthy or hides that any of it is approximate. A document-level warning
-on citations reproduces that dilemma one layer down: on a 200-page policy where OCR recovered three
-appendix pages, every quotation from the other 197 carries a warning it does not deserve, and a
-reviewer who learns the badge is usually wrong stops reading it.
-T1, what it does. The information already existed and was thrown away: `parse_pdf`'s selective-OCR
-path computes exactly which textless pages the recogniser replaced, uses it to pick a ParseStatus,
-and discards the list. It is now carried to the chunk, persisted on the vector store as a nullable
-column, and resolved per passage into a closed four-value set — `exact`, `ocr`, `possibly_ocr`,
-`unknown`. Four rather than two because "cannot say" is a real answer: `unknown` is not `exact`,
-since `exact` is a claim about an intact text layer and absence of a record is not evidence for it.
-27 of 30 stored documents predate even the registry. Surfaced first in chat, where the product quotes
-evidence verbatim, with `exact` rendering nothing at all — a badge on every ordinary quotation is
-noise, and noise is what stops people reading the badge that matters.
-What T1 actually took, and two defects it found. `Document` had no parse status at all: the field
-lives on `IngestionJob`, the transient row that ADR-0064 sweeps after 30 days, and never on the
-durable record — so a document's provenance was being deleted on a retention schedule while the
-document lived on, and the fallback this design needs had nothing to fall back to. Added, written at
-ingestion, migrated as nullable-with-no-default. Then: SQLModel accepted a keyword for a field that
-did not exist and silently dropped it, because `table=True` models skip validation, so the first
-attempt to persist it looked like it worked and stored nothing. Caught by an integration test
-asserting the resolved value rather than by inspection — the third time in three sprints a test
-written for one purpose has found a different real defect. `ParseResult` also widened from a 5-tuple
-to a 6-tuple across all 22 parser return sites, which was the smaller change than restructuring every
-parser's return shape for one field.
-T1, what it is not. **R-33 is narrowed, not closed** — OCR output is still approximate; what changed
-is that the approximation is visible where it is acted on. The exports do not carry the badge yet,
-which reopens a narrower version of the screen/document gap ADR-0069 closed, and is the obvious next
-tranche. Evidence links in the review queue do not carry it either: that needs a chunk lookup per
-link rather than reading a field the chat search already returns.
-T2 — a reproducible bootstrap, and a machine that can be questioned (ADR-0075, accepted). R-9's
-mitigation column said the gap was a missing setup script. Looking properly, it was worse: **the
-backend had no lock at all.** 19 direct dependencies declared as `>=` floors with no upper bounds,
-and CI running `pip install -e ".[dev]"`, resolving fresh on every run — so a transitive release
-could turn the build red with no code change, and every measurement this project has published,
-including ADR-0071's and ADR-0072's four-decimal precision figures, was taken against a dependency
-set nobody recorded. "It passed in CI" named a moving target.
-T2, what shipped. `backend/requirements.lock` pins all 75 resolved packages with a header saying how
-to regenerate it. `scripts/bootstrap.sh` builds both environments from pinned versions and fails
-loudly rather than half-succeeding — installing the lock first, then the project with `--no-deps`,
-because installing it normally lets pip re-resolve and upgrade straight past the pins just installed;
-`npm ci` rather than `npm install`, which honours the lockfile and clears `node_modules` first.
-`scripts/lock-backend.sh` regenerates the lock and is deliberately NOT part of bootstrap: if setup
-regenerated it, every developer would silently adopt whatever PyPI served that morning, which is R-9
-rather than a fix for it. CI now installs from the lock, verifies it, and caches on it.
-T2, the half a bootstrap cannot fix. AGENTS.md spends more words on one failure than on anything
-else: `node_modules` goes subtly incomplete on this filesystem and the symptom is not a
-missing-binary error but vitest worker-startup timeouts, which look like test failures. This project
-has already spent real time debugging code that was never broken. `scripts/doctor.sh` answers one
-question — is the environment wrong, or the code? — checking venv importability, per-package drift
-against the lock rather than mere absence, and whether `node_modules` is COMPLETE via `npm ls` rather
-than merely present. It exits non-zero on any fault, and when clean it says the thing worth saying:
-a failing suite is now telling you something about the code.
-What T2 actually took. CI caught a defect on its first run that this machine structurally cannot
-see: the new scripts were committed **without the executable bit**. This working copy is on NTFS via
-WSL, where every file reports mode 777 and `chmod +x` is a no-op — so a fresh clone would have
-received scripts nobody could run. `install-git-hooks.sh` turned out to have had the same problem
-already, and AGENTS.md tells people to run it directly while `bootstrap.sh` calls it. The test now
-inspects git's index across the whole `scripts/` directory rather than the filesystem, because the
-filesystem here is not a witness. The bootstrap path was proved rather than assumed: the lock installs into a
-throwaway venv from scratch, the package imports, and the app builds its 39 routes there. One test
-was wrong before it was right — it asserted CI no longer contains `pip install -e ".[dev]"` and
-failed on the explanatory comment quoting the old command. A test that can be tripped by a comment is
-checking the wrong thing, so it now strips YAML comments and asserts about what CI RUNS.
-T2, what it is not. **R-9 is narrowed, not closed.** The interpreters still come from the machine —
-Python and Node versions are checked, not pinned; that is the Docker image's job. Nothing is
-hash-pinned: `--require-hashes` would defend against a compromised index as well as drift, but that
-is supply-chain integrity rather than reproducibility and deserves its own decision. And the frontend
-runner still loses a worker sometimes even with a complete install; the doctor can detect the
-incomplete case, not the flaky one, and CI remains the authority.
+Current sprint: Sprint 26 — what the platform owes someone already holding something it produced
+Objective: two disclosed gaps that share a shape. A reviewer holding a PDF this platform generated
+cannot tell that a quoted passage was recognised rather than read (T1, finishing R-33), and cannot
+tell whether the numbers in it have since changed (T2, R-21). Both are about an artifact that has
+left the building and the person relying on it. No new frameworks, no auth, no notification
+infrastructure — R-34's own register entry says to revisit that only if this platform gains
+point-in-time or recurring reporting, and it has not.
+Status: **T1 is on PR #27. T2 is not begun.**
+Sprint 25 closed with both tranches merged: `67570ec` OCR provenance per passage (ADR-0074) and
+`b38c5df` a reproducible bootstrap and a machine that can be questioned (ADR-0075).
+T1 — the OCR warning reaches the document (ADR-0076, accepted). ADR-0074 made provenance per-passage
+and surfaced it in chat, then disclosed in its own consequences that the exports carried nothing.
+That is the same screen/document divergence ADR-0069 closed one sprint earlier for the domain chart,
+reopened in a narrower form, and the pattern is worth naming rather than repeating quietly: this
+project keeps building a thing on screen, disclosing that the export lacks it, and closing the gap a
+sprint later.
+T1, why the export is where it matters most. An export is the artifact that LEAVES — filed with an
+auditor, attached to a board pack, read six months later by someone who cannot ask the UI a question.
+A quotation whose approximation warning exists only in a browser tab is missing exactly when it is
+load-bearing.
+T1, what it does. `EvidenceCitation` gains `text_provenance`, and the dashboard's gap list, the PDF
+and the XLSX all render it. Resolved per CHUNK rather than per document, because falling back to the
+document flags every citation from a mostly-exact one — the failure SUCCESS_PARTIAL_OCR's docstring
+names and ADR-0074 already refused once. Looked up in bulk by the caller so `build_dashboard` stays
+pure over its inputs, exactly as `superseded_document_ids` already works (ADR-0050): one read per
+cited document, never one per citation. `exact` renders nothing, in the export as on screen.
+What T1 actually took. Two test assumptions were wrong before they were right. A manual evidence link
+is created ACCEPTED, so the first end-to-end attempt tried to reject one to make its practice a gap
+and silently got a 409 — the same one-shot review rule bulk reject ran into in Sprint 23 — leaving
+the practice met and the citation absent. Planting a pending AI proposal is both the state that
+produces a citation and the realistic one. And the report route is `/report/pdf`, not `/report.pdf`.
+Neither was caught by reading; both by a test asserting on the resolved output.
+T1, what it is not. The **evidence review queue still shows no provenance**: it lists EvidenceLink
+rows, which are persisted SQLModel objects returned directly, so a resolved field there needs a
+response wrapper and a per-link chunk lookup. Disclosed rather than quietly skipped — it is the last
+surface where a reviewer can meet OCR'd evidence without being told. R-33 stays narrowed, not closed.
+The frontend runner, measured again this sprint. Three consecutive full runs on unchanged code gave
+89, 75 and 112 passing with 8, 10 and 7 files lost to the forks-worker timeout and **zero assertion
+failures** in any of them. `./scripts/doctor.sh` (ADR-0075) reported the environment sound each time,
+including `npm ls` confirming a complete tree — so this is the flaky case that ADR-0075 explicitly
+said the doctor detects nothing about, not the incomplete-install case it does. A reinstall via
+`./scripts/bootstrap.sh` moved it from 75 to 112 and did not fix it, which is what AGENTS.md already
+records. CI is the authority and settled it.
+T2 (not begun) — R-21, a downloaded export is a point-in-time snapshot and nothing prevents someone
+acting on a stale one. The register already names the mitigations that exist: exports carry a
+generation timestamp, and since ADR-0060 a finalized one carries a seal identifying precisely which
+version of the record it came from. The gap is that a DRAFT export has no equivalent, and even a
+sealed one requires manually comparing a digest. The shape worth building is the seal concept
+extended to any export — a digest of the scored record printed into the document, and an endpoint
+that answers "is this still current, and if not what changed" — which needs no notification
+infrastructure and invents no feature R-34 warned against.
+Still open and not claimed here, unchanged. R-9 is narrowed but the interpreters still come from the
+machine and nothing is hash-pinned. R-34, a score already reported to a stakeholder can change with
+no way to tell them. R-40, client separation is enforced by the product and not against a caller that
+bypasses it. R-35's in-memory upload queue. Backups remain on demand, with no schedule, rotation or
+off-machine copy. The copyright-limited transcriptions R-28/R-30/R-32. R-16's precision ceiling, now
+measured and partly reduced but not closed, and the labelled real corpus that would be needed to take
+it further — which by policy cannot live in this repository at all.
 Also open and unchanged. Upload retention is not retroactive, so the 6 of 30 documents whose
 originals were discarded before ADR-0056 stay permanently un-re-ingestible; 27 of 30 stored
 documents predate the registry (ADR-0039) and carry no `content_hash`; and assessments finalized

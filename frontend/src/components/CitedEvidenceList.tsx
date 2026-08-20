@@ -1,5 +1,6 @@
 import type { EvidenceCitation } from '../api/types'
 import { reviewLabels, reviewStyles } from './EvidenceSourceBadge'
+import TextProvenanceBadge from './TextProvenanceBadge'
 
 // ADR-0040 computed GapItem.cited_evidence server-side but nothing in the
 // Dashboard tab ever rendered it -- this is that rendering, closing the
@@ -24,6 +25,12 @@ export default function CitedEvidenceList({ citations }: { citations: EvidenceCi
           >
             {reviewLabels[citation.review_status]}
           </span>
+          {/* Where this evidence's text came from (ADR-0076). Read off
+              the citation the dashboard already resolved it into, per
+              chunk where the link names one — same no-extra-call shape
+              as is_superseded above, and the same badge the chat tab
+              uses so screen and export say one thing. */}
+          <TextProvenanceBadge provenance={citation.text_provenance} />
           {citation.is_superseded && (
             <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 font-medium text-amber-800">
               ⚠ document superseded
