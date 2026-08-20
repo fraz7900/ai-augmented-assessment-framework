@@ -3,6 +3,7 @@ import { Download, Info } from 'lucide-react'
 import { reportUrl, useDashboard } from '../../api/assessments'
 import ScoreHeadline from '../../components/ScoreHeadline'
 import DomainCompletionChart from '../../components/DomainCompletionChart'
+import ReviewProgressBar from '../../components/ReviewProgressBar'
 import GapGroup from '../../components/GapGroup'
 import ResolutionList from '../../components/ResolutionList'
 import SanitizationPanel from '../../components/SanitizationPanel'
@@ -47,6 +48,16 @@ export default function DashboardTab() {
       </div>
 
       <SanitizationPanel assessmentId={assessmentId} />
+
+      <div className="rounded-lg border border-slate-200 bg-white p-4">
+        {/*
+          The shape of the review, before its five component integers
+          (ADR-0068). How much evidence is still unreviewed is the number
+          that decides how far everything below can be trusted, and it
+          read as one figure among five.
+        */}
+        <ReviewProgressBar situation={situation} />
+      </div>
 
       <div className="grid grid-cols-2 gap-3 rounded-lg border border-slate-200 bg-white p-4 text-sm sm:grid-cols-3">
         <div>
