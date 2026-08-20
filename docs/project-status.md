@@ -186,8 +186,14 @@ These are stated deliberately; a compliance tool that hid them would undercut it
   count is a property of the framework rather than of the evidence, and more or better evidence does
   not reduce it. Raising the threshold is not the fix either: a confirmed false positive sits at 0.71,
   inside the 0.65–0.78 band correct pairs were measured in. The fix points at competitive rather than
-  absolute candidate selection, which has real recall consequences and is deliberately not made in the
-  sprint that measured it. Sprint 23 made the resulting queue navigable — filters, and bulk reject for
+  absolute candidate selection. **Sprint 24 made that change** (ADR-0072): at most 3 practices may
+  claim the same chunk as evidence, which took precision to 0.0305 at 80 documents and 0.0195 at 505,
+  recall unchanged at 1.000, and cut the review queue by 42-58%. It is an improvement, not a fix —
+  what remains is a practice whose genuinely best chunk is still wrong, which no threshold separates.
+  Validated on a real public standards document too (ADR-0073), where concentration proved *worse*
+  than on the synthetic corpus: one chunk had been claimed by 56 practices. **Precision on a real
+  evidence corpus remains unmeasured and, in this repository, unmeasurable** — it needs an
+  expert-labelled answer key, and real evidence deliberately never enters this repo at all. Sprint 23 made the resulting queue navigable — filters, and bulk reject for
   the outcome most of it should receive — without pretending that shortens it.
 - **Confidence is a retrieval similarity, not a calibrated probability.** Correct practice/evidence
   pairs were measured at 0.65–0.78 and incorrect ones at 0.43–0.53, with a confirmed false positive
