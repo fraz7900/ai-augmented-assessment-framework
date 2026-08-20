@@ -5,8 +5,7 @@ the precision measurement the pilot readiness audit recommended in Sprint 17, at
 can actually answer whether 0.012 was an artifact of five documents (T2). Deliberately no change to
 the mapping engine itself: measuring before optimising is this project's own rule and the reason
 that finding was never acted on.
-Status: **T1 `edfc0b6` (PR #21), T2 `cb1eef7` (PR #22), T3 `36bd9ce` (PR #23) are merged. T4 is
-on PR #24.**
+Status: **T1 `edfc0b6` (PR #21), T2 `cb1eef7` (PR #22), T3 `36bd9ce` (PR #23) are merged. T4 is on PR #24.**
 Sprint 23 closed with five tranches merged, all from one tester's report: `9436460` filters,
 `336a952` domain completion chart, `07a41a5` bulk reject, `d67968f` review-progress bar, `76e7479`
 exports carrying both visuals and the MIL-gate sentence. Two of those existed only because the report
@@ -121,6 +120,11 @@ synthetic ones did. The proposal count is 355 again, the same figure ADR-0071 me
 documents, on a completely different corpus of real prose — that structural finding reproduced
 independently. The cap's default of 3 is left unchanged: this measurement gives no reason to move it,
 and moving it on a corpus with no answer key would be picking a number to flatter a statistic.
+T4 also went to `main` without a pull request before this one, which is worth recording rather than
+quietly fixing: every other change in this project has had a review trail and that one did not. CI was
+green on it, so nothing shipped unverified — but it was reverted (`a8bac3b`) and reapplied through
+this PR rather than force-pushed over, because rewriting a branch other clones may hold is a worse
+trade than a visible correction.
 Found while doing T4, not reported by anyone. `scripts/measure_aqs.py` wrote its retained originals
 (ADR-0056) into the repository's own `data/raw` rather than its temp directory, so T2 and T3's corpus
 sweeps left **2,320 files** behind in a cloud-synced working copy. Gitignored, so never committed,
