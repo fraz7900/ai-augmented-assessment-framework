@@ -5,7 +5,7 @@ tell whether the numbers in it have since changed (T2, R-21). Both are about an 
 left the building and the person relying on it. No new frameworks, no auth, no notification
 infrastructure — R-34's own register entry says to revisit that only if this platform gains
 point-in-time or recurring reporting, and it has not.
-Status: **T1 is on PR #27. T2 is not begun.**
+Status: **T1 merged as `3d93d62` (PR #27). T2 is on PR #28.**
 Sprint 25 closed with both tranches merged: `67570ec` OCR provenance per passage (ADR-0074) and
 `b38c5df` a reproducible bootstrap and a machine that can be questioned (ADR-0075).
 T1 — the OCR warning reaches the document (ADR-0076, accepted). ADR-0074 made provenance per-passage
@@ -41,14 +41,37 @@ including `npm ls` confirming a complete tree — so this is the flaky case that
 said the doctor detects nothing about, not the incomplete-install case it does. A reinstall via
 `./scripts/bootstrap.sh` moved it from 75 to 112 and did not fix it, which is what AGENTS.md already
 records. CI is the authority and settled it.
-T2 (not begun) — R-21, a downloaded export is a point-in-time snapshot and nothing prevents someone
-acting on a stale one. The register already names the mitigations that exist: exports carry a
-generation timestamp, and since ADR-0060 a finalized one carries a seal identifying precisely which
-version of the record it came from. The gap is that a DRAFT export has no equivalent, and even a
-sealed one requires manually comparing a digest. The shape worth building is the seal concept
-extended to any export — a digest of the scored record printed into the document, and an endpoint
-that answers "is this still current, and if not what changed" — which needs no notification
-infrastructure and invents no feature R-34 warned against.
+T2 — an export can be asked whether it is still true (ADR-0077, accepted). R-21 since Sprint 7: a
+downloaded PDF is a point-in-time snapshot and nothing stops a board acting on a stale one. It is a
+direct consequence of ADR-0013 not persisting exports, so the platform has no record of what is in
+circulation and cannot chase a document. But the person holding one can ask, and that half is
+solvable. Every export now prints a digest of the figures it was generated from, and
+`GET /assessments/{id}/report-currency?digest=…` answers current / superseded / unverifiable.
+T2, and why this is not the seal. ADR-0060 asks "has this finalized record been altered?" — evidence
+of tampering on something that must not change, where a mismatch is a finding. This asks "have the
+numbers moved since this page was printed?" on a living draft that is SUPPOSED to change, where a
+mismatch is normal. Same technique, opposite subject; conflating them would make ordinary progress
+look like tampering or the reverse. `unverifiable` is likewise not `superseded`: a report this build
+cannot check is not evidence anything changed, which is ADR-0060's own distinction reapplied.
+T2, the payload is a chosen subset. DashboardReport has gained fields in three of the last four
+sprints, so digesting all of it would make every previously issued export report itself superseded
+the moment an unrelated field was added — worse than useless, because it teaches people to ignore the
+answer. The payload is what a reader acts on: scores, headline figures, review counts, and WHICH
+practices are unmet rather than how many, since a gap closing while another opens is a real change
+that a count would call no change. Versioned as v1 beside the digest, for the reason ADR-0060
+versions its seal.
+What T2 could not honestly do, and nearly did. The first draft produced a "what changed" list by
+diffing the current payload against an empty one — which would have emitted "ACCESS score changed
+from None to 1.0" for every field, a fabricated diff wearing the costume of a real one. A digest is
+one-way and the reader's original figures are simply not recoverable from it. So a superseded answer
+states what the record says NOW and tells the holder to compare against their printed copy, with that
+limitation stated in the response body rather than only in this file.
+T2, details that earned their tests. Both formats print the same digest from the one DashboardReport
+they are rendered from, because a reader told their spreadsheet is stale and their PDF is not would
+rightly stop believing either. The endpoint to call is printed on the page itself, since the page is
+what leaves the building and its reader may never have seen the UI. And it notifies nobody: R-34's
+register entry says to revisit push notification only if this platform gains point-in-time or
+recurring reporting, and it has not.
 Still open and not claimed here, unchanged. R-9 is narrowed but the interpreters still come from the
 machine and nothing is hash-pinned. R-34, a score already reported to a stakeholder can change with
 no way to tell them. R-40, client separation is enforced by the product and not against a caller that

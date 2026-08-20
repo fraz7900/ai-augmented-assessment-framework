@@ -9,6 +9,8 @@ situation/complication/resolution structuring principle.
 
 from __future__ import annotations
 
+from enum import StrEnum
+
 from pydantic import BaseModel
 
 from compliance_platform.models.assessment import EvidenceReviewStatus, PracticeFindingStatus
@@ -259,6 +261,40 @@ class EvidenceQueueSummary(BaseModel):
     by_status: dict[str, int]
     by_domain: list[EvidenceDomainCount]
     unmapped: int
+
+
+class ReportCurrencyStatus(StrEnum):
+    """Whether a downloaded export still matches the record (ADR-0077).
+
+    Three values, and UNVERIFIABLE is not SUPERSEDED. A report this
+    build cannot check is not evidence that anything changed, and
+    reporting one as out of date would raise a false alarm about a
+    document that may be perfectly current -- the same distinction
+    ADR-0060 draws between `altered` and `unverifiable`.
+    """
+
+    CURRENT = "current"
+    # The figures have moved since this export was generated. Normal and
+    # expected on a living assessment -- unlike an altered seal, which is
+    # a finding.
+    SUPERSEDED = "superseded"
+    # No digest supplied, or one this build cannot interpret.
+    UNVERIFIABLE = "unverifiable"
+
+
+class ReportCurrency(BaseModel):
+    """The answer to "is the PDF in my hand still accurate?" (ADR-0077).
+
+    `changes` states what the record says NOW rather than a diff: a
+    digest is one-way, so the reader's original figures cannot be
+    recovered, and producing a change list would mean inventing one.
+    """
+
+    status: ReportCurrencyStatus
+    claimed_digest: str | None = None
+    current_digest: str
+    payload_version: str
+    changes: list[str] = []
 
 
 class DashboardReport(BaseModel):
