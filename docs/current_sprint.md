@@ -5,7 +5,7 @@ the precision measurement the pilot readiness audit recommended in Sprint 17, at
 can actually answer whether 0.012 was an artifact of five documents (T2). Deliberately no change to
 the mapping engine itself: measuring before optimising is this project's own rule and the reason
 that finding was never acted on.
-Status: **T1 merged as `edfc0b6` (PR #21). T2 is on PR #22.**
+Status: **T1 merged as `edfc0b6` (PR #21), T2 as `cb1eef7` (PR #22). T3 is on PR #23.**
 Sprint 23 closed with five tranches merged, all from one tester's report: `9436460` filters,
 `336a952` domain completion chart, `07a41a5` bulk reject, `d67968f` review-progress bar, `76e7479`
 exports carrying both visuals and the MIL-gate sentence. Two of those existed only because the report
@@ -67,6 +67,38 @@ establishes and that part is corpus-independent. 505 documents is the low end of
 cover the corpus construction only: the script is a script, but the ground-truth set is the answer key
 a precision number is computed against, and a defect there would produce a plausible wrong measurement
 rather than a loud failure.
+T3 — competitive candidate selection (ADR-0072, accepted). The change T2 said was needed and
+deliberately did not make. Before designing it, the shape of the proposals was measured: at 80
+documents, 354 proposals landed on only **53 distinct chunks**, one chunk was proposed against **44
+different practices**, and the top eight chunks absorbed 158 between them. That concentration is
+ADR-0071's mechanism made visible — a chunk that is the best match for 44 practices is not evidence
+for 44 things, it is a paragraph general enough to look plausible against most of a framework.
+T3, what it does. After per-practice selection produces candidates, group by chunk, sort by
+confidence, keep the strongest N. `mapping_max_practices_per_chunk` defaults to 3; 0 restores the old
+engine exactly. Ties break on practice id so two runs produce the same queue. At 80 documents
+precision goes 0.0113 to 0.0305 with recall 1.000; at 505 documents 0.0113 to 0.0195. The benefit
+shrinks as the corpus grows and that is recorded rather than the better number quoted: the cap works
+by resolving contention, and contention falls once chunks outnumber practices.
+T3, why 3 when 1 measured better. A cap of 1 gives 0.0755 on the fixture and was rejected. Every
+document in that fixture states exactly one practice, so it measures no recall loss at any cap —
+which is a property of the fixture, not evidence of safety. Choosing 1 on it would be fitting the
+engine to the answer key, the same mistake ADR-0071 recorded the audit refusing. So the cap comes
+from what a paragraph plausibly evidences: a handful of related practices, given that one document
+serving several practices is the reuse ADR-0062 is built around.
+T3, the recall cost accepted deliberately. When a chunk genuinely evidences more practices than the
+cap, real matches are dropped — demonstrated by a unit test that asserts the two weakest claims are
+lost, so the cost is visible in the suite rather than only in prose. Accepted because what is dropped
+is always the weakest claim on that chunk; because recall into a queue nobody can work through is not
+recall; because a missed practice stays visible as a gap and in the finalization gate, so the
+assessment scores unmet rather than silently assessed; and because evidence can still be linked by
+hand with the cap one setting from off. The fixture cannot quantify that cost and no number here
+should be read as having measured it.
+What T3 actually took. The cap was per-call and that made it advisory: practices already holding
+proposals drop out of the next run as covered, freeing their slots for the next three, so clicking
+propose repeatedly would rebuild the old flood a tier at a time. The existing end-to-end test caught
+it — a second propose call stopped being the no-op it has always been. The cap now counts all live
+claims on a chunk. That is the second time in two sprints a test written for another purpose has
+found a real defect.
 Still open and not claimed here, unchanged. R-9, no reproducible environment bootstrap, rated High
 likelihood and already occurred once. R-33, OCR-recovered text is approximate and nothing downstream
 flags a citation drawn from an OCR'd page. R-34, ADR-0057's scoring correction can lower a number
@@ -81,7 +113,9 @@ documents predate the registry (ADR-0039) and carry no `content_hash`; and asses
 before ADR-0060 carry no seal, report `unsealed` rather than `verified`, and are deliberately not
 sealed retroactively.
 Explicitly out of scope this sprint and not begun: any change to `mapping_candidates_per_practice` or
-`mapping_similarity_threshold` — this sprint measures them and deliberately does not tune them; bulk
+`mapping_similarity_threshold` — T3 changed how candidates compete, and deliberately left both of
+those alone, on ADR-0071's evidence that no threshold separates a confirmed false positive at 0.71
+from correct pairs measured at 0.65-0.78; bulk
 accept of any shape; an agreement number anywhere in the product UI; changes to
 `mapping_candidates_per_practice` or `mapping_similarity_threshold`; authentication, RBAC and
 per-user permissions; cloud deployment; organisation deletion, merge, or reassignment; new
