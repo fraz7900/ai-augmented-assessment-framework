@@ -144,6 +144,9 @@ The same four commitments recur in every sprint, and they are what make the outp
 
 These are stated deliberately; a compliance tool that hid them would undercut its own argument.
 
+**How to test all of this:** `docs/testing-guide.md` — every critical fix from Sprints 23-30, what to
+run, and what a green run does not tell you.
+
 **Consolidated view:** `docs/adr/ADR-0084-what-is-deliberately-not-done.md` sorts everything below —
 plus the charter scope decisions — into what is deliberately out, what is blocked for a structural
 reason, and what is genuinely still open. Three kinds a reader keeps conflating.
