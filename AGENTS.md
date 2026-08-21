@@ -89,6 +89,10 @@ reason (~10 minutes for a full green run there; ADR-0044's complexity-scaling pe
 deliberately part of it) — budget for that rather than assuming it has hung. On a fresh clone, `npm install` needs `--legacy-peer-deps` (a real
 `openapi-typescript`/TypeScript peer conflict, see ADR-0016).
 
+**Testing the whole application, not just the suite:** `docs/testing-guide.md` covers every
+critical fix from Sprints 23-29 — what to run, what to check by hand, and what a green run still
+does not tell you.
+
 ### When the frontend suite will not run
 
 On this class of slow/synced filesystem `node_modules` can end up subtly incomplete, and the
