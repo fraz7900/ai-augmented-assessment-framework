@@ -1,0 +1,42 @@
+# Relevance-label file for the retrieval evaluation harness. See
+# backend/eval/labels/schema.py for field definitions and
+# backend/eval/README.md for the span-overlap relevance rule this format
+# exists to support.
+#
+# HUMAN-AUTHORED ONLY. No row in a real labels file may be machine
+# generated -- that would fabricate the exact human-review step this
+# project's evidence-extraction and privacy-protection rules require for
+# every AI-proposed judgment (see AGENTS.md: "never auto-accept an
+# AI-proposed mapping"). The two rows below are marked EXAMPLE and exist
+# only to demonstrate the format; replace them with real judgments, do
+# not extend them by pattern-matching more rows onto this file.
+#
+# doc_ref is a path relative to the repository root. char_start/char_end
+# are a half-open [char_start, char_end) character range into that file's
+# raw text -- open the file and count, or use a short interactive Python
+# snippet (`text.index("some exact phrase")`) rather than guessing.
+
+labels:
+  # EXAMPLE - replace. Points at the pre-existing synthetic access-control
+  # policy already tracked in data/sample_evidence/, not the new corpus
+  # this stage adds, so this template validates before any new corpus
+  # document exists.
+  - practice_id: ACCESS-1h
+    framework: c2m2_v2_1
+    doc_ref: data/sample_evidence/synthetic_access_control_policy.md
+    char_start: 1067
+    char_end: 1255
+    note: >-
+      EXAMPLE ONLY, not a verified relevance judgment -- illustrates the
+      schema shape. The span is the "Multi-Factor Authentication"
+      section of the synthetic policy.
+
+  # EXAMPLE - replace.
+  - practice_id: RESPONSE-1a
+    framework: c2m2_v2_1
+    doc_ref: data/sample_evidence/synthetic_incident_response_narrative.txt
+    char_start: 943
+    char_end: 1121
+    note: >-
+      EXAMPLE ONLY, not a verified relevance judgment -- illustrates the
+      schema shape. The span describes SOC alert-triage timelines.
