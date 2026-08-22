@@ -1,19 +1,59 @@
 # AI-Augmented Compliance Assessment Platform
 
-A local-first, privacy-preserving platform that accelerates energy-sector cybersecurity compliance assessments (C2M2, NIST CSF 2.0, extensible to NERC CIP / ISO 27001 / CIS Controls / SOC 2 / PCI DSS) using document ingestion, local LLM reasoning, evidence-to-control mapping, maturity scoring, and executive reporting.
+A local-first, privacy-preserving platform that accelerates energy-sector cybersecurity compliance assessments (C2M2, NIST CSF 2.0, extensible to NERC CIP / ISO 27001 / CIS Controls / SOC 2 / PCI DSS) using document ingestion, local retrieval-based evidence-to-control mapping, human review, maturity scoring, and executive reporting. There is deliberately no generative model in the pipeline (ADR-0020) — the platform retrieves and ranks passages; a person decides every finding.
 
 This repository is developed as a structured, sprint-based engagement — every sprint produces a working increment plus consulting-style documentation (architecture decisions, business value assessment, risk register). See `PROJECT_CHARTER.md` for the full problem statement and scope.
 
 ## Status
 
-**Sprint 20 complete.** Framework breadth finished at Sprint 16; Sprints 17-20 have been a
-controlled-pilot readiness arc — audit, privacy, provenance, security, deployment and CI (17-18),
-real-document testing and OCR (19), then scoring and finalization correctness (20).
-`docs/current_sprint.md` is the single source of truth for what is done versus in progress, and
-**`docs/project-status.md` is the full current snapshot — what the application does, every sprint in
-one table, and the disclosed limitations — which is the right starting point for a stakeholder
-briefing.** The sprint entries below are the narrative; that file is the status. Sprints run
-oldest-first below, with the Sprint 10 MVP-closure detail last.
+**Sprint 30 complete.** 811 backend tests and 146 frontend tests green in CI, 84 architecture
+decision records, 1,267 practices encoded across seven frameworks.
+
+**`docs/project-status.md` is the full current snapshot** — what the application does, every sprint
+in one table, and the disclosed limitations. It is the right starting point for a stakeholder
+briefing, and it is maintained current rather than written once. `docs/current_sprint.md` is the
+single source of truth for what is done versus in progress. `docs/testing-guide.md` says how to
+test every critical fix by hand, and what a green suite still does not prove.
+
+The arc, in four parts. Framework **breadth** finished at Sprint 16. Sprints 17-20 were
+**controlled-pilot readiness** — audit, privacy, provenance, security, deployment and CI (17-18),
+real-document testing and OCR (19), scoring and finalization correctness (20). Sprints 21-23 were
+**the product as an assessor meets it** — retention and attribution, the organisational data
+boundary (ADR-0063), then a review queue rebuilt from one tester's feedback: filters, bulk reject,
+and dashboard visuals.
+
+Sprints 24-30 were **measurement and the things that make a measurement mean something**, and they
+are where this project's disclosure discipline shows most plainly:
+
+- **Sprint 24** answered the precision question the pilot audit left open rather than assuming it.
+  Across 5 → 505 documents precision moved 0.0117 → 0.0113 and the proposal count *saturated at 355*
+  — every uncovered C2M2 practice — so **~0.012 is structural, not a small-corpus artifact**
+  (ADR-0071). Acted on with competitive candidate selection (ADR-0072).
+- **Sprints 25-26** made the record say where its text came from: OCR provenance resolved per
+  passage as four values, because "cannot say" is a real answer (ADR-0074), carried into the PDF and
+  XLSX (ADR-0076), plus export currency — every export prints a digest of the figures behind it, and
+  an endpoint answers whether it is still current (ADR-0077).
+- **Sprints 25, 28** closed R-9: the backend had **no lockfile at all**, so CI resolved dependencies
+  fresh every run and every published measurement was taken against an unrecorded environment. Now
+  hash-pinned with a SHA-256 per package (ADR-0081).
+- **Sprints 27, 29** made backups provable — a checksum proves the bytes, not that the archive
+  contains a database that opens (ADR-0079) — and closed R-11, open since Sprint 1: four
+  check-then-act sites that failed *silently*, the worst returning zero cross-framework equivalents
+  with nothing raised (ADR-0082).
+- **Sprint 30** audited the repository before deciding what to fix. It found no functional defects
+  and one critical documentation gap: the status snapshot was six sprints stale, which is the
+  platform making false claims about itself in the place most likely to be believed. ADR-0084
+  consolidates what is deliberately not done.
+
+**What a green suite here does not tell you:** retrieval precision is ~0.012 and structural, and no
+test in this repository fails because of it. `/aqs/agreement` was built to turn real review
+decisions into data and nothing has fed it yet. Human review is what stands between this platform's
+traceable conclusions and its inaccurate retrieval — which is why no AI proposal can ever reach a
+score without a person accepting it.
+
+The sprint entries below are the narrative; `docs/project-status.md` is the status. Sprints run
+oldest-first below, with the Sprint 10 MVP-closure detail last, and the entries stop at Sprint 20 —
+Sprints 21-30 are summarised above and covered in full in the snapshot.
 
 **MVP complete as of Sprint 10.** Every item in `PROJECT_CHARTER.md` Section 12 is now either
 delivered or, for local-first Ollama inference / optional cloud API fallback, formally and finally
@@ -409,9 +449,11 @@ then open `http://localhost:5173`: upload a document (a sample is in `data/sampl
 - [`docs/product/`](./docs/product/) — PRD, personas, epics/user stories, requirements, assumptions log, decision log, risk register, prioritized backlog
 - [`docs/architecture/00-repository-architecture.md`](./docs/architecture/00-repository-architecture.md) — repository layout and rationale
 - [`docs/architecture/01-claude-code-workspace.md`](./docs/architecture/01-claude-code-workspace.md) — hooks, skills, and MCP design for this project's `.claude/` workspace
-- [`docs/adr/`](./docs/adr/) — Architecture Decision Records (56 as of Sprint 19)
+- [`docs/adr/`](./docs/adr/) — Architecture Decision Records (84 as of Sprint 30), including [`ADR-0084`](./docs/adr/ADR-0084-what-is-deliberately-not-done.md), which consolidates what is deliberately not done
 - [`docs/consulting/`](./docs/consulting/) — per-sprint executive summaries, business value/risk/ROI assessments, and MBA/interview narrative
 - [`docs/current_sprint.md`](./docs/current_sprint.md) — single-source-of-truth sprint tracker
+- [`docs/project-status.md`](./docs/project-status.md) — **the full current snapshot**, maintained current: what the application does, every sprint in one table, and the disclosed limitations
+- [`docs/testing-guide.md`](./docs/testing-guide.md) — how to test every critical fix by hand, and what a green suite still does not prove
 
 ## Data and privacy notice
 
@@ -423,4 +465,4 @@ Python (FastAPI, backend live as of Sprint 1), React (frontend, Vite + TypeScrip
 
 ## Roadmap
 
-Primary frameworks: C2M2, NIST CSF 2.0. NERC CIP fully transcribed (Sprint 11): all 13 currently-mandatory standards, 141 of 141 practices. ISO 27001 added titles-only (Sprint 11): all 4 Annex A themes, 93 of 93 control titles — the full standard is a paid, copyrighted publication with no free access, a real and disclosed limitation. CIS Controls v8 fully transcribed (Sprint 12): all 18 Controls, 153 of 153 Safeguards, complete official text — freely licensed under Creative Commons, unlike ISO 27001. SOC 2 added criterion-statement-only (Sprint 13): all 5 Trust Services Categories, 61 of 61 criterion statements — the AICPA's TSC is copyrighted, all-rights-reserved content despite being freely downloadable, a real and disclosed limitation the same way ISO 27001's is. PCI DSS added Section-level statement-only (Sprint 14), then extended to full leaf-level transcription (Sprint 16): all 12 Requirements, 63 of 63 Sections (now modeled as Objectives) and 249 of 249 real leaf-level Defined Approach Requirements (now modeled as Practices) — remains copyrighted like ISO 27001/SOC 2 at every granularity, so only the bolded requirement statement is ever transcribed. NERC CIP↔NIST CSF 2.0 cross-framework equivalence reviewed (Sprint 15): 107 of 141 NERC CIP practices matched, the highest hit rate of any pairing, closing R-27. NERC CIP↔PCI DSS equivalence re-reviewed at the new leaf granularity (Sprint 16): 60 of 141 NERC CIP practices matched (61 entries), down from the original Section-level 80 — see ADR-0029. Every named framework in `PROJECT_CHARTER.md` Section 13 and every reviewed cross-framework equivalence pairing is now delivered. Nothing since Sprint 16 has added a *new* framework — Sprints 17-20 went into controlled-pilot readiness, hardening, provenance, and scoring correctness instead, deliberately, since breadth was already complete. Sprint 19 did add NIST CSF **1.1** (5 Functions, 23 Categories, 108 Subcategories, transcribed from the official public-domain source), but as a second *version* of a framework already covered, not as new breadth — its purpose was to exercise the multi-version registry (ADR-0053) against real data for the first time, and it is the only framework here with two transcribed versions. OCR for scanned/image-only documents, originally out of MVP scope, was reversed and delivered in Sprint 19 (ADR-0055). The charter's remaining roadmap items (continuous monitoring, multi-tenant auth, cloud deployment) are all explicitly "Won't (for MVP)" scope. Full sprint sequence in `PROJECT_CHARTER.md` Section 13.
+Primary frameworks: C2M2, NIST CSF 2.0. NERC CIP fully transcribed (Sprint 11): all 13 currently-mandatory standards, 141 of 141 practices. ISO 27001 added titles-only (Sprint 11): all 4 Annex A themes, 93 of 93 control titles — the full standard is a paid, copyrighted publication with no free access, a real and disclosed limitation. CIS Controls v8 fully transcribed (Sprint 12): all 18 Controls, 153 of 153 Safeguards, complete official text — freely licensed under Creative Commons, unlike ISO 27001. SOC 2 added criterion-statement-only (Sprint 13): all 5 Trust Services Categories, 61 of 61 criterion statements — the AICPA's TSC is copyrighted, all-rights-reserved content despite being freely downloadable, a real and disclosed limitation the same way ISO 27001's is. PCI DSS added Section-level statement-only (Sprint 14), then extended to full leaf-level transcription (Sprint 16): all 12 Requirements, 63 of 63 Sections (now modeled as Objectives) and 249 of 249 real leaf-level Defined Approach Requirements (now modeled as Practices) — remains copyrighted like ISO 27001/SOC 2 at every granularity, so only the bolded requirement statement is ever transcribed. NERC CIP↔NIST CSF 2.0 cross-framework equivalence reviewed (Sprint 15): 107 of 141 NERC CIP practices matched, the highest hit rate of any pairing, closing R-27. NERC CIP↔PCI DSS equivalence re-reviewed at the new leaf granularity (Sprint 16): 60 of 141 NERC CIP practices matched (61 entries), down from the original Section-level 80 — see ADR-0029. Every named framework in `PROJECT_CHARTER.md` Section 13 and every reviewed cross-framework equivalence pairing is now delivered. Nothing since Sprint 16 has added a *new* framework — Sprints 17-20 went into controlled-pilot readiness, hardening, provenance, and scoring correctness instead, deliberately, since breadth was already complete. Sprint 19 did add NIST CSF **1.1** (5 Functions, 23 Categories, 108 Subcategories, transcribed from the official public-domain source), but as a second *version* of a framework already covered, not as new breadth — its purpose was to exercise the multi-version registry (ADR-0053) against real data for the first time, and it is the only framework here with two transcribed versions. OCR for scanned/image-only documents, originally out of MVP scope, was reversed and delivered in Sprint 19 (ADR-0055). Nothing after Sprint 16 has added a new framework, deliberately: breadth was complete, and Sprints 17-30 went into readiness, provenance, correctness, measurement and reproducibility instead. The charter's remaining roadmap items (continuous monitoring, multi-tenant auth, cloud deployment) are all explicitly "Won't (for MVP)" scope. Full sprint sequence in `PROJECT_CHARTER.md` Section 13.
