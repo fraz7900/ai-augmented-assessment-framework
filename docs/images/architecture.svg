@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="700" viewBox="0 0 1440 700" font-family="Segoe UI, DejaVu Sans, Helvetica, Arial, sans-serif">
+  <rect width="1440" height="700" fill="#FFFFFF"/>
+
+  <!-- Browser (outside the boundary) -->
+  <rect x="40" y="34" width="392" height="54" rx="7" fill="#FFFFFF" stroke="#C3CDD8" stroke-width="1.5"/>
+  <text x="236" y="67" text-anchor="middle" font-size="17" font-weight="600" fill="#16202E">Browser &#183; React + Vite + TypeScript</text>
+  <text x="452" y="67" font-size="15" fill="#6B7A8C">&#8595; https</text>
+
+  <!-- Trust boundary -->
+  <rect x="40" y="116" width="1360" height="536" rx="6" fill="#FBFCFD" stroke="#46617F" stroke-width="2" stroke-dasharray="9 7"/>
+  <text x="72" y="154" font-size="14" font-weight="700" fill="#46617F" letter-spacing="1.6">ONE MACHINE &#183; DOCKER COMPOSE &#183; NO EVIDENCE EGRESS</text>
+
+  <!-- nginx -->
+  <rect x="72" y="176" width="1296" height="70" rx="7" fill="#16202E"/>
+  <text x="720" y="218" text-anchor="middle" font-size="18" font-weight="600" fill="#FFFFFF">nginx &#183; TLS termination + HTTP basic auth</text>
+
+  <!-- FastAPI band -->
+  <rect x="72" y="272" width="1296" height="176" rx="7" fill="#F2F5F8" stroke="#D8E0E8" stroke-width="1.5"/>
+  <text x="94" y="303" font-size="16" font-weight="700" fill="#16202E">FastAPI application &#183; Python 3.12</text>
+
+  <rect x="94" y="320" width="300" height="106" rx="7" fill="#FFFFFF" stroke="#C3CDD8" stroke-width="1.5"/>
+  <text x="244" y="360" text-anchor="middle" font-size="17" font-weight="600" fill="#16202E">API layer</text>
+  <text x="244" y="388" text-anchor="middle" font-size="14" fill="#6B7A8C">routing, schemas</text>
+
+  <rect x="410" y="320" width="300" height="106" rx="7" fill="#FFFFFF" stroke="#C3CDD8" stroke-width="1.5"/>
+  <text x="560" y="360" text-anchor="middle" font-size="17" font-weight="600" fill="#16202E">Services</text>
+  <text x="560" y="388" text-anchor="middle" font-size="14" fill="#6B7A8C">scoring, review, export</text>
+
+  <rect x="726" y="320" width="300" height="106" rx="7" fill="#FFFFFF" stroke="#C3CDD8" stroke-width="1.5"/>
+  <text x="876" y="360" text-anchor="middle" font-size="17" font-weight="600" fill="#16202E">Repositories</text>
+  <text x="876" y="388" text-anchor="middle" font-size="14" fill="#6B7A8C">transactional writes</text>
+
+  <rect x="1042" y="320" width="304" height="106" rx="7" fill="#E0A02F"/>
+  <text x="1194" y="360" text-anchor="middle" font-size="17" font-weight="600" fill="#16202E">Local inference</text>
+  <text x="1194" y="388" text-anchor="middle" font-size="14" fill="#6B4C0E">ONNX embeddings &#183; OCR</text>
+
+  <!-- Storage row -->
+  <rect x="72" y="478" width="308" height="110" rx="7" fill="#FFFFFF" stroke="#C3CDD8" stroke-width="1.5"/>
+  <text x="226" y="520" text-anchor="middle" font-size="17" font-weight="600" fill="#16202E">SQLite / SQLModel</text>
+  <text x="226" y="548" text-anchor="middle" font-size="14" fill="#6B7A8C">assessments, links, audit</text>
+
+  <rect x="400" y="478" width="308" height="110" rx="7" fill="#FFFFFF" stroke="#C3CDD8" stroke-width="1.5"/>
+  <text x="554" y="520" text-anchor="middle" font-size="17" font-weight="600" fill="#16202E">LanceDB</text>
+  <text x="554" y="548" text-anchor="middle" font-size="14" fill="#6B7A8C">vector store, chunks</text>
+
+  <rect x="728" y="478" width="308" height="110" rx="7" fill="#FFFFFF" stroke="#C3CDD8" stroke-width="1.5"/>
+  <text x="882" y="520" text-anchor="middle" font-size="17" font-weight="600" fill="#16202E">data/raw</text>
+  <text x="882" y="548" text-anchor="middle" font-size="14" fill="#6B7A8C">retained originals</text>
+
+  <rect x="1056" y="478" width="290" height="110" rx="7" fill="#FFFFFF" stroke="#C3CDD8" stroke-width="1.5"/>
+  <text x="1201" y="520" text-anchor="middle" font-size="17" font-weight="600" fill="#16202E">framework_mapping/</text>
+  <text x="1201" y="548" text-anchor="middle" font-size="14" fill="#6B7A8C">7 frameworks as YAML</text>
+
+  <text x="72" y="624" font-size="14.5" font-style="italic" fill="#6B7A8C">All four persist to a Docker named volume &#8212; not the repository, not a synced drive.</text>
+</svg>
